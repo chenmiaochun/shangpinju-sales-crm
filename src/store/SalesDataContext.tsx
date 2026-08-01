@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { salesApi, type RemoteAuditEvent } from '../api/salesApi'
 import { customers as seedCustomers, followUps as seedFollowUps } from '../data'
-import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, FollowUp, PaymentRecord, SalesOrder } from '../types'
+import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, FollowUp, OrderItem, PaymentRecord, SalesOrder, SupplyDemand } from '../types'
 
 const STORAGE_KEY = 'shangpinju.customer-followup.v1'
 const REMOVED_DEMO_EMPLOYEES = new Set(['周然', '林晓', '何静'])
@@ -13,6 +13,7 @@ export interface SalesState {
   orders: SalesOrder[]
   deliveryTasks: DeliveryTask[]
   afterSalesTickets: AfterSalesTicket[]
+  supplyDemands: SupplyDemand[]
 }
 
 export function removeFormerDemoEmployees(state: SalesState): SalesState {
@@ -25,6 +26,7 @@ export function removeFormerDemoEmployees(state: SalesState): SalesState {
     orders: (state.orders ?? []).filter((item) => customerIds.has(item.customerId)),
     deliveryTasks: (state.deliveryTasks ?? []).filter((item) => customerIds.has(item.customerId)),
     afterSalesTickets: (state.afterSalesTickets ?? []).filter((item) => customerIds.has(item.customerId)),
+    supplyDemands: (state.supplyDemands ?? []).filter((item) => customerIds.has(item.customerId)),
   }
 }
 interface SalesDataValue extends SalesState {
@@ -35,6 +37,7 @@ interface SalesDataValue extends SalesState {
   addDesignTask: (item: DesignTask) => void
   updateDesignTask: (id: string, changes: Partial<DesignTask>) => void
   addOrder: (item: SalesOrder) => void
+  registerDeal: (input: { customer: Customer; items: OrderItem[]; contractAmount: number; deposit: number; signedAt: string; expectedDeliveryAt?: string; recordedBy: string; marketingStatus?: Customer['marketingStatus']; marketingNextAt?: string; marketingNote?: string }) => void
   updateOrder: (id: string, changes: Partial<SalesOrder>) => void
   addPayment: (orderId: string, payment: PaymentRecord) => void
   addDeliveryTask: (item: DeliveryTask) => void
@@ -53,7 +56,7 @@ interface SalesDataValue extends SalesState {
 const SalesDataContext = createContext<SalesDataValue | null>(null)
 
 function loadState(): SalesState {
-  if (typeof window === 'undefined') return { customers: seedCustomers, followUps: seedFollowUps, designTasks: [], orders: [], deliveryTasks: [], afterSalesTickets: [] }
+  if (typeof window === 'undefined') return { customers: seedCustomers, followUps: seedFollowUps, designTasks: [], orders: [], deliveryTasks: [], afterSalesTickets: [], supplyDemands: [] }
   try {
     const value = window.localStorage.getItem(STORAGE_KEY)
     if (value) {
@@ -64,10 +67,11 @@ function loadState(): SalesState {
         orders: Array.isArray(state.orders) ? state.orders : [],
         deliveryTasks: Array.isArray(state.deliveryTasks) ? state.deliveryTasks : [],
         afterSalesTickets: Array.isArray(state.afterSalesTickets) ? state.afterSalesTickets : [],
+        supplyDemands: Array.isArray(state.supplyDemands) ? state.supplyDemands : [],
       })
     }
   } catch { /* Fall back to bundled sample data. */ }
-  return { customers: seedCustomers, followUps: seedFollowUps, designTasks: [], orders: [], deliveryTasks: [], afterSalesTickets: [] }
+  return { customers: seedCustomers, followUps: seedFollowUps, designTasks: [], orders: [], deliveryTasks: [], afterSalesTickets: [], supplyDemands: [] }
 }
 
 export function SalesDataProvider({ children }: { children: ReactNode }) {
@@ -103,6 +107,7 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
             orders: Array.isArray(remote.value.orders) ? remote.value.orders : [],
             deliveryTasks: Array.isArray(remote.value.deliveryTasks) ? remote.value.deliveryTasks : [],
             afterSalesTickets: Array.isArray(remote.value.afterSalesTickets) ? remote.value.afterSalesTickets : [],
+            supplyDemands: Array.isArray(remote.value.supplyDemands) ? remote.value.supplyDemands : [],
           }))
         } else {
           await salesApi.putState(state)
@@ -156,6 +161,17 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
     orders: [item, ...current.orders],
     customers: current.customers.map((customer) => customer.id === item.customerId ? { ...customer, stage: '已定金', dealAmount: item.contractAmount, dealDate: item.signedAt, dealProducts: item.products } : customer),
   })), [])
+  const registerDeal = useCallback((input: { customer: Customer; items: OrderItem[]; contractAmount: number; deposit: number; signedAt: string; expectedDeliveryAt?: string; recordedBy: string; marketingStatus?: Customer['marketingStatus']; marketingNextAt?: string; marketingNote?: string }) => setState((current) => {
+    const now = new Date().toISOString()
+    const suffix = `${Date.now()}`
+    const orderId = `order-${suffix}`
+    const orderNo = `SPJ${suffix.slice(-8)}`
+    const payments: PaymentRecord[] = input.deposit > 0 ? [{ id: `payment-${suffix}`, orderId, type: '定金', amount: input.deposit, paidAt: now, method: '微信', recordedBy: input.recordedBy }] : []
+    const order: SalesOrder = { id: orderId, orderNo, customerId: input.customer.id, customerName: input.customer.name, salesperson: input.customer.salesperson, salespersonId: input.customer.salespersonId, collaborators: input.customer.designer ? [input.customer.designer] : [], products: input.items.map((item) => item.productName), items: input.items, contractAmount: input.contractAmount, signedAt: input.signedAt, expectedDeliveryAt: input.expectedDeliveryAt, status: '已签约', payments, performanceRate: 100, createdAt: now, updatedAt: now }
+    const demandMap = { '现货': ['库存锁定', '已锁定'], '展厅样品': ['样品锁定', '已锁定'], '外采产品': ['采购需求', '待处理'], '定制生产': ['生产需求', '待处理'] } as const
+    const demands: SupplyDemand[] = input.items.map((item, index) => ({ id: `supply-${suffix}-${index}`, orderId, orderNo, customerId: input.customer.id, customerName: input.customer.name, orderItemId: item.id, productName: item.productName, specification: item.specification, quantity: item.quantity, supplyType: item.supplyType, demandType: demandMap[item.supplyType][0], status: demandMap[item.supplyType][1], expectedAt: input.expectedDeliveryAt, createdAt: now, updatedAt: now }))
+    return { ...current, orders: [order, ...current.orders], supplyDemands: [...demands, ...(current.supplyDemands ?? [])], customers: current.customers.map((customer) => customer.id === input.customer.id ? { ...customer, stage: '已定金', dealAmount: input.contractAmount, paidAmount: input.deposit, dealDate: input.signedAt, deliveryDate: input.expectedDeliveryAt, dealProducts: order.products, nextFollowUpAt: undefined, marketingStatus: input.marketingStatus, marketingNextAt: input.marketingNextAt, marketingNote: input.marketingNote } : customer) }
+  }), [])
   const updateOrder = useCallback((id: string, changes: Partial<SalesOrder>) => setState((current) => ({ ...current, orders: current.orders.map((item) => item.id === id ? { ...item, ...changes, updatedAt: new Date().toISOString() } : item) })), [])
   const addPayment = useCallback((orderId: string, payment: PaymentRecord) => setState((current) => {
     const orders = current.orders.map((order) => order.id === orderId ? { ...order, payments: [payment, ...order.payments], updatedAt: new Date().toISOString() } : order)
@@ -174,7 +190,7 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
     setIntegrationSettings(result.integrations)
     await refreshAdminData()
   }, [refreshAdminData])
-  const value = useMemo(() => ({ ...state, designers, salespeople, addCustomers, addFollowUp, addDesignTask, updateDesignTask, addOrder, updateOrder, addPayment, addDeliveryTask, updateDeliveryTask, addAfterSalesTicket, updateAfterSalesTicket, replaceState, updateCustomer, serverStatus, auditEvents, integrationSettings, refreshAdminData, saveIntegrations }), [addAfterSalesTicket, addCustomers, addDeliveryTask, addDesignTask, addFollowUp, addOrder, addPayment, auditEvents, designers, integrationSettings, refreshAdminData, replaceState, salespeople, saveIntegrations, serverStatus, state, updateAfterSalesTicket, updateCustomer, updateDeliveryTask, updateDesignTask, updateOrder])
+  const value = useMemo(() => ({ ...state, designers, salespeople, addCustomers, addFollowUp, addDesignTask, updateDesignTask, addOrder, registerDeal, updateOrder, addPayment, addDeliveryTask, updateDeliveryTask, addAfterSalesTicket, updateAfterSalesTicket, replaceState, updateCustomer, serverStatus, auditEvents, integrationSettings, refreshAdminData, saveIntegrations }), [addAfterSalesTicket, addCustomers, addDeliveryTask, addDesignTask, addFollowUp, addOrder, registerDeal, addPayment, auditEvents, designers, integrationSettings, refreshAdminData, replaceState, salespeople, saveIntegrations, serverStatus, state, updateAfterSalesTicket, updateCustomer, updateDeliveryTask, updateDesignTask, updateOrder])
 
   return <SalesDataContext.Provider value={value}>{children}</SalesDataContext.Provider>
 }

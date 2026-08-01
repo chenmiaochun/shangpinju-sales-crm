@@ -1,4 +1,4 @@
-import type { AfterSalesTicket, Customer, DeliveryTask, FollowUp, SalesOrder } from '../../types'
+import type { AfterSalesTicket, Customer, DeliveryTask, FollowUp, SalesOrder, SupplyDemand } from '../../types'
 
 export interface SalesBackup {
   version: 1
@@ -8,6 +8,7 @@ export interface SalesBackup {
   orders?: SalesOrder[]
   deliveryTasks?: DeliveryTask[]
   afterSalesTickets?: AfterSalesTicket[]
+  supplyDemands?: SupplyDemand[]
 }
 
 export type BackupValidation =
@@ -61,9 +62,9 @@ export function validateBackup(value: unknown): BackupValidation {
   if (!Array.isArray(value.followUps)) errors.push('followUps 必须是数组')
   else value.followUps.forEach((item, index) => errors.push(...validateFollowUp(item, index)))
   if (errors.length) return { valid: false, errors }
-  return { valid: true, data: { ...(value as unknown as SalesBackup), orders: Array.isArray(value.orders) ? value.orders as SalesOrder[] : [], deliveryTasks: Array.isArray(value.deliveryTasks) ? value.deliveryTasks as DeliveryTask[] : [], afterSalesTickets: Array.isArray(value.afterSalesTickets) ? value.afterSalesTickets as AfterSalesTicket[] : [] } }
+  return { valid: true, data: { ...(value as unknown as SalesBackup), orders: Array.isArray(value.orders) ? value.orders as SalesOrder[] : [], deliveryTasks: Array.isArray(value.deliveryTasks) ? value.deliveryTasks as DeliveryTask[] : [], afterSalesTickets: Array.isArray(value.afterSalesTickets) ? value.afterSalesTickets as AfterSalesTicket[] : [], supplyDemands: Array.isArray(value.supplyDemands) ? value.supplyDemands as SupplyDemand[] : [] } }
 }
 
-export function createBackup(customers: Customer[], followUps: FollowUp[], now = new Date(), lifecycle?: { orders: SalesOrder[]; deliveryTasks: DeliveryTask[]; afterSalesTickets: AfterSalesTicket[] }): SalesBackup {
-  return { version: 1, exportedAt: now.toISOString(), customers, followUps, orders: lifecycle?.orders ?? [], deliveryTasks: lifecycle?.deliveryTasks ?? [], afterSalesTickets: lifecycle?.afterSalesTickets ?? [] }
+export function createBackup(customers: Customer[], followUps: FollowUp[], now = new Date(), lifecycle?: { orders: SalesOrder[]; deliveryTasks: DeliveryTask[]; afterSalesTickets: AfterSalesTicket[]; supplyDemands?: SupplyDemand[] }): SalesBackup {
+  return { version: 1, exportedAt: now.toISOString(), customers, followUps, orders: lifecycle?.orders ?? [], deliveryTasks: lifecycle?.deliveryTasks ?? [], afterSalesTickets: lifecycle?.afterSalesTickets ?? [], supplyDemands: lifecycle?.supplyDemands ?? [] }
 }

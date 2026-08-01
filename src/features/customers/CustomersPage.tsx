@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react'
 import { customers as seedCustomers, followUps as seedFollowUps } from '../../data'
-import type { Customer, CustomerFile, CustomerStage, DesignTask, DesignTaskType, FollowUp } from '../../types'
+import type { Customer, CustomerFile, CustomerStage, DesignTask, DesignTaskType, FollowUp, OrderItem, SupplyType } from '../../types'
 import type { TeamMember } from '../team'
 import './customers.css'
 
@@ -46,7 +46,9 @@ export interface CustomersPageProps {
   salespeople?: { id: string; name: string }[]
   activeMember?: TeamMember
   onAddDesignTask?: (task: DesignTask) => void
+  onRegisterDeal?: (input: DealRegistration) => void
 }
+export interface DealRegistration { customer: Customer; items: OrderItem[]; contractAmount: number; deposit: number; signedAt: string; expectedDeliveryAt?: string; recordedBy: string; marketingStatus?: Customer['marketingStatus']; marketingNextAt?: string; marketingNote?: string }
 type Channel = FollowUp['channel']
 
 function readState(): CustomerWorkspaceState {
@@ -83,7 +85,7 @@ function isOverdue(value?: string) {
   return Boolean(value && new Date(value).getTime() < Date.now())
 }
 
-export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-designer', name: '林设计师' }], salespeople = [{ id: 'demo-sales', name: '林晓' }], activeMember = { id: 'manager', name: '店长', role: 'manager', active: true }, onStateChange, onAddDesignTask }: CustomersPageProps = {}) {
+export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-designer', name: '林设计师' }], salespeople = [{ id: 'demo-sales', name: '林晓' }], activeMember = { id: 'manager', name: '店长', role: 'manager', active: true }, onStateChange, onAddDesignTask, onRegisterDeal }: CustomersPageProps = {}) {
   const [localState, setLocalState] = useState<CustomerWorkspaceState>(readState)
   const controlled = customers !== undefined && followUps !== undefined && onStateChange !== undefined
   const state = controlled ? { customers, followUps } : localState
@@ -169,12 +171,17 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
     setFormOpen(false)
   }
 
-  function saveDeal(changes: Partial<Customer>) {
+  function saveDeal(input: Omit<DealRegistration, 'customer' | 'recordedBy'>) {
     if (!selected) return
+    if (onRegisterDeal) {
+      onRegisterDeal({ ...input, customer: selected, recordedBy: activeMember.name })
+      setDealOpen(false)
+      return
+    }
     commit((current) => ({
       ...current,
       customers: current.customers.map((customer) => customer.id === selected.id
-        ? { ...customer, ...changes, stage: '已成交', nextFollowUpAt: undefined }
+        ? { ...customer, dealAmount: input.contractAmount, paidAmount: input.deposit, dealDate: input.signedAt, deliveryDate: input.expectedDeliveryAt, dealProducts: input.items.map((item) => item.productName), stage: '已定金', nextFollowUpAt: undefined, marketingStatus: input.marketingStatus, marketingNextAt: input.marketingNextAt, marketingNote: input.marketingNote }
         : customer),
     }))
     setDealOpen(false)
@@ -306,40 +313,47 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
           ) : <div className="detail-placeholder"><UserRound size={34} /><strong>选择一位客户</strong><span>查看客户画像与跟进记录</span></div>}
         </main>
       </div>
-      {formOpen && selected && <FollowUpDialog customer={selected} designers={designers} onClose={() => setFormOpen(false)} onSubmit={addFollowUp} />}
+      {formOpen && selected && <FollowUpDialog customer={selected} designers={designers} onClose={() => setFormOpen(false)} onSubmit={addFollowUp} onDealRequested={() => setDealOpen(true)} />}
       {handoffOpen && selected && <HandoffDialog customer={selected} salespeople={salespeople} onClose={() => setHandoffOpen(false)} onSubmit={createHandoff} />}
       {dealOpen && selected && <DealDialog customer={selected} onClose={() => setDealOpen(false)} onSubmit={saveDeal} />}
     </section>
   )
 }
 
-function DealDialog({ customer, onClose, onSubmit }: { customer: Customer; onClose: () => void; onSubmit: (changes: Partial<Customer>) => void }) {
+function DealDialog({ customer, onClose, onSubmit }: { customer: Customer; onClose: () => void; onSubmit: (input: Omit<DealRegistration, 'customer' | 'recordedBy'>) => void }) {
   const [dealAmount, setDealAmount] = useState(String(customer.dealAmount ?? (customer.expectedAmount || '')))
   const [paidAmount, setPaidAmount] = useState(String(customer.paidAmount ?? ''))
   const [dealDate, setDealDate] = useState(customer.dealDate ?? new Date().toISOString().slice(0, 10))
   const [deliveryDate, setDeliveryDate] = useState(customer.deliveryDate ?? '')
-  const [dealProducts, setDealProducts] = useState((customer.dealProducts ?? customer.products).join('、'))
   const [marketingStatus, setMarketingStatus] = useState<Customer['marketingStatus']>(customer.marketingStatus ?? '待回访')
   const [marketingNextAt, setMarketingNextAt] = useState(customer.marketingNextAt ?? '')
   const [marketingNote, setMarketingNote] = useState(customer.marketingNote ?? '')
+  const initialProducts = customer.dealProducts ?? customer.products
+  const [items, setItems] = useState<OrderItem[]>(initialProducts.length ? initialProducts.map((productName, index) => ({ id: `item-${Date.now()}-${index}`, productName, specification: '', quantity: 1, unitPrice: 0, supplyType: '定制生产' })) : [{ id: `item-${Date.now()}`, productName: '', specification: '', quantity: 1, unitPrice: 0, supplyType: '定制生产' }])
+  const updateItem = (id: string, changes: Partial<OrderItem>) => setItems((current) => current.map((item) => item.id === id ? { ...item, ...changes } : item))
   function submit(event: FormEvent) {
     event.preventDefault()
     const amount = Number(dealAmount)
     const paid = Number(paidAmount || 0)
     if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(paid) || paid < 0) return
-    onSubmit({ dealAmount: amount, paidAmount: Math.min(paid, amount), dealDate, deliveryDate: deliveryDate || undefined, dealProducts: dealProducts.split(/[、|,，]/).map((item) => item.trim()).filter(Boolean), marketingStatus, marketingNextAt: marketingNextAt || undefined, marketingNote: marketingNote.trim() || undefined })
+    const validItems = items.filter((item) => item.productName.trim() && item.quantity > 0)
+    if (!validItems.length || paid > amount) return
+    onSubmit({ contractAmount: amount, deposit: paid, signedAt: dealDate, expectedDeliveryAt: deliveryDate || undefined, items: validItems.map((item) => ({ ...item, productName: item.productName.trim(), specification: item.specification?.trim() || undefined })), marketingStatus, marketingNextAt: marketingNextAt || undefined, marketingNote: marketingNote.trim() || undefined })
   }
-  return <div className="dialog-backdrop" role="presentation"><section className="followup-dialog deal-dialog" role="dialog" aria-modal="true" aria-labelledby="deal-title"><header><div><p>成交闭环</p><h2 id="deal-title">登记成交与后续经营</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭成交登记"><X size={18}/></button></header><form onSubmit={submit}>
+  return <div className="dialog-backdrop" role="presentation"><section className="followup-dialog deal-dialog" role="dialog" aria-modal="true" aria-labelledby="deal-title"><header><div><p>成交自动转订单</p><h2 id="deal-title">登记成交 · {customer.name}</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭成交登记"><X size={18}/></button></header><form onSubmit={submit}>
     <label>成交金额（元）*<input required min="1" type="number" value={dealAmount} onChange={(event) => setDealAmount(event.target.value)}/></label>
     <label>已收款（元）<input min="0" type="number" value={paidAmount} onChange={(event) => setPaidAmount(event.target.value)}/></label>
     <label>成交日期 *<input required type="date" value={dealDate} onChange={(event) => setDealDate(event.target.value)}/></label>
     <label>预计交付日期<input type="date" value={deliveryDate} onChange={(event) => setDeliveryDate(event.target.value)}/></label>
-    <label className="deal-wide">成交产品<input value={dealProducts} onChange={(event) => setDealProducts(event.target.value)} placeholder="多个产品用、分隔"/></label>
-    <div className="form-divider"><span>成交后持续营销</span></div>
+    <div className="form-divider deal-wide"><span>产品与备货方式</span></div>
+    <div className="deal-items deal-wide">{items.map((item, index) => <div className="deal-item" key={item.id}><input aria-label={`产品名称 ${index + 1}`} required value={item.productName} onChange={(event) => updateItem(item.id, { productName: event.target.value })} placeholder="产品名称"/><input aria-label={`规格 ${index + 1}`} value={item.specification ?? ''} onChange={(event) => updateItem(item.id, { specification: event.target.value })} placeholder="尺寸 / 材质 / 颜色"/><input aria-label={`数量 ${index + 1}`} required min="1" type="number" value={item.quantity} onChange={(event) => updateItem(item.id, { quantity: Number(event.target.value) })}/><select aria-label={`供应方式 ${index + 1}`} value={item.supplyType} onChange={(event) => updateItem(item.id, { supplyType: event.target.value as SupplyType })}><option>现货</option><option>展厅样品</option><option>外采产品</option><option>定制生产</option></select>{items.length > 1 && <button type="button" className="icon-button" aria-label={`删除产品 ${index + 1}`} onClick={() => setItems((current) => current.filter((entry) => entry.id !== item.id))}><Trash2 size={16}/></button>}</div>)}</div>
+    <button type="button" className="secondary-button add-deal-item deal-wide" onClick={() => setItems((current) => [...current, { id: `item-${Date.now()}`, productName: '', specification: '', quantity: 1, unitPrice: 0, supplyType: '定制生产' }])}>新增产品</button>
+    <div className="form-divider deal-wide"><span>成交后持续经营</span></div>
     <label>客户经营状态<select value={marketingStatus} onChange={(event) => setMarketingStatus(event.target.value as Customer['marketingStatus'])}><option>待回访</option><option>可加购</option><option>可转介绍</option><option>长期维护</option><option>暂不营销</option></select></label>
     <label>下次触达日期<input type="date" value={marketingNextAt} onChange={(event) => setMarketingNextAt(event.target.value)}/></label>
-    <label className="deal-wide">后续机会说明<textarea rows={2} value={marketingNote} onChange={(event) => setMarketingNote(event.target.value)} placeholder="例如：后续可补购餐桌，交付后邀请转介绍"/></label>
-    <footer><button type="button" className="secondary-button" onClick={onClose}>取消</button><button type="submit" className="primary-button">确认成交</button></footer>
+    <label className="deal-wide">后续机会说明<textarea rows={2} value={marketingNote} onChange={(event) => setMarketingNote(event.target.value)} placeholder="例如：交付后邀请转介绍，后续可补购餐桌"/></label>
+    <p className="dialog-note deal-wide">保存后自动生成销售订单、定金记录，以及库存锁定、样品锁定、采购或生产需求。</p>
+    <footer><button type="button" className="secondary-button" onClick={onClose}>取消</button><button type="submit" className="primary-button">确认成交并生成订单</button></footer>
   </form></section></div>
 }
 
@@ -352,7 +366,7 @@ function HandoffDialog({ customer, salespeople, onClose, onSubmit }: { customer:
 
 type DesignTaskDraft = Omit<DesignTask, 'id' | 'customerId' | 'customerName' | 'salesperson' | 'status' | 'solutionFiles' | 'createdAt' | 'updatedAt'>
 
-function FollowUpDialog({ customer, designers, onClose, onSubmit }: { customer: Customer; designers: { id: string; name: string }[]; onClose: () => void; onSubmit: (data: Omit<FollowUp, 'id' | 'customerId' | 'salesperson'>, design?: DesignTaskDraft) => void }) {
+function FollowUpDialog({ customer, designers, onClose, onSubmit, onDealRequested }: { customer: Customer; designers: { id: string; name: string }[]; onClose: () => void; onSubmit: (data: Omit<FollowUp, 'id' | 'customerId' | 'salesperson'>, design?: DesignTaskDraft) => void; onDealRequested?: () => void }) {
   const [channel, setChannel] = useState<Channel>('微信')
   const [at, setAt] = useState(toLocalInput())
   const [content, setContent] = useState('')
@@ -366,12 +380,14 @@ function FollowUpDialog({ customer, designers, onClose, onSubmit }: { customer: 
   const [dueAt, setDueAt] = useState('')
   const [designPriority, setDesignPriority] = useState<'普通' | '紧急'>('普通')
   const [referenceFiles, setReferenceFiles] = useState<CustomerFile[]>([])
+  const [dealConfirmed, setDealConfirmed] = useState(false)
   const referenceInput = useRef<HTMLInputElement>(null)
 
   function submit(event: FormEvent) {
     event.preventDefault()
     const designer = designers.find((item) => item.id === designerId)
     onSubmit({ channel, at: new Date(at).toISOString(), content: content.trim(), result: result.trim(), nextAction: nextAction.trim() || undefined, nextAt: nextAt ? new Date(nextAt).toISOString() : undefined }, needsDesign && designer ? { designerId, designerName: designer.name, type: designType, requirement: requirement.trim(), dueAt: new Date(dueAt).toISOString(), priority: designPriority, referenceFiles } : undefined)
+    if (dealConfirmed) window.setTimeout(() => onDealRequested?.(), 0)
   }
 
   return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -382,6 +398,7 @@ function FollowUpDialog({ customer, designers, onClose, onSubmit }: { customer: 
         <label>跟进时间<input type="datetime-local" required value={at} onChange={(event) => setAt(event.target.value)} /></label>
         <label>沟通内容<textarea required rows={3} value={content} onChange={(event) => setContent(event.target.value)} placeholder="客户关注了什么、表达了哪些需求？" /></label>
         <label>本次结果<input required value={result} onChange={(event) => setResult(event.target.value)} placeholder="例如：已发送材质方案" /></label>
+        <div className="design-assist-toggle"><label><input type="checkbox" checked={dealConfirmed} onChange={(event) => { setDealConfirmed(event.target.checked); if (event.target.checked) { setNextAction(''); setNextAt('') } }} /><span>客户本次已确认成交</span></label><small>保存跟进后继续登记产品、金额和备货方式</small></div>
         <div className="form-divider"><span>下一步任务</span></div>
         <label>行动内容<input value={nextAction} onChange={(event) => setNextAction(event.target.value)} placeholder="例如：邀请客户到店看样" /></label>
         <label>计划时间<input type="datetime-local" value={nextAt} onChange={(event) => setNextAt(event.target.value)} /></label>

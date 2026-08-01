@@ -1,4 +1,4 @@
-import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, FollowUp, SalesOrder } from '../types'
+import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, FollowUp, SalesOrder, SupplyDemand } from '../types'
 import type { AccessPermission } from '../features/team/access'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3001').replace(/\/$/, '') + '/api'
@@ -13,6 +13,7 @@ export interface RemoteSalesState {
   orders: SalesOrder[]
   deliveryTasks: DeliveryTask[]
   afterSalesTickets: AfterSalesTicket[]
+  supplyDemands: SupplyDemand[]
 }
 export interface RemoteAuditEvent { id: number; action: string; resource: string; details: Record<string, unknown>; createdAt: string }
 export type AccountRole = 'manager' | 'sales' | 'designer' | 'operations' | 'aftersales'

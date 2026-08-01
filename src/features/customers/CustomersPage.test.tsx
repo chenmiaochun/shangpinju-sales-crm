@@ -16,6 +16,19 @@ describe('customer counts', () => {
 })
 
 describe('CustomersPage design collaboration', () => {
+  it('registers a structured order from the customer follow-up workspace', () => {
+    const onRegisterDeal = vi.fn()
+    render(<CustomersPage customers={customers} followUps={followUps} onStateChange={vi.fn()} onRegisterDeal={onRegisterDeal} />)
+    fireEvent.change(screen.getByLabelText('当前阶段'), { target: { value: '已成交' } })
+    fireEvent.change(screen.getByLabelText('成交金额（元）*'), { target: { value: '128000' } })
+    fireEvent.change(screen.getByLabelText('已收款（元）'), { target: { value: '20000' } })
+    fireEvent.change(screen.getByLabelText('产品名称 1'), { target: { value: '白蜡木沙发' } })
+    fireEvent.change(screen.getByLabelText('规格 1'), { target: { value: '三人位 / 胡桃色' } })
+    fireEvent.change(screen.getByLabelText('供应方式 1'), { target: { value: '定制生产' } })
+    fireEvent.click(screen.getByRole('button', { name: '确认成交并生成订单' }))
+    expect(onRegisterDeal).toHaveBeenCalledWith(expect.objectContaining({ contractAmount: 128000, deposit: 20000, items: expect.arrayContaining([expect.objectContaining({ productName: '白蜡木沙发', specification: '三人位 / 胡桃色', quantity: 1, supplyType: '定制生产' })]) }))
+  })
+
   it('creates a designer task while saving a follow-up', () => {
     const onAddDesignTask = vi.fn()
     const onStateChange = vi.fn()

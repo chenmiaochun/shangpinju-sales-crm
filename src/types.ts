@@ -102,6 +102,35 @@ export interface DesignTask {
 }
 
 export type OrderStatus = '待确认' | '已签约' | '生产中' | '待送货' | '安装中' | '已验收' | '已关闭'
+export type SupplyType = '现货' | '展厅样品' | '外采产品' | '定制生产'
+export type SupplyDemandStatus = '待处理' | '已锁定' | '采购中' | '生产中' | '已到货' | '已取消'
+
+export interface OrderItem {
+  id: string
+  productName: string
+  specification?: string
+  quantity: number
+  unitPrice: number
+  supplyType: SupplyType
+}
+
+export interface SupplyDemand {
+  id: string
+  orderId: string
+  orderNo: string
+  customerId: string
+  customerName: string
+  orderItemId: string
+  productName: string
+  specification?: string
+  quantity: number
+  supplyType: SupplyType
+  demandType: '库存锁定' | '样品锁定' | '采购需求' | '生产需求'
+  status: SupplyDemandStatus
+  expectedAt?: string
+  createdAt: string
+  updatedAt: string
+}
 export type DeliveryStatus = '待排期' | '已排期' | '配送中' | '安装中' | '待验收' | '已完成'
 export type AfterSalesStatus = '待受理' | '处理中' | '待客户确认' | '已完成'
 
@@ -125,6 +154,7 @@ export interface SalesOrder {
   salespersonId?: string
   collaborators: string[]
   products: string[]
+  items?: OrderItem[]
   contractAmount: number
   signedAt: string
   expectedDeliveryAt?: string
