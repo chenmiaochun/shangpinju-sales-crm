@@ -8,7 +8,7 @@ describe('LeadsPage customer intake', () => {
     const { container } = render(<LeadsPage customers={[]} onAddCustomers={onAddCustomers} />)
 
     fireEvent.change(screen.getByLabelText('姓名 *'), { target: { value: '林女士' } })
-    fireEvent.change(screen.getByLabelText('电话 *'), { target: { value: '13800138000' } })
+    fireEvent.change(screen.getByLabelText('电话'), { target: { value: '13800138000' } })
     fireEvent.change(screen.getByLabelText('负责人 *'), { target: { value: '陈婉珊' } })
     fireEvent.change(screen.getByLabelText('预算范围 *'), { target: { value: '5-8 万' } })
     fireEvent.change(screen.getByRole('spinbutton', { name: '初步报价金额 元' }), { target: { value: '58000' } })
@@ -42,7 +42,7 @@ describe('LeadsPage customer intake', () => {
 
     expect(screen.getByText('跟进资料')).toBeTruthy()
     expect(screen.getByText('报价、优惠及客户资料登记')).toBeTruthy()
-    expect(screen.getByText('支持 UTF-8 编码')).toBeTruthy()
+    expect(screen.getByText('支持 XLSX、XLS、UTF-8 CSV')).toBeTruthy()
     expect(screen.queryByLabelText('偏好风格')).toBeNull()
     expect(screen.queryByLabelText('关注点')).toBeNull()
   })

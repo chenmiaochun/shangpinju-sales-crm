@@ -37,4 +37,20 @@ describe('CSV utilities', () => {
     expect(preview.rows[0].errors).toEqual([])
     expect(csvRowToCustomer(preview.rows[0])).toMatchObject({ phone: '', stage: '到店/量房', cityArea: '汕头', vehicleBrand: '问界', products: ['沙发', '茶台'], notes: '客户编号：37407；微信名：蔡小W；已交诚意金', createdAt: '2026-07-02' })
   })
+
+  it('accepts a missing phone header and an empty expected amount', () => {
+    const headers = CSV_HEADERS.filter((header) => header !== '电话')
+    const csv = serializeCsv([headers, ['无电话客户', '抖音', '陈婉珊', '中', '', '沙发', '', '', '硬装中', '', '']])
+    const preview = previewCustomerCsv(csv)
+    expect(preview.fileErrors).toEqual([])
+    expect(preview.rows[0].errors).toEqual([])
+    expect(csvRowToCustomer(preview.rows[0])).toMatchObject({ name: '无电话客户', phone: '', expectedAmount: 0 })
+  })
+
+  it('accepts Excel-formatted amounts and defaults a blank intent to medium', () => {
+    const csv = serializeCsv([[...CSV_HEADERS], ['林女士', '', '门店', '陈婉珊', '', '35,000', '沙发', '', '', '', '', '']])
+    const preview = previewCustomerCsv(csv)
+    expect(preview.rows[0].errors).toEqual([])
+    expect(csvRowToCustomer(preview.rows[0])).toMatchObject({ intent: '中', expectedAmount: 35000 })
+  })
 })

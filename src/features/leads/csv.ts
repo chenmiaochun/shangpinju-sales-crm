@@ -2,6 +2,7 @@ import type { Customer } from '../../types'
 
 export const CSV_HEADERS = ['姓名', '电话', '来源', '负责人', '意向', '预计金额', '产品', '风格', '预算', '装修进度', '关注点', '下次跟进'] as const
 export const OPTIONAL_CSV_HEADERS = ['客户编号', '微信名', '城市', '到店日期', '客户状态', '备注', '车辆品牌'] as const
+const REQUIRED_CSV_HEADERS = CSV_HEADERS.filter((header) => header !== '电话')
 
 export type CsvRecord = Record<(typeof CSV_HEADERS)[number], string> & Partial<Record<(typeof OPTIONAL_CSV_HEADERS)[number], string>>
 export interface CsvPreviewRow { line: number; values: CsvRecord; errors: string[] }
@@ -41,7 +42,7 @@ export function serializeCsv(rows: unknown[][]): string {
 export function previewCustomerCsv(text: string): { rows: CsvPreviewRow[]; fileErrors: string[] } {
   const parsed = parseCsv(text)
   const headers = parsed[0]?.map((value) => value.trim()) ?? []
-  const missing = CSV_HEADERS.filter((header) => !headers.includes(header))
+  const missing = REQUIRED_CSV_HEADERS.filter((header) => !headers.includes(header))
   if (missing.length) return { rows: [], fileErrors: [`缺少字段：${missing.join('、')}`] }
 
   const rows = parsed.slice(1).filter((row) => row.some((value) => value.trim())).map((row, index) => {
@@ -50,8 +51,9 @@ export function previewCustomerCsv(text: string): { rows: CsvPreviewRow[]; fileE
     if (!values.姓名) errors.push('姓名必填')
     if (values.电话 && !/^[+\d][\d\s-]{5,19}$/.test(values.电话)) errors.push('电话格式不正确')
     if (!values.负责人) errors.push('负责人必填')
-    if (!['高', '中', '低'].includes(values.意向)) errors.push('意向须为高、中或低')
-    if (values.预计金额 === '' || !Number.isFinite(Number(values.预计金额)) || Number(values.预计金额) < 0) errors.push('预计金额须为非负数字')
+    if (values.意向 && !['高', '中', '低'].includes(values.意向)) errors.push('意向须为高、中或低')
+    const amount = parseAmount(values.预计金额)
+    if (values.预计金额 !== '' && (!Number.isFinite(amount) || amount < 0)) errors.push('预计金额须为非负数字')
     if (values.下次跟进 && Number.isNaN(Date.parse(values.下次跟进))) errors.push('下次跟进日期无效')
     return { line: index + 2, values, errors }
   })
@@ -71,8 +73,8 @@ export function csvRowToCustomer(row: CsvPreviewRow, now = new Date()): Customer
     source: values.来源,
     salesperson: values.负责人,
     stage: statusStage[values.客户状态 ?? ''] ?? '新线索',
-    intent: values.意向 as Customer['intent'],
-    expectedAmount: Number(values.预计金额),
+    intent: (values.意向 || '中') as Customer['intent'],
+    expectedAmount: parseAmount(values.预计金额) || 0,
     products: splitList(values.产品),
     style: values.风格,
     budget: values.预算,
@@ -88,6 +90,7 @@ export function csvRowToCustomer(row: CsvPreviewRow, now = new Date()): Customer
 }
 
 function splitList(value: string): string[] { return value.split(/[|,，、；;]/).map((item) => item.trim()).filter(Boolean) }
+function parseAmount(value: string): number { return Number(value.replace(/[¥￥,，\s]/g, '')) }
 
 export function customerCsv(customers: Customer[]): string {
   return serializeCsv([
