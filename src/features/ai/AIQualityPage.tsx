@@ -19,7 +19,7 @@ export function AIQualityPage({ customers = defaultCustomers, followUps = defaul
   const [copied, setCopied] = useState<number | null>(null)
   const selected = analyses.find(({ customer }) => customer.id === selectedId) ?? analyses[0]
 
-  if (!selected) return <section className="ai-quality ai-quality--empty">暂无客户可质检</section>
+  if (!selected) return <main className="ai-quality"><header className="ai-quality__header"><div><span className="ai-quality__eyebrow"><Sparkles size={15} /> AI 跟进质检</span><h1>客户跟进质量与成交机会</h1></div></header><section className="ai-quality--empty">暂无客户可质检</section></main>
   const { customer, report } = selected
 
   async function copyScript(script: string, index: number) {

@@ -4,8 +4,19 @@ import { customers as seedCustomers, followUps as seedFollowUps } from '../data'
 import type { Customer, DesignTask, FollowUp } from '../types'
 
 const STORAGE_KEY = 'shangpinju.customer-followup.v1'
+const REMOVED_DEMO_EMPLOYEES = new Set(['周然', '林晓', '何静'])
 
 interface SalesState { customers: Customer[]; followUps: FollowUp[]; designTasks: DesignTask[] }
+
+export function removeFormerDemoEmployees(state: SalesState): SalesState {
+  const customers = state.customers.filter((customer) => !REMOVED_DEMO_EMPLOYEES.has(customer.salesperson))
+  const customerIds = new Set(customers.map((customer) => customer.id))
+  return {
+    customers,
+    followUps: state.followUps.filter((item) => customerIds.has(item.customerId) && !REMOVED_DEMO_EMPLOYEES.has(item.salesperson)),
+    designTasks: state.designTasks.filter((item) => customerIds.has(item.customerId) && !REMOVED_DEMO_EMPLOYEES.has(item.salesperson)),
+  }
+}
 interface SalesDataValue extends SalesState {
   designers: { id: string; name: string }[]
   salespeople: { id: string; name: string }[]
@@ -30,7 +41,7 @@ function loadState(): SalesState {
     const value = window.localStorage.getItem(STORAGE_KEY)
     if (value) {
       const state = JSON.parse(value) as SalesState
-      if (Array.isArray(state.customers) && Array.isArray(state.followUps)) return { ...state, designTasks: Array.isArray(state.designTasks) ? state.designTasks : [] }
+      if (Array.isArray(state.customers) && Array.isArray(state.followUps)) return removeFormerDemoEmployees({ ...state, designTasks: Array.isArray(state.designTasks) ? state.designTasks : [] })
     }
   } catch { /* Fall back to bundled sample data. */ }
   return { customers: seedCustomers, followUps: seedFollowUps, designTasks: [] }
@@ -41,8 +52,8 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
   const [serverStatus, setServerStatus] = useState<'connecting' | 'connected' | 'offline'>('connecting')
   const [auditEvents, setAuditEvents] = useState<RemoteAuditEvent[]>([])
   const [integrationSettings, setIntegrationSettings] = useState<Record<string, Record<string, unknown>>>({})
-  const [designers, setDesigners] = useState<{ id: string; name: string }[]>([{ id: 'demo-designer', name: '林设计师' }])
-  const [salespeople, setSalespeople] = useState<{ id: string; name: string }[]>([{ id: 'demo-sales', name: '林晓' }])
+  const [designers, setDesigners] = useState<{ id: string; name: string }[]>([])
+  const [salespeople, setSalespeople] = useState<{ id: string; name: string }[]>([])
   const hydrated = useRef(false)
 
   useEffect(() => {
@@ -62,7 +73,7 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
         const remote = await salesApi.getState()
         if (!active) return
         if (Array.isArray(remote.value.customers) && Array.isArray(remote.value.followUps)) {
-          setState({ customers: remote.value.customers, followUps: remote.value.followUps, designTasks: Array.isArray(remote.value.designTasks) ? remote.value.designTasks : [] })
+          setState(removeFormerDemoEmployees({ customers: remote.value.customers, followUps: remote.value.followUps, designTasks: Array.isArray(remote.value.designTasks) ? remote.value.designTasks : [] }))
         } else {
           await salesApi.putState(state)
         }
