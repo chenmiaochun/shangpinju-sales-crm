@@ -12,7 +12,7 @@ import { LifecyclePage } from './features/lifecycle'
 import { TaskCenterPage } from './features/tasks'
 import { SalesSopPage } from './features/sop'
 import { DataAdminPage, type ConnectionStatus } from './features/data-admin'
-import { RoleProvider, ROLE_LABELS, TeamAccessPage, canAccessCustomer, getDefaultRoute, useRoleAccess, type AccessPermission, type TeamMember } from './features/team'
+import { RoleProvider, ROLE_LABELS, TeamAccessPage, canAccessCustomer, getDefaultRoute, getIdentityRoles, hasIdentityRole, useRoleAccess, type AccessPermission, type TeamMember } from './features/team'
 import { SalesDataProvider, useSalesData } from './store/SalesDataContext'
 import { LoginPage } from './auth/LoginPage'
 import { useAuth } from './auth/AuthContext'
@@ -57,8 +57,9 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
   const [notificationsRead, setNotificationsRead] = useState(false)
   const visibleNavigation = navigation.filter((item) => canUseItem(access.can, item))
   const visibleCustomers = useMemo(() => {
-    const assignedDeliveryCustomerIds = new Set(sales.deliveryTasks.filter((task) => task.ownerId === activeMember.id || task.owner === activeMember.name || (activeMember.role === 'aftersales' && task.owner === '待指派')).map((task) => task.customerId))
-    return sales.customers.filter((customer) => canAccessCustomer(activeMember, customer) || (activeMember.role === 'aftersales' && assignedDeliveryCustomerIds.has(customer.id)))
+    const aftersales = hasIdentityRole(activeMember, 'aftersales')
+    const assignedDeliveryCustomerIds = new Set(sales.deliveryTasks.filter((task) => task.ownerId === activeMember.id || task.owner === activeMember.name || (aftersales && task.owner === '待指派')).map((task) => task.customerId))
+    return sales.customers.filter((customer) => canAccessCustomer(activeMember, customer) || (aftersales && assignedDeliveryCustomerIds.has(customer.id)))
   }, [activeMember, sales.customers, sales.deliveryTasks])
   const visibleIds = useMemo(() => new Set(visibleCustomers.map((item) => item.id)), [visibleCustomers])
   const visibleFollowUps = sales.followUps.filter((item) => visibleIds.has(item.customerId))
@@ -66,8 +67,8 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
     const now = new Date()
     const overdue = visibleCustomers.filter((customer) => customer.nextFollowUpAt && new Date(customer.nextFollowUpAt) < now && customer.stage !== '已成交' && customer.stage !== '已流失').length
     const today = visibleCustomers.filter((customer) => customer.nextFollowUpAt && new Date(customer.nextFollowUpAt).toDateString() === now.toDateString() && customer.stage !== '已成交' && customer.stage !== '已流失').length
-    const design = sales.designTasks.filter((task) => task.status === '待接收' && (activeMember.role === 'manager' || task.designerId === activeMember.id || task.designerName === activeMember.name)).length
-    const delivery = sales.deliveryTasks.filter((task) => task.status !== '已完成' && (activeMember.role === 'manager' || task.ownerId === activeMember.id || task.owner === activeMember.name || (task.owner === '待指派' && Boolean(task.remindAt && new Date(task.remindAt) <= now) && visibleIds.has(task.customerId)))).length
+    const design = sales.designTasks.filter((task) => task.status === '待接收' && (hasIdentityRole(activeMember, 'manager') || task.designerId === activeMember.id || task.designerName === activeMember.name)).length
+    const delivery = sales.deliveryTasks.filter((task) => task.status !== '已完成' && (hasIdentityRole(activeMember, 'manager') || task.ownerId === activeMember.id || task.owner === activeMember.name || (task.owner === '待指派' && Boolean(task.remindAt && new Date(task.remindAt) <= now) && visibleIds.has(task.customerId)))).length
     return [
       overdue ? { id: 'overdue', title: `${overdue} 位客户跟进已逾期`, detail: '请尽快联系并更新下一步计划', to: '/customers' } : null,
       today ? { id: 'today', title: `今日还有 ${today} 项跟进`, detail: '完成后及时登记沟通结果', to: '/tasks' } : null,
@@ -94,7 +95,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
           ))}
         </nav>
         <div className="sidebar-note"><span>今日进度</span><strong>3 / 5</strong><div><i /></div><small>还有 2 位客户待跟进</small></div>
-        <div className="account"><span>{activeMember.name.slice(0, 1)}</span><div><strong>{activeMember.name}</strong><small>{ROLE_LABELS[activeMember.role]} · {sales.serverStatus === 'connected' ? '已同步' : '离线模式'}</small></div><ChevronDown size={15} /></div>
+        <div className="account"><span>{activeMember.name.slice(0, 1)}</span><div><strong>{activeMember.name}</strong><small>{getIdentityRoles(activeMember).map((role) => ROLE_LABELS[role]).join(' + ')} · {sales.serverStatus === 'connected' ? '已同步' : '离线模式'}</small></div><ChevronDown size={15} /></div>
       </aside>
 
       <section className="app-main">

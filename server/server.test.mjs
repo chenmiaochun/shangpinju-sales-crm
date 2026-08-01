@@ -66,6 +66,20 @@ test('sales designers appear in both sales and designer directories', async () =
   assert.ok(salespeople.body.salespeople.some(item => item.id === created.body.account.id))
 })
 
+test('multi-position employees appear in every matching assignment directory', async () => {
+  const created = await json('/api/accounts', { method: 'POST', body: JSON.stringify({ username: 'multi-role', password: 'multi-role-pass-123', name: '多岗位员工', role: 'sales', roles: ['sales', 'designer', 'aftersales'] }) })
+  assert.equal(created.status, 201)
+  assert.deepEqual(created.body.account.roles, ['sales', 'designer', 'aftersales'])
+  const [salespeople, designers, delivery] = await Promise.all([
+    json('/api/salespeople', { headers: { cookie: salesCookie } }),
+    json('/api/designers', { headers: { cookie: salesCookie } }),
+    json('/api/delivery-staff', { headers: { cookie: salesCookie } }),
+  ])
+  assert.ok(salespeople.body.salespeople.some(item => item.id === created.body.account.id))
+  assert.ok(designers.body.designers.some(item => item.id === created.body.account.id))
+  assert.ok(delivery.body.deliveryStaff.some(item => item.id === created.body.account.id))
+})
+
 test('manager can register operations and aftersales employees', async () => {
   for (const role of ['operations', 'aftersales']) {
     const created = await json('/api/accounts', { method: 'POST', body: JSON.stringify({ username: `${role}-user`, password: `${role}-password-123`, name: role, role }) })

@@ -31,11 +31,13 @@ describe('TeamAccessPage', () => {
     expect(await screen.findByText('禁用')).toBeInTheDocument()
   })
 
-  it('supports a sales and designer dual identity', async () => {
+  it('supports multiple positions for one employee', async () => {
     render(<TeamAccessPage />)
     fireEvent.click(await screen.findByRole('button', { name:'新增账号' }))
-    expect(screen.getByRole('checkbox', { name:/同时承担设计师职责/ })).toBeInTheDocument()
-    expect(screen.getByText('该账号既可负责销售客户，也可接收设计协作任务')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name:'销售' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name:'设计师' })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name:'售后' })).toBeInTheDocument()
+    expect(screen.getByText(/保存后自动更新权限及设计师、售后指派名单/)).toBeInTheDocument()
   })
 
 })

@@ -1,5 +1,5 @@
 export { TeamAccessPage, type TeamAccessPageProps } from './TeamAccessPage'
 export { RoleProvider, useRoleAccess, type RoleProviderProps, type RoleAccessValue } from './RoleAccess'
 export { defaultTeamMembers, type TeamMember } from './members'
-export { ALL_PERMISSIONS, PERMISSION_LABELS, REQUIRED_EMPLOYEE_PERMISSIONS, ROLE_LABELS, canAccessCustomer, canViewRevenueSummary, getDefaultRoute, getIdentityPermissions, getRolePermissions, hasIdentityPermission, hasPermission } from './access'
+export { ALL_PERMISSIONS, PERMISSION_LABELS, REQUIRED_EMPLOYEE_PERMISSIONS, ROLE_LABELS, canAccessCustomer, canViewRevenueSummary, getDefaultRoute, getIdentityPermissions, getIdentityRoles, getRolePermissions, getRolesPermissions, hasIdentityPermission, hasIdentityRole, hasPermission } from './access'
 export type { AccessPermission, CustomerAccessSubject, RoleIdentity, TeamRole } from './access'

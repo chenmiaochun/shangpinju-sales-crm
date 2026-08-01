@@ -4,6 +4,7 @@ export interface TeamMember {
   id: string
   name: string
   role: TeamRole
+  roles?: TeamRole[]
   canDesign?: boolean
   permissions?: AccessPermission[]
   phone?: string

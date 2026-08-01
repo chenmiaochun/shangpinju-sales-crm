@@ -95,6 +95,21 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
     setIntegrationSettings(integrations.integrations)
   }, [])
 
+  const refreshEmployeeDirectories = useCallback(async () => {
+    const [designerResult, salesResult, deliveryResult] = await Promise.all([
+      salesApi.getDesigners(), salesApi.getSalespeople(), salesApi.getDeliveryStaff(),
+    ])
+    setDesigners(designerResult.designers.map((item) => ({ id: item.id, name: item.name })))
+    setSalespeople(salesResult.salespeople.map((item) => ({ id: item.id, name: item.name })))
+    setDeliveryStaff(deliveryResult.deliveryStaff.map((item) => ({ id: item.id, name: item.name })))
+  }, [])
+
+  useEffect(() => {
+    const refresh = () => { void refreshEmployeeDirectories() }
+    window.addEventListener('sales-crm:accounts-changed', refresh)
+    return () => window.removeEventListener('sales-crm:accounts-changed', refresh)
+  }, [refreshEmployeeDirectories])
+
   useEffect(() => {
     let active = true
     async function hydrate() {
@@ -114,9 +129,7 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
         } else {
           await salesApi.putState(state)
         }
-        try { const result = await salesApi.getDesigners(); if (result.designers.length) setDesigners(result.designers.map((item) => ({ id: item.id, name: item.name }))) } catch { /* Keep local fallback when designer directory is unavailable. */ }
-        try { const result = await salesApi.getSalespeople(); if (result.salespeople.length) setSalespeople(result.salespeople.map((item) => ({ id: item.id, name: item.name }))) } catch { /* Keep local fallback when salesperson directory is unavailable. */ }
-        try { const result = await salesApi.getDeliveryStaff(); if (result.deliveryStaff.length) setDeliveryStaff(result.deliveryStaff.map((item) => ({ id: item.id, name: item.name }))) } catch { /* Delivery assignment remains optional when unavailable. */ }
+        try { await refreshEmployeeDirectories() } catch { /* Employee assignment remains available after the directory reconnects. */ }
         try { await refreshAdminData() } catch { /* Admin-only data is unavailable to employee roles. */ }
         if (active) setServerStatus('connected')
       } catch {
@@ -127,7 +140,7 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
     }
     void hydrate()
     return () => { active = false }
-  }, [refreshAdminData])
+  }, [refreshAdminData, refreshEmployeeDirectories])
 
   useEffect(() => {
     if (!hydrated.current || serverStatus !== 'connected') return

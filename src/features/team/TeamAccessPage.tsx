@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { AlertTriangle, CircleCheck, KeyRound, LoaderCircle, Pencil, RotateCw, Save, ShieldCheck, Trash2, UserPlus, Users, X } from 'lucide-react'
 import { salesApi, type CreateAccountInput, type RemoteAccount, type UpdateAccountInput } from '../../api/salesApi'
-import { ALL_PERMISSIONS, PERMISSION_LABELS, REQUIRED_EMPLOYEE_PERMISSIONS, ROLE_LABELS, getIdentityPermissions, type AccessPermission, type TeamRole } from './access'
+import { ALL_PERMISSIONS, PERMISSION_LABELS, REQUIRED_EMPLOYEE_PERMISSIONS, ROLE_LABELS, getIdentityPermissions, getIdentityRoles, getRolesPermissions, hasIdentityRole, type AccessPermission, type TeamRole } from './access'
 import type { TeamMember } from './members'
 import './team.css'
 
@@ -49,8 +49,8 @@ export function TeamAccessPage(_props: TeamAccessPageProps) {
   useEffect(() => { void load() }, [])
   useEffect(() => { if (!success) return; const timer = window.setTimeout(() => setSuccess(''), 3200); return () => window.clearTimeout(timer) }, [success])
 
-  const roleCounts = useMemo(() => Object.fromEntries(TEAM_ROLES.map((role) => [role, accounts.filter((item) => item.role === role || (role === 'designer' && item.canDesign)).length])) as Record<TeamRole, number>, [accounts])
-  const visibleAccounts = roleFilter ? accounts.filter((item) => item.role === roleFilter || (roleFilter === 'designer' && item.canDesign)) : accounts
+  const roleCounts = useMemo(() => Object.fromEntries(TEAM_ROLES.map((role) => [role, accounts.filter((item) => hasIdentityRole(item, role)).length])) as Record<TeamRole, number>, [accounts])
+  const visibleAccounts = roleFilter ? accounts.filter((item) => hasIdentityRole(item, roleFilter)) : accounts
 
   const openDialog = (next: typeof dialog, account: RemoteAccount | null = null) => { setSelected(account); setDialog(next) }
   const closeDialog = () => { setSelected(null); setDialog(null) }
@@ -60,7 +60,7 @@ export function TeamAccessPage(_props: TeamAccessPageProps) {
     setBusyId(account.id); setError('')
     try {
       const { account: updated } = await salesApi.setAccountActive(account.id, !account.active)
-      setAccounts((items) => items.map((item) => item.id === updated.id ? updated : item))
+      setAccounts((items) => items.map((item) => item.id === updated.id ? updated : item)); window.dispatchEvent(new Event('sales-crm:accounts-changed'))
       showSuccess(`${account.name} 的账号已${updated.active ? '启用' : '禁用'}`)
     } catch (cause) { setError(errorMessage(cause)) }
     finally { setBusyId('') }
@@ -75,7 +75,7 @@ export function TeamAccessPage(_props: TeamAccessPageProps) {
       <section className="team-panel account-panel"><header><div><h2>登录账号</h2><p>{accounts.filter((item) => item.active).length} 个启用账号</p></div><div className="role-counts" aria-label="按角色筛选">{TEAM_ROLES.map((role) => <button type="button" aria-pressed={roleFilter === role} className={roleFilter === role ? 'selected' : ''} key={role} onClick={() => setRoleFilter((current) => current === role ? null : role)}>{ROLE_LABELS[role]} <b>{roleCounts[role]}</b></button>)}</div></header>
         {loading ? <div className="team-empty"><LoaderCircle className="spin"/><strong>正在读取账号...</strong></div> : visibleAccounts.length === 0 ? <div className="team-empty"><span className="empty-icon"><Users/></span><strong>暂无员工账号</strong><p>点击右上角「新增账号」即可创建员工账号并分配权限</p><button type="button" className="empty-create" onClick={() => openDialog('add')}><UserPlus size={15}/>立即创建</button></div> : <div className="member-table" role="table">
           <div className="member-row account-row member-head" role="row"><span>员工姓名</span><span>登录账号</span><span>所属角色</span><span>账号状态</span><span>创建时间</span><span>操作</span></div>
-          {visibleAccounts.map((account) => <div className="member-row account-row" role="row" key={account.id}><div className="member-name"><b>{account.name.slice(0, 1)}</b><strong>{account.name}</strong></div><span className="account-username">{account.username}</span><span className="account-role">{ROLE_LABELS[account.role]}{account.canDesign && account.role === 'sales' ? ' + 设计师' : ''}</span><span className={account.active ? 'status-active' : 'status-off'}>{account.active ? '启用' : '禁用'}</span><small className="created-at">{formatDate(account.createdAt)}</small><div className="account-actions"><button type="button" title="编辑" aria-label={`编辑 ${account.name}`} onClick={() => openDialog('edit', account)}><Pencil size={14}/></button><button type="button" title="重置密码" aria-label={`重置 ${account.name} 的密码`} onClick={() => openDialog('reset', account)}><KeyRound size={14}/></button><button className="status-button" type="button" disabled={busyId === account.id} onClick={() => void toggleActive(account)}>{busyId === account.id ? '处理中' : account.active ? '禁用' : '启用'}</button><button type="button" className="delete-button" title="删除" aria-label={`删除 ${account.name}`} onClick={() => openDialog('delete', account)}><Trash2 size={14}/></button></div></div>)}
+          {visibleAccounts.map((account) => <div className="member-row account-row" role="row" key={account.id}><div className="member-name"><b>{account.name.slice(0, 1)}</b><strong>{account.name}</strong></div><span className="account-username">{account.username}</span><span className="account-role">{getIdentityRoles(account).map((role) => ROLE_LABELS[role]).join(' + ')}</span><span className={account.active ? 'status-active' : 'status-off'}>{account.active ? '启用' : '禁用'}</span><small className="created-at">{formatDate(account.createdAt)}</small><div className="account-actions"><button type="button" title="编辑" aria-label={`编辑 ${account.name}`} onClick={() => openDialog('edit', account)}><Pencil size={14}/></button><button type="button" title="重置密码" aria-label={`重置 ${account.name} 的密码`} onClick={() => openDialog('reset', account)}><KeyRound size={14}/></button><button className="status-button" type="button" disabled={busyId === account.id} onClick={() => void toggleActive(account)}>{busyId === account.id ? '处理中' : account.active ? '禁用' : '启用'}</button><button type="button" className="delete-button" title="删除" aria-label={`删除 ${account.name}`} onClick={() => openDialog('delete', account)}><Trash2 size={14}/></button></div></div>)}
         </div>}
       </section>
       <PermissionEditor accounts={accounts} selectedId={permissionAccountId} onSelect={setPermissionAccountId} onSaved={(account) => { setAccounts((items) => items.map((item) => item.id === account.id ? account : item)); showSuccess(`${account.name} 的权限已更新，对方刷新页面后生效`) }} onError={setError}/>
@@ -83,7 +83,7 @@ export function TeamAccessPage(_props: TeamAccessPageProps) {
     {dialog === 'add' && <AccountDialog mode="add" onClose={closeDialog} onSave={(account) => { setAccounts((items) => [...items, account]); closeDialog(); showSuccess(`员工账号「${account.name}」新增成功`) }} onError={setError}/>}
     {dialog === 'edit' && selected && <AccountDialog mode="edit" account={selected} onClose={closeDialog} onSave={(account) => { setAccounts((items) => items.map((item) => item.id === account.id ? account : item)); closeDialog(); showSuccess(`员工账号「${account.name}」已更新`) }} onError={setError}/>}
     {dialog === 'reset' && selected && <ResetPasswordDialog account={selected} onClose={closeDialog} onDone={() => showSuccess(`${selected.name} 的初始密码已重置`)} onError={setError}/>}
-    {dialog === 'delete' && selected && <DeleteAccountDialog account={selected} onClose={closeDialog} onDeleted={() => { setAccounts((items) => items.filter((item) => item.id !== selected.id)); closeDialog(); showSuccess(`员工账号「${selected.name}」已删除`) }} onError={setError}/>}
+    {dialog === 'delete' && selected && <DeleteAccountDialog account={selected} onClose={closeDialog} onDeleted={() => { setAccounts((items) => items.filter((item) => item.id !== selected.id)); window.dispatchEvent(new Event('sales-crm:accounts-changed')); closeDialog(); showSuccess(`员工账号「${selected.name}」已删除`) }} onError={setError}/>}
   </main>
 }
 
@@ -92,7 +92,7 @@ function PermissionEditor({ accounts, selectedId, onSelect, onSaved, onError }: 
   const [permissions, setPermissions] = useState<AccessPermission[]>([])
   const [saving, setSaving] = useState(false)
   useEffect(() => { setPermissions(account ? getIdentityPermissions(account) : []) }, [account?.id, account?.role, account?.canDesign, account?.permissions?.join('|')])
-  const locked = account?.role === 'manager'
+  const locked = account ? hasIdentityRole(account, 'manager') : false
   const toggle = (permission: AccessPermission) => {
     if (locked || REQUIRED_EMPLOYEE_PERMISSIONS.includes(permission)) return
     setPermissions((current) => current.includes(permission) ? current.filter((item) => item !== permission) : [...current, permission])
@@ -101,7 +101,7 @@ function PermissionEditor({ accounts, selectedId, onSelect, onSaved, onError }: 
     if (!account || locked) return
     setSaving(true); onError('')
     try {
-      const result = await salesApi.updateAccount(account.id, { username: account.username, name: account.name, role: account.role, canDesign: account.canDesign, phone: account.phone, permissions })
+      const result = await salesApi.updateAccount(account.id, { username: account.username, name: account.name, role: account.role, roles: getIdentityRoles(account), canDesign: account.canDesign, phone: account.phone, permissions })
       onSaved(result.account)
     } catch (cause) { onError(errorMessage(cause)) }
     finally { setSaving(false) }
@@ -110,10 +110,12 @@ function PermissionEditor({ accounts, selectedId, onSelect, onSaved, onError }: 
 }
 
 function AccountDialog({ mode, account, onClose, onSave, onError }: { mode: 'add' | 'edit'; account?: RemoteAccount; onClose: () => void; onSave: (account: RemoteAccount) => void; onError: (message: string) => void }) {
-  const [form, setForm] = useState<CreateAccountInput>({ username: account?.username ?? '', name: account?.name ?? '', role: account?.role ?? 'sales', canDesign: account?.canDesign ?? false, password: '', phone: account?.phone ?? '' })
+  const initialRoles = account ? getIdentityRoles(account) : ['sales' as TeamRole]
+  const [form, setForm] = useState<CreateAccountInput>({ username: account?.username ?? '', name: account?.name ?? '', role: initialRoles[0], roles: initialRoles, password: '', phone: account?.phone ?? '' })
   const [submitting, setSubmitting] = useState(false)
-  const submit = async (event: FormEvent) => { event.preventDefault(); setSubmitting(true); onError(''); try { const input = { username: form.username.trim(), name: form.name.trim(), role: form.role, canDesign: form.role === 'sales' && form.canDesign, permissions: form.role === account?.role ? account?.permissions : undefined, phone: form.phone?.trim() }; const result = mode === 'add' ? await salesApi.createAccount({ ...input, password: form.password }) : await salesApi.updateAccount(account!.id, input as UpdateAccountInput); onSave(result.account) } catch (cause) { onError(errorMessage(cause)) } finally { setSubmitting(false) } }
-  return <Dialog title={mode === 'add' ? '新增员工账号' : '编辑员工账号'} onClose={onClose}><form onSubmit={submit}><label>员工姓名 <b>*</b><input autoFocus required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="请输入员工姓名"/></label><label>登录账号 <b>*</b><input required minLength={3} pattern="[A-Za-z0-9._-]+" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="如：liuming"/></label>{mode === 'add' && <PasswordField value={form.password} onChange={(password) => setForm({ ...form, password })}/>}<label>所属角色 <b>*</b><select required value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as TeamRole, canDesign: e.target.value === 'sales' ? form.canDesign : false })}><option value="manager">店长</option><option value="sales">销售</option><option value="designer">设计师</option><option value="operations">运营 / 客服</option><option value="aftersales">售后 / 送货</option></select></label>{form.role === 'sales' && <label className="dual-role-option"><span><input type="checkbox" checked={Boolean(form.canDesign)} onChange={(e) => setForm({ ...form, canDesign: e.target.checked })}/>同时承担设计师职责</span><small>该账号既可负责销售客户，也可接收设计协作任务</small></label>}<label>联系手机号（选填）<input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="请输入手机号"/></label><footer><button type="button" className="secondary" onClick={onClose}>取消</button><button type="submit" disabled={submitting}>{submitting ? '正在保存...' : mode === 'add' ? '确认新增' : '保存修改'}</button></footer></form></Dialog>
+  const toggleRole = (role: TeamRole) => setForm((current) => { const roles = current.roles ?? [current.role]; const selected = roles.includes(role) ? roles.filter((item) => item !== role) : [...roles, role]; const next = TEAM_ROLES.filter((item) => selected.includes(item)); return next.length ? { ...current, roles: next, role: next[0] } : current })
+  const submit = async (event: FormEvent) => { event.preventDefault(); setSubmitting(true); onError(''); try { const roles = form.roles?.length ? form.roles : [form.role]; const input = { username: form.username.trim(), name: form.name.trim(), role: roles[0], roles, canDesign: roles.includes('designer'), permissions: roles.includes('manager') ? undefined : getRolesPermissions(roles), phone: form.phone?.trim() }; const result = mode === 'add' ? await salesApi.createAccount({ ...input, password: form.password }) : await salesApi.updateAccount(account!.id, input as UpdateAccountInput); window.dispatchEvent(new Event('sales-crm:accounts-changed')); onSave(result.account) } catch (cause) { onError(errorMessage(cause)) } finally { setSubmitting(false) } }
+  return <Dialog title={mode === 'add' ? '新增员工账号' : '编辑员工账号'} onClose={onClose}><form onSubmit={submit}><label>员工姓名 <b>*</b><input autoFocus required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="请输入员工姓名"/></label><label>登录账号 <b>*</b><input required minLength={3} pattern="[A-Za-z0-9._-]+" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="如：liuming"/></label>{mode === 'add' && <PasswordField value={form.password} onChange={(password) => setForm({ ...form, password })}/>}<fieldset className="role-options"><legend>所属岗位 <b>*</b></legend>{TEAM_ROLES.map((role) => <label key={role} className={(form.roles ?? [form.role]).includes(role) ? 'checked' : ''}><input type="checkbox" checked={(form.roles ?? [form.role]).includes(role)} onChange={() => toggleRole(role)}/><span>{ROLE_LABELS[role]}</span></label>)}<small>可勾选多个岗位；保存后自动更新权限及设计师、售后指派名单。</small></fieldset><label>联系手机号（选填）<input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="请输入手机号"/></label><footer><button type="button" className="secondary" onClick={onClose}>取消</button><button type="submit" disabled={submitting}>{submitting ? '正在保存...' : mode === 'add' ? '确认新增' : '保存修改'}</button></footer></form></Dialog>
 }
 
 function ResetPasswordDialog({ account, onClose, onDone, onError }: { account: RemoteAccount; onClose: () => void; onDone: () => void; onError: (message: string) => void }) {

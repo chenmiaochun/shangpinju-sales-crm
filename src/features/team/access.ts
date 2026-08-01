@@ -27,6 +27,7 @@ export interface RoleIdentity {
   id: string
   name: string
   role: TeamRole
+  roles?: TeamRole[]
   canDesign?: boolean
   permissions?: AccessPermission[]
 }
@@ -62,6 +63,16 @@ const ROLE_PERMISSIONS: Record<TeamRole, ReadonlySet<AccessPermission>> = {
   aftersales: new Set(['customers.own', 'tasks.own', 'conversation.analysis', 'sop']),
 }
 
+export function getIdentityRoles(identity: Pick<RoleIdentity, 'role' | 'roles' | 'canDesign'>): TeamRole[] {
+  const roles = identity.roles?.length ? identity.roles : [identity.role]
+  const compatible = identity.canDesign && !roles.includes('designer') ? [...roles, 'designer' as const] : roles
+  return [...new Set(compatible)]
+}
+
+export function hasIdentityRole(identity: Pick<RoleIdentity, 'role' | 'roles' | 'canDesign'>, role: TeamRole): boolean {
+  return getIdentityRoles(identity).includes(role)
+}
+
 export const REQUIRED_EMPLOYEE_PERMISSIONS: AccessPermission[] = ['customers.own', 'tasks.own']
 
 export function hasPermission(role: TeamRole, permission: AccessPermission): boolean {
@@ -72,12 +83,16 @@ export function getRolePermissions(role: TeamRole): AccessPermission[] {
   return ALL_PERMISSIONS.filter((permission) => hasPermission(role, permission))
 }
 
+export function getRolesPermissions(roles: TeamRole[]): AccessPermission[] {
+  return ALL_PERMISSIONS.filter((permission) => roles.some((role) => hasPermission(role, permission)))
+}
+
 export function hasIdentityPermission(identity: RoleIdentity, permission: AccessPermission): boolean {
-  if (identity.role === 'manager') return true
+  const roles = getIdentityRoles(identity)
+  if (roles.includes('manager')) return true
   if (REQUIRED_EMPLOYEE_PERMISSIONS.includes(permission)) return true
   if (identity.permissions) return identity.permissions.includes(permission)
-  return hasPermission(identity.role, permission)
-    || Boolean(identity.role === 'sales' && identity.canDesign && permission === 'customers.design')
+  return roles.some((role) => hasPermission(role, permission))
 }
 
 export function getIdentityPermissions(identity: RoleIdentity): AccessPermission[] {
@@ -92,15 +107,16 @@ export function getDefaultRoute(identity: RoleIdentity): string {
 }
 
 export function canAccessCustomer(identity: RoleIdentity, customer: CustomerAccessSubject): boolean {
-  if (identity.role === 'manager') return true
-  if (identity.role === 'operations' || identity.role === 'aftersales') {
+  const roles = getIdentityRoles(identity)
+  if (roles.includes('manager')) return true
+  if (roles.includes('operations') || roles.includes('aftersales')) {
     return customer.salespersonId === identity.id || customer.salesperson === identity.name
       || customer.pendingSalespersonId === identity.id || customer.pendingSalesperson === identity.name
       || customer.sourceService === identity.name
   }
-  if (identity.role === 'sales') {
+  if (roles.includes('sales')) {
     return customer.salespersonId === identity.id || customer.salesperson === identity.name || customer.pendingSalespersonId === identity.id || customer.pendingSalesperson === identity.name
-      || Boolean(identity.canDesign && (customer.designerId === identity.id || customer.designer === identity.name || customer.designerIds?.includes(identity.id)))
+      || Boolean(roles.includes('designer') && (customer.designerId === identity.id || customer.designer === identity.name || customer.designerIds?.includes(identity.id)))
   }
   return customer.designerId === identity.id
     || customer.designer === identity.name
