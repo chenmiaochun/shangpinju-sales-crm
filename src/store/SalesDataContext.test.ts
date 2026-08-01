@@ -22,4 +22,12 @@ describe('sales data cleanup', () => {
       customers: [{ id: 'real' }], followUps: [{ id: 'f-real' }], designTasks: [{ id: 'd-real' }],
     })
   })
+
+  it('migrates legacy combined visit stages and measuring channels', () => {
+    const customer = { id: 'legacy', name: '旧客户', salesperson: '陈婉珊', stage: '到店/量房' } as unknown as Customer
+    const followUp = { id: 'legacy-followup', customerId: 'legacy', salesperson: '陈婉珊', channel: '量房' } as unknown as FollowUp
+    const migrated = removeFormerDemoEmployees({ customers: [customer], followUps: [followUp], designTasks: [], orders: [], deliveryTasks: [], afterSalesTickets: [], supplyDemands: [] })
+    expect(migrated.customers[0].stage).toBe('到店')
+    expect(migrated.followUps[0].channel).toBe('量尺')
+  })
 })

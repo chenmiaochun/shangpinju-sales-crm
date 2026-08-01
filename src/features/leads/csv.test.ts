@@ -35,7 +35,7 @@ describe('CSV utilities', () => {
     const csv = serializeCsv([[...CSV_HEADERS, ...OPTIONAL_CSV_HEADERS], ['蔡晓崇', '', '抖音', '陈婉珊', '高', '50000', '沙发,茶台', '', '2-5万', '硬装中', '', '', '37407', '蔡小W', '汕头', '2026/07/02', '首次到店', '已交诚意金', '问界']])
     const preview = previewCustomerCsv(csv)
     expect(preview.rows[0].errors).toEqual([])
-    expect(csvRowToCustomer(preview.rows[0])).toMatchObject({ phone: '', stage: '到店/量房', cityArea: '汕头', vehicleBrand: '问界', products: ['沙发', '茶台'], notes: '客户编号：37407；微信名：蔡小W；已交诚意金', createdAt: '2026-07-02' })
+    expect(csvRowToCustomer(preview.rows[0])).toMatchObject({ phone: '', stage: '到店', cityArea: '汕头', vehicleBrand: '问界', products: ['沙发', '茶台'], notes: '客户编号：37407；微信名：蔡小W；已交诚意金', createdAt: '2026-07-02' })
   })
 
   it('accepts a missing phone header and an empty expected amount', () => {

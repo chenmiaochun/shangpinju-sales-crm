@@ -15,9 +15,9 @@ export type BackupValidation =
   | { valid: true; data: SalesBackup }
   | { valid: false; errors: string[] }
 
-const stages = new Set(['新线索', '已初聊', '需求确认', '到店/量房', '方案设计', '已报价', '方案调整', '已定金', '生产交付', '已成交', '已流失'])
+const stages = new Set(['新线索', '已初聊', '需求确认', '到店', '量尺', '到店/量房', '方案设计', '已报价', '方案调整', '已定金', '生产交付', '已成交', '已流失'])
 const intents = new Set(['高', '中', '低'])
-const channels = new Set(['微信', '电话', '到店', '量房'])
+const channels = new Set(['微信', '电话', '到店', '量尺', '量房'])
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 const isString = (value: unknown) => typeof value === 'string'
@@ -62,7 +62,9 @@ export function validateBackup(value: unknown): BackupValidation {
   if (!Array.isArray(value.followUps)) errors.push('followUps 必须是数组')
   else value.followUps.forEach((item, index) => errors.push(...validateFollowUp(item, index)))
   if (errors.length) return { valid: false, errors }
-  return { valid: true, data: { ...(value as unknown as SalesBackup), orders: Array.isArray(value.orders) ? value.orders as SalesOrder[] : [], deliveryTasks: Array.isArray(value.deliveryTasks) ? value.deliveryTasks as DeliveryTask[] : [], afterSalesTickets: Array.isArray(value.afterSalesTickets) ? value.afterSalesTickets as AfterSalesTicket[] : [], supplyDemands: Array.isArray(value.supplyDemands) ? value.supplyDemands as SupplyDemand[] : [] } }
+  const customers = (value.customers as Customer[]).map((customer) => (customer.stage as string) === '到店/量房' ? { ...customer, stage: '到店' as const } : customer)
+  const followUps = (value.followUps as FollowUp[]).map((item) => (item.channel as string) === '量房' ? { ...item, channel: '量尺' as const } : item)
+  return { valid: true, data: { ...(value as unknown as SalesBackup), customers, followUps, orders: Array.isArray(value.orders) ? value.orders as SalesOrder[] : [], deliveryTasks: Array.isArray(value.deliveryTasks) ? value.deliveryTasks as DeliveryTask[] : [], afterSalesTickets: Array.isArray(value.afterSalesTickets) ? value.afterSalesTickets as AfterSalesTicket[] : [], supplyDemands: Array.isArray(value.supplyDemands) ? value.supplyDemands as SupplyDemand[] : [] } }
 }
 
 export function createBackup(customers: Customer[], followUps: FollowUp[], now = new Date(), lifecycle?: { orders: SalesOrder[]; deliveryTasks: DeliveryTask[]; afterSalesTickets: AfterSalesTicket[]; supplyDemands?: SupplyDemand[] }): SalesBackup {

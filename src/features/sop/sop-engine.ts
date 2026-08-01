@@ -87,10 +87,10 @@ export const SOP_STAGES: SopStageDefinition[] = [
     actions: ['预约到店或上门量房时间', '携带样板并完成尺寸/照片记录', '现场复述需求并确认优先级'],
     conditions: ['到店或量房已完成', '现场资料完整可用于设计', '客户认可需求复述'],
     risks: ['只记录墙面尺寸，遗漏踢脚线和通行空间', '量房前未确认物业与进场条件', '体验结束未锁定设计沟通时间'],
-    script: '这次到店/量房我们会重点核对三件事：空间限制、日常动线和材质体验。结束时我会把需求复述一遍，确保设计师拿到的是同一份信息。',
+    script: '到店和量尺是两个阶段。到店重点确认体验与需求，量尺重点核对空间限制、尺寸和现场条件。每次结束时都会复述确认，确保设计师拿到一致信息。',
     checklist: [
-      item('visit-booked', 'action', '到店或量房时间已预约', (c, f, t) => Boolean(c.nextFollowUpAt) || f.some((x) => x.channel === '到店' || x.channel === '量房') || mentions(t, ['预约', '到店', '量房'])),
-      item('visit-completed', 'action', '到店体验或上门量房已完成', (_c, f) => f.some((x) => x.channel === '到店' || x.channel === '量房')),
+      item('visit-booked', 'action', '到店或量尺时间已预约', (c, f, t) => Boolean(c.nextFollowUpAt) || f.some((x) => x.channel === '到店' || x.channel === '量尺') || mentions(t, ['预约', '到店', '量房', '量尺'])),
+      item('visit-completed', 'action', '到店体验或上门量尺已完成', (_c, f) => f.some((x) => x.channel === '到店' || x.channel === '量尺')),
       item('visit-records', 'condition', '尺寸、照片与现场限制已归档'),
       item('visit-review', 'condition', '客户已确认需求复述与设计时间', (_c, _f, t) => mentions(t, ['确认需求', '设计时间', '方案时间'])),
     ],
@@ -154,7 +154,7 @@ export const SOP_STAGES: SopStageDefinition[] = [
 ]
 
 const stageIndexByCustomerStage: Record<CustomerStage, number> = {
-  新线索: 0, 已初聊: 0, 需求确认: 1, '到店/量房': 2, 方案设计: 3,
+  新线索: 0, 已初聊: 0, 需求确认: 1, 到店: 2, 量尺: 2, 方案设计: 3,
   已报价: 4, 方案调整: 5, 已定金: 6, 生产交付: 6, 已成交: 6, 已流失: 0,
 }
 

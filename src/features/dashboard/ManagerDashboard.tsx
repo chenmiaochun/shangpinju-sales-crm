@@ -14,7 +14,7 @@ import type { Customer, CustomerStage, FollowUp } from '../../types'
 import './ManagerDashboard.css'
 
 const STAGES: CustomerStage[] = [
-  '新线索', '已初聊', '需求确认', '到店/量房', '方案设计', '已报价',
+  '新线索', '已初聊', '需求确认', '到店', '量尺', '方案设计', '已报价',
   '方案调整', '已定金', '生产交付', '已成交', '已流失',
 ]
 const CLOSED_STAGES: CustomerStage[] = ['已成交', '已流失']

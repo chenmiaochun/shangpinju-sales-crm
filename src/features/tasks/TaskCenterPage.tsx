@@ -110,7 +110,7 @@ function CompleteDialog({ task, now, onClose, onSubmit }: { task: FollowUpTask; 
   }
   return <div className="task-dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="task-dialog" role="dialog" aria-modal="true" aria-labelledby="complete-task-title"><header><div><p>记录沟通结果</p><h2 id="complete-task-title">完成跟进 · {task.customer.name}</h2></div><button type="button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header>
-      <form onSubmit={submit}><fieldset><legend>沟通渠道</legend><div className="channel-picker">{(['微信', '电话', '到店', '量房'] as FollowUp['channel'][]).map((item) => <label key={item}><input type="radio" name="channel" checked={channel === item} onChange={() => setChannel(item)} /><span>{item}</span></label>)}</div></fieldset>
+      <form onSubmit={submit}><fieldset><legend>沟通渠道</legend><div className="channel-picker">{(['微信', '电话', '到店', '量尺'] as FollowUp['channel'][]).map((item) => <label key={item}><input type="radio" name="channel" checked={channel === item} onChange={() => setChannel(item)} /><span>{item}</span></label>)}</div></fieldset>
         <label>沟通内容<textarea required rows={3} value={content} onChange={(event) => setContent(event.target.value)} placeholder="记录客户反馈与关键需求" /></label>
         <label>跟进结果<input required value={result} onChange={(event) => setResult(event.target.value)} placeholder="本次沟通取得了什么结果" /></label>
         <div className="next-fields"><label>下次动作<input value={nextAction} onChange={(event) => setNextAction(event.target.value)} placeholder="例如：发送调整方案" /></label><label>下次时间<input type="datetime-local" min={localInput(now)} value={nextAt} onChange={(event) => setNextAt(event.target.value)} /></label></div>

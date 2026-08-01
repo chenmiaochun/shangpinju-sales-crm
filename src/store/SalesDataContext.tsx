@@ -17,11 +17,11 @@ export interface SalesState {
 }
 
 export function removeFormerDemoEmployees(state: SalesState): SalesState {
-  const customers = state.customers.filter((customer) => !REMOVED_DEMO_EMPLOYEES.has(customer.salesperson))
+  const customers = state.customers.filter((customer) => !REMOVED_DEMO_EMPLOYEES.has(customer.salesperson)).map((customer) => (customer.stage as string) === '到店/量房' ? { ...customer, stage: '到店' as const } : customer)
   const customerIds = new Set(customers.map((customer) => customer.id))
   return {
     customers,
-    followUps: state.followUps.filter((item) => customerIds.has(item.customerId) && !REMOVED_DEMO_EMPLOYEES.has(item.salesperson)),
+    followUps: state.followUps.filter((item) => customerIds.has(item.customerId) && !REMOVED_DEMO_EMPLOYEES.has(item.salesperson)).map((item) => (item.channel as string) === '量房' ? { ...item, channel: '量尺' as const } : item),
     designTasks: state.designTasks.filter((item) => customerIds.has(item.customerId) && !REMOVED_DEMO_EMPLOYEES.has(item.salesperson)),
     orders: (state.orders ?? []).filter((item) => customerIds.has(item.customerId)),
     deliveryTasks: (state.deliveryTasks ?? []).filter((item) => customerIds.has(item.customerId)),

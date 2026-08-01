@@ -58,7 +58,7 @@ const RULES: Record<Exclude<ConversationField, 'budget' | 'sentiment'>, Rule[]> 
   ],
   buyingSignals: [
     { value: '询问价格/优惠', pattern: /多少钱|报价|价格|优惠|折扣/ }, { value: '询问交期', pattern: /多久能做|什么时候能装|交期|工期/ },
-    { value: '预约到店/量房', pattern: /到店|去你们店|量房|上门量/ }, { value: '索要方案/合同', pattern: /出方案|看方案|合同|下单/ },
+    { value: '预约到店', pattern: /到店|去你们店/ }, { value: '预约量尺', pattern: /量房|量尺|上门量/ }, { value: '索要方案/合同', pattern: /出方案|看方案|合同|下单/ },
     { value: '确认付款', pattern: /定金|付款|怎么付|刷卡|转账/ },
   ],
   commitments: [
@@ -104,7 +104,8 @@ function extractSentiment(text: string): ExtractedInsight {
 function chooseStage(fields: ConversationAnalysis['fields']): CustomerStage {
   if (fields.buyingSignals.value.includes('确认付款')) return '已定金'
   if (fields.buyingSignals.value.includes('索要方案/合同')) return '方案设计'
-  if (fields.buyingSignals.value.includes('预约到店/量房')) return '到店/量房'
+  if (fields.buyingSignals.value.includes('预约量尺')) return '量尺'
+  if (fields.buyingSignals.value.includes('预约到店')) return '到店'
   if (['budget', 'products', 'style', 'renovationProgress'].filter((key) => fields[key as ConversationField].evidence.length).length >= 2) return '需求确认'
   return '已初聊'
 }

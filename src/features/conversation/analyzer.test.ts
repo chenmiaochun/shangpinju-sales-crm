@@ -11,7 +11,7 @@ describe('analyzeConversation', () => {
     expect(result.fields.delivery.value).toContain('下月')
     expect(result.fields.decisionMaker.value).toContain('夫妻共同决策')
     expect(result.fields.objections.value).toContain('担心交期')
-    expect(result.fields.buyingSignals.value).toContain('预约到店/量房')
+    expect(result.fields.buyingSignals.value).toContain('预约到店')
     expect(result.fields.commitments.value).toContain('销售需报价/发资料')
     expect(result.suggestedStage).toBe('方案设计')
   })
@@ -22,6 +22,12 @@ describe('analyzeConversation', () => {
     expect(result.evidenceCount).toBe(0)
     expect(result.nextTasks).toEqual([])
     expect(result.fields.budget).toEqual({ value: '未提及', evidence: [] })
+  })
+
+  it('distinguishes an on-site measuring appointment from a store visit', () => {
+    const result = analyzeConversation('客户：周六可以安排师傅上门量尺。')
+    expect(result.fields.buyingSignals.value).toContain('预约量尺')
+    expect(result.suggestedStage).toBe('量尺')
   })
 
   it('keeps exact source lines as evidence', () => {

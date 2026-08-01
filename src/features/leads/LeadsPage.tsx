@@ -16,7 +16,7 @@ const BUDGETS = ['待确认', '2 万以下', '2-5 万', '5-8 万', '8-15 万', '
 const BUDGET_AMOUNTS: Record<string, number> = { '2 万以下': 20000, '2-5 万': 50000, '5-8 万': 80000, '8-15 万': 150000, '15 万以上': 200000 }
 const RENOVATION_PROGRESS = ['未开工', '硬装中', '硬装完成', '已入住补购', '未交房']
 const CUSTOMER_STATUS = ['首次到店', '持续跟进', '已成交', '已流失']
-const STATUS_STAGE: Record<string, Customer['stage']> = { '首次到店': '到店/量房', '持续跟进': '需求确认', '已成交': '已成交', '已流失': '已流失' }
+const STATUS_STAGE: Record<string, Customer['stage']> = { '首次到店': '到店', '持续跟进': '需求确认', '已成交': '已成交', '已流失': '已流失' }
 const VEHICLE_BRANDS = ['比亚迪', '特斯拉', '宝马', '丰田', '其他']
 const DISCOUNT_TYPES = ['无', '门店专场活动', '老客转介绍折扣', '专属议价优惠', '节日活动', '其他']
 

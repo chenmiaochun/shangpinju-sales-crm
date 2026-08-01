@@ -34,7 +34,7 @@ export function getCustomerCounts(customers: Customer[]) {
 }
 
 const stages: CustomerStage[] = [
-  '新线索', '已初聊', '需求确认', '到店/量房', '方案设计', '已报价',
+  '新线索', '已初聊', '需求确认', '到店', '量尺', '方案设计', '已报价',
   '方案调整', '已定金', '生产交付', '已成交', '已流失',
 ]
 
@@ -404,7 +404,7 @@ function FollowUpDialog({ customer, designers, onClose, onSubmit, onDealRequeste
     <section className="followup-dialog" role="dialog" aria-modal="true" aria-labelledby="followup-title">
       <header><div><p>记录客户沟通</p><h2 id="followup-title">新增跟进 · {customer.name}</h2></div><button className="icon-button" onClick={onClose} aria-label="关闭"><X size={20} /></button></header>
       <form onSubmit={submit}>
-        <fieldset><legend>沟通方式</legend><div className="channel-options">{(['微信', '电话', '到店', '量房'] as Channel[]).map((item) => <label key={item}><input type="radio" name="channel" checked={channel === item} onChange={() => setChannel(item)} /><span>{item}</span></label>)}</div></fieldset>
+        <fieldset><legend>沟通方式</legend><div className="channel-options">{(['微信', '电话', '到店', '量尺'] as Channel[]).map((item) => <label key={item}><input type="radio" name="channel" checked={channel === item} onChange={() => setChannel(item)} /><span>{item}</span></label>)}</div></fieldset>
         <label>跟进时间<input type="datetime-local" required value={at} onChange={(event) => setAt(event.target.value)} /></label>
         <label>沟通内容<textarea required rows={3} value={content} onChange={(event) => setContent(event.target.value)} placeholder="客户关注了什么、表达了哪些需求？" /></label>
         <label>本次结果<input required value={result} onChange={(event) => setResult(event.target.value)} placeholder="例如：已发送材质方案" /></label>

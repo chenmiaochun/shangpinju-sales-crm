@@ -64,7 +64,7 @@ export function csvRowToCustomer(row: CsvPreviewRow, now = new Date()): Customer
   const values = row.values
   const importedDate = values.到店日期?.replace(/\//g, '-')
   const importedAt = importedDate && !Number.isNaN(Date.parse(importedDate)) ? new Date(`${importedDate}T12:00:00`) : now
-  const statusStage: Partial<Record<string, Customer['stage']>> = { 已成交: '已成交', 已流失: '已流失', 持续跟进: '需求确认', 首次到店: '到店/量房' }
+  const statusStage: Partial<Record<string, Customer['stage']>> = { 已成交: '已成交', 已流失: '已流失', 持续跟进: '需求确认', 首次到店: '到店' }
   const supplemental = [values.客户编号 && `客户编号：${values.客户编号}`, values.微信名 && `微信名：${values.微信名}`, values.备注].filter(Boolean).join('；')
   return {
     id: `lead-${now.getTime()}-${row.line}-${Math.random().toString(36).slice(2, 7)}`,
