@@ -21,6 +21,15 @@ import type { TeamMember } from '../team'
 import './customers.css'
 
 const STORAGE_KEY = 'shangpinju.customer-followup.v1'
+const CLOSED_STAGES = new Set<CustomerStage>(['已成交', '已流失'])
+
+export function getCustomerCounts(customers: Customer[]) {
+  const completed = customers.filter((customer) => customer.stage === '已成交').length
+  const lost = customers.filter((customer) => customer.stage === '已流失').length
+  const active = customers.length - completed - lost
+  const pending = customers.filter((customer) => !CLOSED_STAGES.has(customer.stage) && Boolean(customer.nextFollowUpAt)).length
+  return { total: customers.length, active, completed, lost, pending }
+}
 
 const stages: CustomerStage[] = [
   '新线索', '已初聊', '需求确认', '到店/量房', '方案设计', '已报价',
@@ -95,6 +104,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
   }
 
   const owners = useMemo(() => [...new Set(state.customers.map((item) => item.salesperson))], [state.customers])
+  const counts = useMemo(() => getCustomerCounts(state.customers), [state.customers])
   const filtered = useMemo(() => state.customers.filter((customer) => {
     const keyword = query.trim().toLowerCase()
     const matchesQuery = !keyword || [customer.name, customer.phone, customer.source, ...customer.products]
@@ -102,8 +112,8 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
     const matchesStage = stageFilter === '全部' || customer.stage === stageFilter
     const matchesOwner = ownerFilter === '全部' || customer.salesperson === ownerFilter
     const matchesTask = taskFilter === '全部'
-      || (taskFilter === '待跟进' && Boolean(customer.nextFollowUpAt))
-      || (taskFilter === '已逾期' && isOverdue(customer.nextFollowUpAt))
+      || (taskFilter === '待跟进' && !CLOSED_STAGES.has(customer.stage) && Boolean(customer.nextFollowUpAt))
+      || (taskFilter === '已逾期' && !CLOSED_STAGES.has(customer.stage) && isOverdue(customer.nextFollowUpAt))
     return matchesQuery && matchesStage && matchesOwner && matchesTask
   }), [ownerFilter, query, stageFilter, state.customers, taskFilter])
 
@@ -123,7 +133,9 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
   function updateStage(stage: CustomerStage) {
     commit((current) => ({
       ...current,
-      customers: current.customers.map((customer) => customer.id === selectedId ? { ...customer, stage } : customer),
+      customers: current.customers.map((customer) => customer.id === selectedId
+        ? { ...customer, stage, nextFollowUpAt: CLOSED_STAGES.has(stage) ? undefined : customer.nextFollowUpAt }
+        : customer),
     }))
   }
 
@@ -173,7 +185,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
         <div>
           <p className="customers-eyebrow">客户经营</p>
           <h1>客户与跟进</h1>
-          <p className="customers-summary">{state.customers.length} 位客户 · {state.customers.filter((c) => c.nextFollowUpAt).length} 项待跟进</p>
+          <p className="customers-summary">在跟 {counts.active} 位 · 已成交 {counts.completed} 位 · 已流失 {counts.lost} 位 · {counts.pending} 项待跟进</p>
         </div>
         {canWorkOnSelected && <button className="primary-button header-action" onClick={() => setFormOpen(true)}><MessageSquarePlus size={18} />新增跟进</button>}
       </header>

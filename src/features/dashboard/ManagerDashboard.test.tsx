@@ -32,7 +32,7 @@ describe('ManagerDashboard', () => {
   it('handles an empty dataset without invalid values', () => {
     render(<ManagerDashboard customers={[]} followUps={[]} now={now} />)
 
-    expect(screen.getByText('共 0 位客户')).toBeInTheDocument()
+    expect(screen.getByText('待跟进 0 · 成交 0 · 流失 0')).toBeInTheDocument()
     expect(screen.getByText('暂无销售数据')).toBeInTheDocument()
     expect(screen.getByText('暂无阶段数据')).toBeInTheDocument()
     expect(screen.getByText('暂无风险客户')).toBeInTheDocument()

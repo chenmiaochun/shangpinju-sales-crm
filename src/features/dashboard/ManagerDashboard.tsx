@@ -29,6 +29,9 @@ export interface ManagerDashboardProps {
 
 export interface DashboardSummary {
   activeCustomers: number
+  completedCustomers: number
+  lostCustomers: number
+  pendingCustomers: number
   pipelineAmount: number
   highIntentCustomers: number
   conversionRate: number
@@ -48,6 +51,9 @@ export function getDashboardSummary(items: Customer[], now = new Date()): Dashbo
 
   return {
     activeCustomers: active.length,
+    completedCustomers: items.filter((customer) => customer.stage === '已成交').length,
+    lostCustomers: items.filter((customer) => customer.stage === '已流失').length,
+    pendingCustomers: active.filter((customer) => Boolean(customer.nextFollowUpAt)).length,
     pipelineAmount: active.reduce((sum, customer) => sum + customer.expectedAmount, 0),
     highIntentCustomers: active.filter((customer) => customer.intent === '高').length,
     conversionRate: items.length ? Math.round((won / items.length) * 100) : 0,
@@ -118,7 +124,7 @@ export function ManagerDashboard({
       </header>
 
       <div className="metric-grid">
-        <Metric icon={<Users />} label="在跟客户" value={`${summary.activeCustomers}`} detail={`共 ${customers.length} 位客户`} tone="green" />
+        <Metric icon={<Users />} label="在跟客户" value={`${summary.activeCustomers}`} detail={`待跟进 ${summary.pendingCustomers} · 成交 ${summary.completedCustomers} · 流失 ${summary.lostCustomers}`} tone="green" />
         <Metric icon={<CircleDollarSign />} label="预计商机金额" value={`¥${formatMoney(summary.pipelineAmount)}`} detail="未关闭商机合计" tone="gold" />
         <Metric icon={<Target />} label="高意向客户" value={`${summary.highIntentCustomers}`} detail="优先保障跟进" tone="red" />
         <Metric icon={<TrendingUp />} label="推进转化率" value={`${summary.conversionRate}%`} detail="定金及后续阶段" tone="blue" />

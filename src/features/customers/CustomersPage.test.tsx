@@ -2,7 +2,18 @@ import '@testing-library/jest-dom'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { customers, followUps } from '../../data'
-import { CustomersPage } from './CustomersPage'
+import { CustomersPage, getCustomerCounts } from './CustomersPage'
+
+describe('customer counts', () => {
+  it('removes completed and lost customers from active and pending counts', () => {
+    const items = [
+      { ...customers[0], id: 'active', stage: '需求确认' as const, nextFollowUpAt: '2026-08-03T10:00:00Z' },
+      { ...customers[0], id: 'won', stage: '已成交' as const, nextFollowUpAt: '2026-08-03T10:00:00Z' },
+      { ...customers[0], id: 'lost', stage: '已流失' as const, nextFollowUpAt: '2026-08-03T10:00:00Z' },
+    ]
+    expect(getCustomerCounts(items)).toEqual({ total: 3, active: 1, completed: 1, lost: 1, pending: 1 })
+  })
+})
 
 describe('CustomersPage design collaboration', () => {
   it('creates a designer task while saving a follow-up', () => {
