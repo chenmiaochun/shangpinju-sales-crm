@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Activity, CheckCircle2, Database, Download, FileCheck2, Link2, RotateCcw, ShieldCheck, Upload, XCircle } from 'lucide-react'
-import type { Customer, FollowUp } from '../../types'
+import type { AfterSalesTicket, Customer, DeliveryTask, FollowUp, SalesOrder } from '../../types'
 import { createBackup, validateBackup, type SalesBackup } from './backup'
 import './data-admin.css'
 
@@ -10,6 +10,9 @@ export interface IntegrationSettings { corpId: string; agentId: string; secretCo
 export interface DataAdminPageProps {
   customers: Customer[]
   followUps: FollowUp[]
+  orders?: SalesOrder[]
+  deliveryTasks?: DeliveryTask[]
+  afterSalesTickets?: AfterSalesTicket[]
   auditEvents: AuditEvent[]
   connectionStatus: ConnectionStatus
   onExportBackup?: () => unknown | Promise<unknown>
@@ -38,7 +41,7 @@ export function DataAdminPage(props: DataAdminPageProps) {
 
   async function exportBackup() {
     const supplied = await props.onExportBackup?.()
-    const payload = supplied ?? createBackup(customers, followUps)
+    const payload = supplied ?? createBackup(customers, followUps, new Date(), { orders: props.orders ?? [], deliveryTasks: props.deliveryTasks ?? [], afterSalesTickets: props.afterSalesTickets ?? [] })
     const blob = new Blob([typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')

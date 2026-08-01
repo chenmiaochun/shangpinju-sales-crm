@@ -100,3 +100,71 @@ export interface DesignTask {
   createdAt: string
   updatedAt: string
 }
+
+export type OrderStatus = '待确认' | '已签约' | '生产中' | '待送货' | '安装中' | '已验收' | '已关闭'
+export type DeliveryStatus = '待排期' | '已排期' | '配送中' | '安装中' | '待验收' | '已完成'
+export type AfterSalesStatus = '待受理' | '处理中' | '待客户确认' | '已完成'
+
+export interface PaymentRecord {
+  id: string
+  orderId: string
+  type: '定金' | '进度款' | '尾款' | '退款'
+  amount: number
+  paidAt: string
+  method: '微信' | '支付宝' | '银行转账' | '现金' | '其他'
+  recordedBy: string
+  note?: string
+}
+
+export interface SalesOrder {
+  id: string
+  orderNo: string
+  customerId: string
+  customerName: string
+  salesperson: string
+  salespersonId?: string
+  collaborators: string[]
+  products: string[]
+  contractAmount: number
+  signedAt: string
+  expectedDeliveryAt?: string
+  status: OrderStatus
+  payments: PaymentRecord[]
+  performanceRate: number
+  note?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface DeliveryTask {
+  id: string
+  orderId: string
+  customerId: string
+  customerName: string
+  address: string
+  contactPhone: string
+  scheduledAt?: string
+  status: DeliveryStatus
+  owner: string
+  installer?: string
+  acceptanceNote?: string
+  completedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AfterSalesTicket {
+  id: string
+  orderId: string
+  customerId: string
+  customerName: string
+  category: '补件' | '维修' | '安装调整' | '质量问题' | '使用咨询' | '其他'
+  description: string
+  priority: '紧急' | '普通'
+  status: AfterSalesStatus
+  owner: string
+  dueAt?: string
+  result?: string
+  createdAt: string
+  updatedAt: string
+}

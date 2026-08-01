@@ -18,7 +18,7 @@ describe('sales data cleanup', () => {
       { id: 'd-demo', customerId: 'demo', salesperson: '周然' },
     ] as DesignTask[]
 
-    expect(removeFormerDemoEmployees({ customers, followUps, designTasks })).toMatchObject({
+    expect(removeFormerDemoEmployees({ customers, followUps, designTasks, orders: [], deliveryTasks: [], afterSalesTickets: [] })).toMatchObject({
       customers: [{ id: 'real' }], followUps: [{ id: 'f-real' }], designTasks: [{ id: 'd-real' }],
     })
   })

@@ -35,6 +35,11 @@ describe('App routes', () => {
     expect(screen.getByRole('heading', { name: '客户跟进质量与成交机会' })).toBeTruthy()
   })
 
+  it('renders order delivery and after-sales lifecycle', () => {
+    renderAt('/lifecycle')
+    expect(screen.getByRole('heading', { name: '订单、交付与售后' })).toBeTruthy()
+  })
+
   it.each([
     ['/tasks', '跟进任务中心'],
     ['/leads', '线索数据中心'],

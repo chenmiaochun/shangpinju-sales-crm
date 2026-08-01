@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { BarChart3, Bell, Bot, ChartNoAxesCombined, CheckCheck, ChevronDown, ChevronRight, ClipboardList, ContactRound, Database, GraduationCap, LayoutGrid, ListChecks, LogOut, MessageSquareText, Search, Settings, UserCog, UserPlus, X } from 'lucide-react'
+import { BarChart3, Bell, Bot, ChartNoAxesCombined, CheckCheck, ChevronDown, ChevronRight, ClipboardList, ContactRound, Database, GraduationCap, LayoutGrid, ListChecks, LogOut, MessageSquareText, PackageCheck, Search, Settings, UserCog, UserPlus, X } from 'lucide-react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AIQualityPage } from './features/ai'
 import { CustomersPage } from './features/customers'
@@ -8,6 +8,7 @@ import { ConversationAnalyzerPage } from './features/conversation'
 import { CoachingCenterPage } from './features/coaching'
 import { SalesInsightsPage } from './features/insights'
 import { LeadsPage } from './features/leads'
+import { LifecyclePage } from './features/lifecycle'
 import { TaskCenterPage } from './features/tasks'
 import { SalesSopPage } from './features/sop'
 import { DataAdminPage, type ConnectionStatus } from './features/data-admin'
@@ -19,6 +20,7 @@ import { useAuth } from './auth/AuthContext'
 const navigation = [
   { to: '/dashboard', label: '经营分析', icon: BarChart3, permission: 'store.analytics' },
   { to: '/customers', label: '客户跟进', icon: ContactRound, permission: 'customers.own' },
+  { to: '/lifecycle', label: '成交履约', icon: PackageCheck, permission: 'customers.own' },
   { to: '/tasks', label: '任务中心', icon: ClipboardList, permission: 'tasks.own' },
   { to: '/leads', label: '线索数据', icon: UserPlus, permission: 'customers.own' },
   { to: '/quality', label: 'AI 质检', icon: Bot, permission: 'store.analytics' },
@@ -70,7 +72,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
   }, [activeMember.id, activeMember.name, activeMember.role, sales.designTasks, visibleCustomers])
   const mergeVisibleState = (next: { customers: typeof sales.customers; followUps: typeof sales.followUps }) => {
     const updates = new Map(next.customers.map((item) => [item.id, item]))
-    sales.replaceState({ customers: sales.customers.map((item) => updates.get(item.id) ?? item), followUps: [...next.followUps, ...sales.followUps.filter((item) => !visibleIds.has(item.customerId))], designTasks: sales.designTasks })
+    sales.replaceState({ customers: sales.customers.map((item) => updates.get(item.id) ?? item), followUps: [...next.followUps, ...sales.followUps.filter((item) => !visibleIds.has(item.customerId))], designTasks: sales.designTasks, orders: sales.orders, deliveryTasks: sales.deliveryTasks, afterSalesTickets: sales.afterSalesTickets })
   }
   const wechat = sales.integrationSettings.wechat ?? {}
   const connectionStatus: ConnectionStatus = wechat.status === 'connected' ? 'connected' : wechat.corpId && wechat.agentId ? 'pending' : 'unconfigured'
@@ -114,6 +116,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
           <Routes>
             <Route path="/dashboard" element={<Allowed permission="store.analytics"><ManagerDashboard customers={sales.customers} followUps={sales.followUps} /></Allowed>} />
             <Route path="/customers" element={<CustomerAllowed><CustomersPage customers={visibleCustomers} followUps={visibleFollowUps} designers={sales.designers} salespeople={sales.salespeople} activeMember={activeMember} onStateChange={mergeVisibleState} onAddDesignTask={(task) => { sales.addDesignTask(task); sales.updateCustomer(task.customerId, { designerId: task.designerId, designer: task.designerName }) }} /></CustomerAllowed>} />
+            <Route path="/lifecycle" element={<CustomerAllowed><LifecyclePage customers={visibleCustomers} orders={sales.orders.filter((item) => visibleIds.has(item.customerId))} deliveryTasks={sales.deliveryTasks.filter((item) => visibleIds.has(item.customerId))} afterSalesTickets={sales.afterSalesTickets.filter((item) => visibleIds.has(item.customerId))} activeUser={activeMember.name} onAddOrder={sales.addOrder} onUpdateOrder={sales.updateOrder} onAddPayment={sales.addPayment} onAddDelivery={sales.addDeliveryTask} onUpdateDelivery={sales.updateDeliveryTask} onAddTicket={sales.addAfterSalesTicket} onUpdateTicket={sales.updateAfterSalesTicket} /></CustomerAllowed>} />
             <Route path="/tasks" element={<Allowed permission="tasks.own"><TaskCenterPage customers={visibleCustomers} followUps={visibleFollowUps} designTasks={sales.designTasks} activeMember={activeMember} onCompleteTask={sales.addFollowUp} onUpdateDesignTask={sales.updateDesignTask} /></Allowed>} />
             <Route path="/leads" element={<Allowed permission="customers.own"><LeadsPage customers={visibleCustomers} onAddCustomers={(customers) => sales.addCustomers(customers.map((customer) => activeMember.role === 'operations' ? { ...customer, sourceService: activeMember.name } : customer))} /></Allowed>} />
             <Route path="/quality" element={<Allowed permission="store.analytics"><AIQualityPage customers={sales.customers} followUps={sales.followUps} /></Allowed>} />
@@ -122,7 +125,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
             <Route path="/coaching" element={<Allowed permission="coaching"><CoachingCenterPage customers={sales.customers} followUps={sales.followUps} /></Allowed>} />
             <Route path="/insights" element={<Allowed permission="store.analytics"><SalesInsightsPage customers={sales.customers} followUps={sales.followUps} /></Allowed>} />
             <Route path="/team" element={<Allowed permission="members.manage"><TeamAccessPage /></Allowed>} />
-            <Route path="/data-admin" element={<Allowed permission="data.manage"><DataAdminPage customers={sales.customers} followUps={sales.followUps} auditEvents={sales.auditEvents.map((item) => ({ id: String(item.id), action: `${item.action} ${item.resource}`, at: item.createdAt, detail: JSON.stringify(item.details) }))} connectionStatus={connectionStatus} onRestoreBackup={(backup) => sales.replaceState({ customers: backup.customers, followUps: backup.followUps, designTasks: sales.designTasks })} integrationSettings={{ corpId: String(wechat.corpId ?? ''), agentId: String(wechat.agentId ?? ''), secretConfigured: Boolean(wechat.secretConfigured || wechat.secret) }} onSaveIntegration={async (settings) => sales.saveIntegrations({ ...sales.integrationSettings, wechat: { ...wechat, corpId: settings.corpId, agentId: settings.agentId, ...(settings.secret ? { secret: settings.secret } : {}), secretConfigured: Boolean(settings.secret || wechat.secretConfigured || wechat.secret), status: 'pending' } })} /></Allowed>} />
+            <Route path="/data-admin" element={<Allowed permission="data.manage"><DataAdminPage customers={sales.customers} followUps={sales.followUps} orders={sales.orders} deliveryTasks={sales.deliveryTasks} afterSalesTickets={sales.afterSalesTickets} auditEvents={sales.auditEvents.map((item) => ({ id: String(item.id), action: `${item.action} ${item.resource}`, at: item.createdAt, detail: JSON.stringify(item.details) }))} connectionStatus={connectionStatus} onRestoreBackup={(backup) => sales.replaceState({ customers: backup.customers, followUps: backup.followUps, designTasks: sales.designTasks, orders: backup.orders ?? [], deliveryTasks: backup.deliveryTasks ?? [], afterSalesTickets: backup.afterSalesTickets ?? [] })} integrationSettings={{ corpId: String(wechat.corpId ?? ''), agentId: String(wechat.agentId ?? ''), secretConfigured: Boolean(wechat.secretConfigured || wechat.secret) }} onSaveIntegration={async (settings) => sales.saveIntegrations({ ...sales.integrationSettings, wechat: { ...wechat, corpId: settings.corpId, agentId: settings.agentId, ...(settings.secret ? { secret: settings.secret } : {}), secretConfigured: Boolean(settings.secret || wechat.secretConfigured || wechat.secret), status: 'pending' } })} /></Allowed>} />
             <Route path="/more" element={<MorePage items={visibleNavigation} />} />
             <Route path="*" element={<Navigate to={getDefaultRoute(activeMember)} replace />} />
           </Routes>

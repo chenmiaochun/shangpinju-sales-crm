@@ -1,4 +1,4 @@
-import type { Customer, DesignTask, FollowUp } from '../types'
+import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, FollowUp, SalesOrder } from '../types'
 import type { AccessPermission } from '../features/team/access'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3001').replace(/\/$/, '') + '/api'
@@ -6,7 +6,14 @@ const STATIC_DEMO = import.meta.env.VITE_STATIC_DEMO === 'true'
 const STATIC_ACCOUNTS_KEY = 'shangpinju.static-accounts.v1'
 const STATIC_SESSION_KEY = 'shangpinju.static-session.v1'
 
-export interface RemoteSalesState { customers: Customer[]; followUps: FollowUp[]; designTasks: DesignTask[] }
+export interface RemoteSalesState {
+  customers: Customer[]
+  followUps: FollowUp[]
+  designTasks: DesignTask[]
+  orders: SalesOrder[]
+  deliveryTasks: DeliveryTask[]
+  afterSalesTickets: AfterSalesTicket[]
+}
 export interface RemoteAuditEvent { id: number; action: string; resource: string; details: Record<string, unknown>; createdAt: string }
 export type AccountRole = 'manager' | 'sales' | 'designer' | 'operations' | 'aftersales'
 export interface RemoteAccount {
