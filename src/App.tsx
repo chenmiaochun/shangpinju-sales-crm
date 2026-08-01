@@ -1,5 +1,5 @@
-import { useMemo, type ReactNode } from 'react'
-import { BarChart3, Bell, Bot, ChartNoAxesCombined, ChevronDown, ClipboardList, ContactRound, Database, GraduationCap, LayoutGrid, ListChecks, LogOut, MessageSquareText, Search, Settings, UserCog, UserPlus } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { BarChart3, Bell, Bot, ChartNoAxesCombined, CheckCheck, ChevronDown, ChevronRight, ClipboardList, ContactRound, Database, GraduationCap, LayoutGrid, ListChecks, LogOut, MessageSquareText, Search, Settings, UserCog, UserPlus, X } from 'lucide-react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AIQualityPage } from './features/ai'
 import { CustomersPage } from './features/customers'
@@ -51,10 +51,23 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
   const sales = useSalesData()
   const auth = useAuth()
   const access = useRoleAccess()
+  const [topbarPanel, setTopbarPanel] = useState<'notifications' | 'settings' | null>(null)
+  const [notificationsRead, setNotificationsRead] = useState(false)
   const visibleNavigation = navigation.filter((item) => canUseItem(access.can, item))
   const visibleCustomers = useMemo(() => sales.customers.filter((customer) => canAccessCustomer(activeMember, customer)), [activeMember, sales.customers])
   const visibleIds = useMemo(() => new Set(visibleCustomers.map((item) => item.id)), [visibleCustomers])
   const visibleFollowUps = sales.followUps.filter((item) => visibleIds.has(item.customerId))
+  const notifications = useMemo(() => {
+    const now = new Date()
+    const overdue = visibleCustomers.filter((customer) => customer.nextFollowUpAt && new Date(customer.nextFollowUpAt) < now && customer.stage !== '已成交' && customer.stage !== '已流失').length
+    const today = visibleCustomers.filter((customer) => customer.nextFollowUpAt && new Date(customer.nextFollowUpAt).toDateString() === now.toDateString() && customer.stage !== '已成交' && customer.stage !== '已流失').length
+    const design = sales.designTasks.filter((task) => task.status === '待接收' && (activeMember.role === 'manager' || task.designerId === activeMember.id || task.designerName === activeMember.name)).length
+    return [
+      overdue ? { id: 'overdue', title: `${overdue} 位客户跟进已逾期`, detail: '请尽快联系并更新下一步计划', to: '/customers' } : null,
+      today ? { id: 'today', title: `今日还有 ${today} 项跟进`, detail: '完成后及时登记沟通结果', to: '/tasks' } : null,
+      design ? { id: 'design', title: `${design} 项设计任务待接收`, detail: '查看需求与计划完成时间', to: '/tasks' } : null,
+    ].filter((item): item is { id: string; title: string; detail: string; to: string } => Boolean(item))
+  }, [activeMember.id, activeMember.name, activeMember.role, sales.designTasks, visibleCustomers])
   const mergeVisibleState = (next: { customers: typeof sales.customers; followUps: typeof sales.followUps }) => {
     const updates = new Map(next.customers.map((item) => [item.id, item]))
     sales.replaceState({ customers: sales.customers.map((item) => updates.get(item.id) ?? item), followUps: [...next.followUps, ...sales.followUps.filter((item) => !visibleIds.has(item.customerId))], designTasks: sales.designTasks })
@@ -81,10 +94,21 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
         <header className="app-topbar">
           <div className="topbar-search"><Search size={17} /><span>搜索客户、手机号或产品</span></div>
           <div className="topbar-actions">
-            <button type="button" title="消息提醒"><Bell size={19} /><i>3</i></button>
-            <button type="button" title="系统设置"><Settings size={19} /></button>
+            <button type="button" title="消息提醒" aria-label="消息提醒" aria-expanded={topbarPanel === 'notifications'} onClick={() => setTopbarPanel((current) => current === 'notifications' ? null : 'notifications')}><Bell size={19} />{!notificationsRead && notifications.length > 0 && <i>{notifications.length}</i>}</button>
+            <button type="button" title="系统设置" aria-label="系统设置" aria-expanded={topbarPanel === 'settings'} onClick={() => setTopbarPanel((current) => current === 'settings' ? null : 'settings')}><Settings size={19} /></button>
             <button type="button" title="退出登录" aria-label="退出登录" onClick={() => void auth.logout()}><LogOut size={19} /></button>
           </div>
+          {topbarPanel === 'notifications' && <TopbarPanel title="消息提醒" onClose={() => setTopbarPanel(null)} footer={notifications.length > 0 && !notificationsRead ? <button className="panel-text-action" onClick={() => setNotificationsRead(true)}><CheckCheck size={15}/>全部标记已读</button> : undefined}>
+            {notifications.length ? <div className="notification-list">{notifications.map((item) => <NavLink key={item.id} to={item.to} onClick={() => setTopbarPanel(null)}><span className={!notificationsRead ? 'unread-dot' : ''}/><div><strong>{item.title}</strong><small>{item.detail}</small></div><ChevronRight size={15}/></NavLink>)}</div> : <div className="topbar-empty"><CheckCheck size={23}/><strong>暂无新提醒</strong><span>当前跟进安排正常</span></div>}
+          </TopbarPanel>}
+          {topbarPanel === 'settings' && <TopbarPanel title="系统设置" onClose={() => setTopbarPanel(null)}>
+            <div className="settings-summary"><span>{activeMember.name.slice(0, 1)}</span><div><strong>{activeMember.name}</strong><small>{ROLE_LABELS[activeMember.role]} · {sales.serverStatus === 'connected' ? '数据已同步' : '当前为离线模式'}</small></div></div>
+            <nav className="settings-links" aria-label="系统设置快捷入口">
+              {access.can('members.manage') && <NavLink to="/team" onClick={() => setTopbarPanel(null)}><UserCog size={17}/><span><strong>成员与权限</strong><small>管理员工账号及岗位权限</small></span><ChevronRight size={15}/></NavLink>}
+              {access.can('data.manage') && <NavLink to="/data-admin" onClick={() => setTopbarPanel(null)}><Database size={17}/><span><strong>数据管理</strong><small>备份、恢复及系统接入</small></span><ChevronRight size={15}/></NavLink>}
+              {!access.can('members.manage') && !access.can('data.manage') && <div className="topbar-empty"><Settings size={22}/><strong>暂无可配置项目</strong><span>如需调整权限，请联系店长</span></div>}
+            </nav>
+          </TopbarPanel>}
         </header>
         <div className="app-content">
           <Routes>
@@ -115,6 +139,10 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
       </nav>
     </div>
   )
+}
+
+function TopbarPanel({ title, onClose, footer, children }: { title: string; onClose: () => void; footer?: ReactNode; children: ReactNode }) {
+  return <section className="topbar-panel" aria-label={title}><header><strong>{title}</strong><button type="button" onClick={onClose} aria-label={`关闭${title}`}><X size={16}/></button></header><div className="topbar-panel-body">{children}</div>{footer && <footer>{footer}</footer>}</section>
 }
 
 export function App() {

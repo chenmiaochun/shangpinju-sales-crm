@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from './App'
@@ -13,6 +13,16 @@ describe('App routes', () => {
   it('renders the manager dashboard', () => {
     renderAt('/dashboard')
     expect(screen.getByRole('heading', { name: '经营总览' })).toBeTruthy()
+  })
+
+  it('opens notifications and system settings from the top bar', () => {
+    renderAt('/dashboard')
+    fireEvent.click(screen.getByRole('button', { name: '消息提醒' }))
+    expect(screen.getByRole('region', { name: '消息提醒' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '系统设置' }))
+    const settings = screen.getByRole('region', { name: '系统设置' })
+    expect(within(settings).getByRole('link', { name: /成员与权限/ })).toBeTruthy()
+    expect(within(settings).getByRole('link', { name: /数据管理/ })).toBeTruthy()
   })
 
   it('renders the customer follow-up workspace', () => {
