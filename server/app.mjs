@@ -115,6 +115,7 @@ export function createApiServer({ database, maxBodyBytes = 1_048_576, corsOrigin
       if (req.method === 'GET' && url.pathname === '/api/accounts') { requireManager(); return send(200, { accounts: database.listAccounts() }) }
       if (req.method === 'GET' && url.pathname === '/api/designers') return send(200, { designers: database.listAccounts().filter(item => (item.role === 'designer' || item.canDesign) && item.active) })
       if (req.method === 'GET' && url.pathname === '/api/salespeople') return send(200, { salespeople: database.listAccounts().filter(item => item.role === 'sales' && item.active) })
+      if (req.method === 'GET' && url.pathname === '/api/delivery-staff') return send(200, { deliveryStaff: database.listAccounts().filter(item => item.role === 'aftersales' && item.active) })
       if (req.method === 'POST' && url.pathname === '/api/accounts') {
         requireManager()
         try { return send(201, { account: database.createAccount(await readJson(req, maxBodyBytes)) }) }

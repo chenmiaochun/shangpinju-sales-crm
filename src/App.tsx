@@ -56,7 +56,10 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
   const [topbarPanel, setTopbarPanel] = useState<'notifications' | 'settings' | null>(null)
   const [notificationsRead, setNotificationsRead] = useState(false)
   const visibleNavigation = navigation.filter((item) => canUseItem(access.can, item))
-  const visibleCustomers = useMemo(() => sales.customers.filter((customer) => canAccessCustomer(activeMember, customer)), [activeMember, sales.customers])
+  const visibleCustomers = useMemo(() => {
+    const assignedDeliveryCustomerIds = new Set(sales.deliveryTasks.filter((task) => task.ownerId === activeMember.id || task.owner === activeMember.name).map((task) => task.customerId))
+    return sales.customers.filter((customer) => canAccessCustomer(activeMember, customer) || (activeMember.role === 'aftersales' && assignedDeliveryCustomerIds.has(customer.id)))
+  }, [activeMember, sales.customers, sales.deliveryTasks])
   const visibleIds = useMemo(() => new Set(visibleCustomers.map((item) => item.id)), [visibleCustomers])
   const visibleFollowUps = sales.followUps.filter((item) => visibleIds.has(item.customerId))
   const notifications = useMemo(() => {
@@ -64,12 +67,14 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
     const overdue = visibleCustomers.filter((customer) => customer.nextFollowUpAt && new Date(customer.nextFollowUpAt) < now && customer.stage !== '已成交' && customer.stage !== '已流失').length
     const today = visibleCustomers.filter((customer) => customer.nextFollowUpAt && new Date(customer.nextFollowUpAt).toDateString() === now.toDateString() && customer.stage !== '已成交' && customer.stage !== '已流失').length
     const design = sales.designTasks.filter((task) => task.status === '待接收' && (activeMember.role === 'manager' || task.designerId === activeMember.id || task.designerName === activeMember.name)).length
+    const delivery = sales.deliveryTasks.filter((task) => task.status !== '已完成' && (activeMember.role === 'manager' || task.ownerId === activeMember.id || task.owner === activeMember.name)).length
     return [
       overdue ? { id: 'overdue', title: `${overdue} 位客户跟进已逾期`, detail: '请尽快联系并更新下一步计划', to: '/customers' } : null,
       today ? { id: 'today', title: `今日还有 ${today} 项跟进`, detail: '完成后及时登记沟通结果', to: '/tasks' } : null,
       design ? { id: 'design', title: `${design} 项设计任务待接收`, detail: '查看需求与计划完成时间', to: '/tasks' } : null,
+      delivery ? { id: 'delivery', title: `${delivery} 项交付任务待处理`, detail: '查看排期、送货安装和验收进度', to: '/lifecycle' } : null,
     ].filter((item): item is { id: string; title: string; detail: string; to: string } => Boolean(item))
-  }, [activeMember.id, activeMember.name, activeMember.role, sales.designTasks, visibleCustomers])
+  }, [activeMember.id, activeMember.name, activeMember.role, sales.deliveryTasks, sales.designTasks, visibleCustomers])
   const mergeVisibleState = (next: { customers: typeof sales.customers; followUps: typeof sales.followUps }) => {
     const updates = new Map(next.customers.map((item) => [item.id, item]))
     sales.replaceState({ customers: sales.customers.map((item) => updates.get(item.id) ?? item), followUps: [...next.followUps, ...sales.followUps.filter((item) => !visibleIds.has(item.customerId))], designTasks: sales.designTasks, orders: sales.orders, deliveryTasks: sales.deliveryTasks, afterSalesTickets: sales.afterSalesTickets, supplyDemands: sales.supplyDemands })
@@ -115,7 +120,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
         <div className="app-content">
           <Routes>
             <Route path="/dashboard" element={<Allowed permission="store.analytics"><ManagerDashboard customers={sales.customers} followUps={sales.followUps} /></Allowed>} />
-            <Route path="/customers" element={<CustomerAllowed><CustomersPage customers={visibleCustomers} followUps={visibleFollowUps} designers={sales.designers} salespeople={sales.salespeople} activeMember={activeMember} onStateChange={mergeVisibleState} onRegisterDeal={sales.registerDeal} onAddDesignTask={(task) => { sales.addDesignTask(task); sales.updateCustomer(task.customerId, { designerId: task.designerId, designer: task.designerName }) }} /></CustomerAllowed>} />
+            <Route path="/customers" element={<CustomerAllowed><CustomersPage customers={visibleCustomers} followUps={visibleFollowUps} designers={sales.designers} salespeople={sales.salespeople} deliveryStaff={sales.deliveryStaff} activeMember={activeMember} onStateChange={mergeVisibleState} onRegisterDeal={sales.registerDeal} onAddDesignTask={(task) => { sales.addDesignTask(task); sales.updateCustomer(task.customerId, { designerId: task.designerId, designer: task.designerName }) }} /></CustomerAllowed>} />
             <Route path="/lifecycle" element={<CustomerAllowed><LifecyclePage customers={visibleCustomers} orders={sales.orders.filter((item) => visibleIds.has(item.customerId))} deliveryTasks={sales.deliveryTasks.filter((item) => visibleIds.has(item.customerId))} afterSalesTickets={sales.afterSalesTickets.filter((item) => visibleIds.has(item.customerId))} activeUser={activeMember.name} onAddOrder={sales.addOrder} onUpdateOrder={sales.updateOrder} onAddPayment={sales.addPayment} onAddDelivery={sales.addDeliveryTask} onUpdateDelivery={sales.updateDeliveryTask} onAddTicket={sales.addAfterSalesTicket} onUpdateTicket={sales.updateAfterSalesTicket} /></CustomerAllowed>} />
             <Route path="/tasks" element={<Allowed permission="tasks.own"><TaskCenterPage customers={visibleCustomers} followUps={visibleFollowUps} designTasks={sales.designTasks} activeMember={activeMember} onCompleteTask={sales.addFollowUp} onUpdateDesignTask={sales.updateDesignTask} /></Allowed>} />
             <Route path="/leads" element={<Allowed permission="customers.own"><LeadsPage customers={visibleCustomers} onAddCustomers={(customers) => sales.addCustomers(customers.map((customer) => activeMember.role === 'operations' ? { ...customer, sourceService: activeMember.name } : customer))} /></Allowed>} />

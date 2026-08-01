@@ -35,12 +35,17 @@ export interface UpdateAccountInput { username: string; name: string; role: Acco
 
 const defaultStaticAccounts: RemoteAccount[] = [
   { id: 'static-manager', username: 'manager', name: '访客店长', role: 'manager', active: true, mustChangePassword: false, phone: '', createdAt: new Date().toISOString() },
+  { id: 'static-aftersales', username: 'delivery', name: '售后配送组', role: 'aftersales', active: true, mustChangePassword: false, phone: '', createdAt: new Date().toISOString() },
 ]
 type StaticAccount = RemoteAccount & { password?: string }
 function loadStaticAccounts() {
   try {
     const value = localStorage.getItem(STATIC_ACCOUNTS_KEY)
-    if (value) return (JSON.parse(value) as StaticAccount[]).map((account) => ({ ...account, password: account.password ?? '123456' }))
+    if (value) {
+      const saved = (JSON.parse(value) as StaticAccount[]).map((account) => ({ ...account, password: account.password ?? '123456' }))
+      const missingDefaults = defaultStaticAccounts.filter((account) => !saved.some((item) => item.username === account.username)).map((account) => ({ ...account, password: '123456' }))
+      return [...saved, ...missingDefaults]
+    }
   } catch { /* Use demo account. */ }
   return defaultStaticAccounts.map((account) => ({ ...account, password: '123456' }))
 }
@@ -93,6 +98,7 @@ export const salesApi = {
   getAccounts: () => STATIC_DEMO ? Promise.resolve({ accounts: loadStaticAccounts().map(publicStaticAccount) }) : request<{ accounts: RemoteAccount[] }>('/accounts'),
   getDesigners: () => STATIC_DEMO ? Promise.resolve({ designers: loadStaticAccounts().filter((item) => (item.role === 'designer' || item.canDesign) && item.active).map(publicStaticAccount) }) : request<{ designers: RemoteAccount[] }>('/designers'),
   getSalespeople: () => STATIC_DEMO ? Promise.resolve({ salespeople: loadStaticAccounts().filter((item) => item.role === 'sales' && item.active).map(publicStaticAccount) }) : request<{ salespeople: RemoteAccount[] }>('/salespeople'),
+  getDeliveryStaff: () => STATIC_DEMO ? Promise.resolve({ deliveryStaff: loadStaticAccounts().filter((item) => item.role === 'aftersales' && item.active).map(publicStaticAccount) }) : request<{ deliveryStaff: RemoteAccount[] }>('/delivery-staff'),
   createAccount: (input: CreateAccountInput) => {
     if (!STATIC_DEMO) return request<{ account: RemoteAccount }>('/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
     const accounts = loadStaticAccounts(); if (accounts.some((item) => item.username.toLowerCase() === input.username.toLowerCase())) staticAccountError('API 409', 409)

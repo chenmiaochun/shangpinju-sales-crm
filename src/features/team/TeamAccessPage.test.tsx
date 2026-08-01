@@ -22,7 +22,7 @@ describe('TeamAccessPage', () => {
     expect(screen.getByRole('heading', { name: '员工权限设置' })).toBeInTheDocument()
     expect(screen.getByText('店长固定拥有全部权限')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: '本人客户' })).toBeDisabled()
-    expect(screen.queryByText('售后')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '售后 0' })).toBeInTheDocument()
   })
 
   it('can disable an account', async () => {

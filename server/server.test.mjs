@@ -73,6 +73,13 @@ test('manager can register operations and aftersales employees', async () => {
   }
 })
 
+test('employees can list active delivery staff', async () => {
+  const created = await json('/api/accounts', { method: 'POST', body: JSON.stringify({ username: 'delivery-directory', password: 'delivery-pass-123', name: '配送专员', role: 'aftersales' }) })
+  const listed = await json('/api/delivery-staff', { headers: { cookie: salesCookie } })
+  assert.equal(listed.status, 200)
+  assert.ok(listed.body.deliveryStaff.some(item => item.id === created.body.account.id && item.name === '配送专员'))
+})
+
 test('health and CORS', async () => { const r = await json('/api/health'); assert.equal(r.status, 200); assert.equal(r.body.ok, true); assert.equal(r.headers.get('access-control-allow-origin'), '*') })
 test('state round trip and audit', async () => {
   assert.deepEqual((await put('/api/state', { pipeline: ['new'] })).body.value, { pipeline: ['new'] })

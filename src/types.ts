@@ -107,11 +107,24 @@ export type SupplyDemandStatus = '待处理' | '已锁定' | '采购中' | '生�
 
 export interface OrderItem {
   id: string
+  productId?: string
+  sku?: string
   productName: string
   specification?: string
   quantity: number
   unitPrice: number
   supplyType: SupplyType
+  availableStock?: number
+}
+
+export interface ProductCatalogItem {
+  id: string
+  sku: string
+  name: string
+  specifications: string[]
+  unitPrice: number
+  supplyType: SupplyType
+  availableStock: number
 }
 
 export interface SupplyDemand {
@@ -176,6 +189,7 @@ export interface DeliveryTask {
   scheduledAt?: string
   status: DeliveryStatus
   owner: string
+  ownerId?: string
   installer?: string
   acceptanceNote?: string
   completedAt?: string
