@@ -10,7 +10,7 @@ describe('LeadsPage customer intake', () => {
     fireEvent.change(screen.getByLabelText('姓名 *'), { target: { value: '林女士' } })
     fireEvent.change(screen.getByLabelText('电话'), { target: { value: '13800138000' } })
     fireEvent.change(screen.getByLabelText('负责人 *'), { target: { value: '陈婉珊' } })
-    fireEvent.change(screen.getByLabelText('预算范围 *'), { target: { value: '5-8 万' } })
+    fireEvent.change(screen.getByLabelText('预算范围'), { target: { value: '5-8 万' } })
     fireEvent.change(screen.getByRole('spinbutton', { name: '初步报价金额 元' }), { target: { value: '58000' } })
     fireEvent.change(screen.getByLabelText('报价说明'), { target: { value: '客厅家具组合' } })
     fireEvent.change(screen.getByLabelText('优惠类型'), { target: { value: '节日活动' } })
@@ -21,7 +21,7 @@ describe('LeadsPage customer intake', () => {
     fireEvent.change(upload!, { target: { files: [new File(['plan'], '户型图.pdf', { type: 'application/pdf' })] } })
     expect(screen.getByText('户型图.pdf')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: '新增客户' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存并进入客户跟进' }))
 
     const customer = onAddCustomers.mock.calls[0][0][0]
     expect(customer).toMatchObject({
@@ -35,6 +35,17 @@ describe('LeadsPage customer intake', () => {
     expect(customer.businessFiles).toEqual([
       expect.objectContaining({ name: '户型图.pdf', type: 'application/pdf' }),
     ])
+  })
+
+  it('allows an unknown budget and reports the actual required fields', () => {
+    const onAddCustomers = vi.fn()
+    render(<LeadsPage customers={[]} onAddCustomers={onAddCustomers} />)
+    fireEvent.click(screen.getByRole('button', { name: '保存并进入客户跟进' }))
+    expect(screen.getByRole('status').textContent).toContain('姓名、负责人')
+    fireEvent.change(screen.getByLabelText('姓名 *'), { target: { value: '陈女士' } })
+    fireEvent.change(screen.getByLabelText('负责人 *'), { target: { value: '陈婉珊' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存并进入客户跟进' }))
+    expect(onAddCustomers.mock.calls[0][0][0]).toMatchObject({ name: '陈女士', budget: '待确认', expectedAmount: 0 })
   })
 
   it('renders the compact follow-up data fields without legacy style fields', () => {

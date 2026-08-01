@@ -7,12 +7,12 @@ import './leads.css'
 
 export interface LeadsPageProps { customers: Customer[]; onAddCustomers: (customers: Customer[]) => void }
 type FormState = { name: string; phone: string; source: string; salesperson: string; products: string[]; budget: string; renovationProgress: string; cityArea: string; vehicleBrand: string; customerStatus: string; nextFollowUpAt: string; notes: string; avatarDataUrl: string; initialQuote: string; quoteDescription: string; discountType: string; discountDetails: string; businessFiles: CustomerFile[] }
-const initialForm: FormState = { name: '', phone: '', source: '', salesperson: '', products: [], budget: '', renovationProgress: '', cityArea: '', vehicleBrand: '', customerStatus: '', nextFollowUpAt: '', notes: '', avatarDataUrl: '', initialQuote: '', quoteDescription: '', discountType: '', discountDetails: '', businessFiles: [] }
+const initialForm: FormState = { name: '', phone: '', source: '', salesperson: '', products: [], budget: '待确认', renovationProgress: '', cityArea: '', vehicleBrand: '', customerStatus: '', nextFollowUpAt: '', notes: '', avatarDataUrl: '', initialQuote: '', quoteDescription: '', discountType: '', discountDetails: '', businessFiles: [] }
 const SOURCES = ['抖音', '小红书', '视频号', '门店自然到店', '老客户转介绍', '设计师推荐', '异业合作', '其他']
 const CITY_AREAS = ['揭阳', '汕头', '深圳', '潮州', '其他']
 const SALESPEOPLE = ['陈婉珊', '吴漫东', '郭予旭', '其他']
 const PRODUCTS = ['沙发', '茶台', '餐桌', '床', '全屋定制', '其他']
-const BUDGETS = ['2 万以下', '2-5 万', '5-8 万', '8-15 万', '15 万以上']
+const BUDGETS = ['待确认', '2 万以下', '2-5 万', '5-8 万', '8-15 万', '15 万以上']
 const BUDGET_AMOUNTS: Record<string, number> = { '2 万以下': 20000, '2-5 万': 50000, '5-8 万': 80000, '8-15 万': 150000, '15 万以上': 200000 }
 const RENOVATION_PROGRESS = ['未开工', '硬装中', '硬装完成', '已入住补购', '未交房']
 const CUSTOMER_STATUS = ['首次到店', '持续跟进', '已成交', '已流失']
@@ -33,6 +33,8 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
   function update<K extends keyof FormState>(key: K, value: FormState[K]) { setForm((current) => ({ ...current, [key]: value })) }
   function submit(event: FormEvent) {
     event.preventDefault()
+    const missing = [!form.name.trim() && '姓名', !form.salesperson && '负责人'].filter(Boolean)
+    if (missing.length) { setNotice(`请先补充：${missing.join('、')}`); return }
     const now = new Date()
     const quote = Number(form.initialQuote)
     const customer: Customer = { id: `lead-${now.getTime()}`, name: form.name.trim(), phone: form.phone.trim(), source: form.source, salesperson: form.salesperson, stage: STATUS_STAGE[form.customerStatus] ?? '新线索', intent: form.customerStatus === '已成交' ? '高' : '中', expectedAmount: quote > 0 ? quote : BUDGET_AMOUNTS[form.budget] ?? 0, products: form.products, style: '', budget: form.budget, renovationProgress: form.renovationProgress, concerns: [], cityArea: form.cityArea, vehicleBrand: form.vehicleBrand, notes: form.notes.trim(), avatarDataUrl: form.avatarDataUrl || undefined, initialQuote: quote > 0 ? quote : undefined, quoteDescription: form.quoteDescription.trim() || undefined, discountType: form.discountType || undefined, discountDetails: form.discountDetails.trim() || undefined, businessFiles: form.businessFiles, lastContactAt: now.toISOString(), nextFollowUpAt: form.nextFollowUpAt ? new Date(`${form.nextFollowUpAt}T09:00:00`).toISOString() : undefined, createdAt: now.toISOString().slice(0, 10) }
@@ -75,11 +77,11 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
     <main className="leads-layout">
       <section className="leads-panel">
         <div className="panel-heading"><Plus size={19} /><div><h2>新增客户</h2><p>建立一条可立即跟进的新线索</p></div></div>
-        <form className="lead-form" onSubmit={submit}>
+        <form className="lead-form" noValidate onSubmit={submit}>
           <div className="form-section-title"><strong>基础信息</strong><span>客户身份与归属</span></div>
           <div className="basic-grid full-width"><div className="basic-column"><Field label="姓名" required><input required value={form.name} onChange={(e) => update('name', e.target.value)} /></Field><Field label="所在城市"><ChoiceSelect value={form.cityArea} options={CITY_AREAS} placeholder="请选择城市" onChange={(value) => update('cityArea', value)} /></Field></div><div className="basic-column"><AvatarUpload value={form.avatarDataUrl} inputRef={avatarInput} onSelect={(file) => void selectAvatar(file)} onDelete={() => update('avatarDataUrl', '')}/><Field label="电话"><input type="tel" pattern="[+0-9][0-9 -]{5,19}" value={form.phone} onChange={(e) => update('phone', e.target.value)} placeholder="选填" /></Field><Field label="负责人" required><ChoiceSelect required value={form.salesperson} options={SALESPEOPLE} placeholder="请选择负责人" onChange={(value) => update('salesperson', value)} /></Field></div></div>
           <div className="form-section-title"><strong>业务信息</strong><span>跟进判断与客户需求</span></div>
-          <Field label="预算范围" required><ChoiceSelect required value={form.budget} options={BUDGETS} placeholder="请选择预算" onChange={(value) => update('budget', value)} /></Field>
+          <Field label="预算范围"><ChoiceSelect value={form.budget} options={BUDGETS} onChange={(value) => update('budget', value)} /></Field>
           <ProductSelect values={form.products} onChange={(values) => update('products', values)} />
           <Field label="客户来源"><ChoiceSelect value={form.source} options={SOURCES} placeholder="请选择客户来源" onChange={(value) => update('source', value)} /></Field>
           <Field label="客户状态"><ChoiceSelect value={form.customerStatus} options={CUSTOMER_STATUS} placeholder="请选择客户状态" onChange={(value) => update('customerStatus', value)} /></Field>
@@ -91,7 +93,7 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
           <div className="followup-column"><Field label="优惠类型"><ChoiceSelect value={form.discountType} options={DISCOUNT_TYPES} placeholder="请选择优惠类型" onChange={(value) => update('discountType', value)}/></Field><Field label="优惠详情"><input value={form.discountDetails} onChange={(event) => update('discountDetails', event.target.value)} placeholder="例：满减 5000、整单 95 折"/></Field></div>
           <BusinessFileUpload files={form.businessFiles} inputRef={businessFileInput} onAdd={addBusinessFiles} onDrop={dropBusinessFiles} onDelete={(id) => update('businessFiles', form.businessFiles.filter((file) => file.id !== id))}/>
           <Field label="备注" className="full-width"><textarea rows={2} value={form.notes} onChange={(event) => update('notes', event.target.value)} placeholder="可填写客户特殊需求、到店细节等补充信息" /></Field>
-          <button className="primary form-submit" type="submit"><Plus size={17} />新增客户</button>
+          <div className="form-submit"><span>仅姓名和负责人为必填项，其他信息可以后续补充</span><button className="primary" type="submit"><Plus size={17} />保存并进入客户跟进</button></div>
         </form>
       </section>
       <section className="leads-panel import-panel">
