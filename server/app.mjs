@@ -78,10 +78,12 @@ export function createApiServer({ database, maxBodyBytes = 1_048_576, corsOrigin
     const allowOrigin = corsOrigin === '*' ? '*' : corsOrigin
     const headers = { ...JSON_TYPE, 'access-control-allow-origin': allowOrigin, 'access-control-allow-methods': 'GET, PUT, POST, PATCH, OPTIONS', 'access-control-allow-headers': 'Content-Type', ...(allowOrigin === '*' ? {} : { 'access-control-allow-credentials': 'true', vary: 'Origin' }) }
     const send = (status, body, extra = {}) => { res.writeHead(status, { ...headers, ...extra }); res.end(body === undefined ? undefined : JSON.stringify(body)) }
-    const cookie = (value, maxAge) => `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secureCookies ? '; Secure' : ''}`
+    const cookie = (value, maxAge) => `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=${secureCookies ? 'None' : 'Lax'}; Max-Age=${maxAge}${secureCookies ? '; Secure' : ''}`
     const unsafe = !['GET', 'HEAD', 'OPTIONS'].includes(req.method)
     const crossSite = req.headers['sec-fetch-site'] === 'cross-site'
-    if ((requestOrigin && corsOrigin !== '*' && requestOrigin !== corsOrigin) || (unsafe && crossSite)) return send(403, { error: { code: 'ORIGIN_FORBIDDEN', message: 'Request origin is not allowed' } })
+    if (requestOrigin && corsOrigin !== '*' && requestOrigin !== corsOrigin) return send(403, { error: { code: 'ORIGIN_FORBIDDEN', message: 'Request origin is not allowed' } })
+    if (unsafe && corsOrigin !== '*' && !requestOrigin) return send(403, { error: { code: 'ORIGIN_REQUIRED', message: 'Request origin is required' } })
+    if (unsafe && corsOrigin === '*' && crossSite) return send(403, { error: { code: 'ORIGIN_FORBIDDEN', message: 'Request origin is not allowed' } })
     if (req.method === 'OPTIONS') return send(204)
     try {
       const url = new URL(req.url, 'http://localhost')

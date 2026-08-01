@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: shangpinju-sales-api
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SALES_DATA_DIR
+        value: /var/data
+      - key: SALES_CORS_ORIGIN
+        value: https://chenmiaochun.github.io
+      - key: SALES_ADMIN_USERNAME
+        value: manager
+      - key: SALES_ADMIN_NAME
+        value: 店长
+      - key: SALES_ADMIN_PASSWORD
+        sync: false
+    disk:
+      name: sales-data
+      mountPath: /var/data
+      sizeGB: 1

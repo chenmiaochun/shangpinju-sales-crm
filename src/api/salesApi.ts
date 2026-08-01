@@ -1,7 +1,7 @@
 import type { Customer, DesignTask, FollowUp } from '../types'
 import type { AccessPermission } from '../features/team/access'
 
-const API_BASE = 'http://127.0.0.1:3001/api'
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3001').replace(/\/$/, '') + '/api'
 const STATIC_DEMO = import.meta.env.VITE_STATIC_DEMO === 'true'
 const STATIC_ACCOUNTS_KEY = 'shangpinju.static-accounts.v1'
 const STATIC_SESSION_KEY = 'shangpinju.static-session.v1'
