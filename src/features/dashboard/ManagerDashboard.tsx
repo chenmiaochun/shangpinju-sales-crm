@@ -53,7 +53,7 @@ export function getDashboardSummary(items: Customer[], now = new Date()): Dashbo
     (customer) => !customer.nextFollowUpAt && now.getTime() - new Date(customer.lastContactAt).getTime() >= 3 * DAY,
   )
   const won = items.filter((customer) => WON_STAGES.includes(customer.stage)).length
-  const completed = items.filter((customer) => customer.stage === '已成交')
+  const completed = items.filter((customer) => (customer.dealAmount ?? 0) > 0 || customer.stage === '已成交')
   const revenueAmount = completed.reduce((sum, customer) => sum + (customer.dealAmount ?? customer.expectedAmount), 0)
   const paidAmount = completed.reduce((sum, customer) => sum + (customer.paidAmount ?? 0), 0)
   const marketingCustomers = completed.filter((customer) => customer.marketingStatus !== '暂不营销')

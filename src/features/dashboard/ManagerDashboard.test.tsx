@@ -48,4 +48,12 @@ describe('ManagerDashboard', () => {
     expect(summary).toMatchObject({ completedCustomers: 2, revenueAmount: 180000, paidAmount: 140000, receivableAmount: 40000, averageOrderValue: 90000 })
     expect(summary.marketingCustomers.map((customer) => customer.id)).toEqual(['won-1'])
   })
+
+  it('counts a deal registered during follow-up before final delivery completion', () => {
+    const registered = [{ ...customers[0], stage: '已定金' as const, dealAmount: 98000, paidAmount: 20000, marketingStatus: '待回访' as const }]
+    const summary = getDashboardSummary(registered, now)
+
+    expect(summary).toMatchObject({ completedCustomers: 1, revenueAmount: 98000, paidAmount: 20000, receivableAmount: 78000, averageOrderValue: 98000 })
+    expect(summary.marketingCustomers).toHaveLength(1)
+  })
 })
