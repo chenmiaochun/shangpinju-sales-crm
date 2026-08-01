@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   UserRound,
   FileUp,
+  HandCoins,
   Trash2,
   X,
 } from 'lucide-react'
@@ -93,6 +94,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
   const [taskFilter, setTaskFilter] = useState<'全部' | '待跟进' | '已逾期'>('全部')
   const [formOpen, setFormOpen] = useState(false)
   const [handoffOpen, setHandoffOpen] = useState(false)
+  const [dealOpen, setDealOpen] = useState(false)
 
   useEffect(() => {
     if (!controlled) try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch { /* no-op */ }
@@ -131,6 +133,10 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()), [selectedId, state.followUps])
 
   function updateStage(stage: CustomerStage) {
+    if (stage === '已成交') {
+      setDealOpen(true)
+      return
+    }
     commit((current) => ({
       ...current,
       customers: current.customers.map((customer) => customer.id === selectedId
@@ -161,6 +167,17 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
       onAddDesignTask({ ...design, id: `design-${Date.now()}`, customerId: selected.id, customerName: selected.name, salesperson: selected.salesperson, status: '待接收', solutionFiles: [], createdAt: now, updatedAt: now })
     }
     setFormOpen(false)
+  }
+
+  function saveDeal(changes: Partial<Customer>) {
+    if (!selected) return
+    commit((current) => ({
+      ...current,
+      customers: current.customers.map((customer) => customer.id === selected.id
+        ? { ...customer, ...changes, stage: '已成交', nextFollowUpAt: undefined }
+        : customer),
+    }))
+    setDealOpen(false)
   }
 
   function createHandoff(salespersonId: string, summary: string, appointmentAt?: string) {
@@ -260,6 +277,17 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
                 </dl>
               </section>
 
+              {selected.stage === '已成交' && <section className="deal-card">
+                <div className="section-title"><h3><HandCoins size={17}/>成交与持续经营</h3>{canWorkOnSelected && <button className="text-button" onClick={() => setDealOpen(true)}>编辑成交</button>}</div>
+                <div className="deal-summary">
+                  <div><span>成交金额</span><strong>{formatMoney(selected.dealAmount ?? selected.expectedAmount)}</strong></div>
+                  <div><span>已收款</span><strong>{formatMoney(selected.paidAmount ?? 0)}</strong></div>
+                  <div><span>待收款</span><strong>{formatMoney(Math.max(0, (selected.dealAmount ?? selected.expectedAmount) - (selected.paidAmount ?? 0)))}</strong></div>
+                  <div><span>持续营销</span><strong>{selected.marketingStatus ?? '待回访'}</strong></div>
+                </div>
+                <p>{selected.dealDate ? `${selected.dealDate} 成交` : '成交日期未登记'} · {selected.dealProducts?.length ? selected.dealProducts.join('、') : selected.products.join('、') || '产品未登记'}{selected.marketingNextAt ? ` · 下次触达 ${selected.marketingNextAt}` : ''}</p>
+              </section>}
+
               <section className="timeline-section">
                 <div className="section-title"><h3>跟进记录</h3>{canWorkOnSelected && <button className="text-button" onClick={() => setFormOpen(true)}><MessageSquarePlus size={16} />新增跟进</button>}</div>
                 <div className="timeline">
@@ -280,8 +308,39 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
       </div>
       {formOpen && selected && <FollowUpDialog customer={selected} designers={designers} onClose={() => setFormOpen(false)} onSubmit={addFollowUp} />}
       {handoffOpen && selected && <HandoffDialog customer={selected} salespeople={salespeople} onClose={() => setHandoffOpen(false)} onSubmit={createHandoff} />}
+      {dealOpen && selected && <DealDialog customer={selected} onClose={() => setDealOpen(false)} onSubmit={saveDeal} />}
     </section>
   )
+}
+
+function DealDialog({ customer, onClose, onSubmit }: { customer: Customer; onClose: () => void; onSubmit: (changes: Partial<Customer>) => void }) {
+  const [dealAmount, setDealAmount] = useState(String(customer.dealAmount ?? (customer.expectedAmount || '')))
+  const [paidAmount, setPaidAmount] = useState(String(customer.paidAmount ?? ''))
+  const [dealDate, setDealDate] = useState(customer.dealDate ?? new Date().toISOString().slice(0, 10))
+  const [deliveryDate, setDeliveryDate] = useState(customer.deliveryDate ?? '')
+  const [dealProducts, setDealProducts] = useState((customer.dealProducts ?? customer.products).join('、'))
+  const [marketingStatus, setMarketingStatus] = useState<Customer['marketingStatus']>(customer.marketingStatus ?? '待回访')
+  const [marketingNextAt, setMarketingNextAt] = useState(customer.marketingNextAt ?? '')
+  const [marketingNote, setMarketingNote] = useState(customer.marketingNote ?? '')
+  function submit(event: FormEvent) {
+    event.preventDefault()
+    const amount = Number(dealAmount)
+    const paid = Number(paidAmount || 0)
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(paid) || paid < 0) return
+    onSubmit({ dealAmount: amount, paidAmount: Math.min(paid, amount), dealDate, deliveryDate: deliveryDate || undefined, dealProducts: dealProducts.split(/[、|,，]/).map((item) => item.trim()).filter(Boolean), marketingStatus, marketingNextAt: marketingNextAt || undefined, marketingNote: marketingNote.trim() || undefined })
+  }
+  return <div className="dialog-backdrop" role="presentation"><section className="followup-dialog deal-dialog" role="dialog" aria-modal="true" aria-labelledby="deal-title"><header><div><p>成交闭环</p><h2 id="deal-title">登记成交与后续经营</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭成交登记"><X size={18}/></button></header><form onSubmit={submit}>
+    <label>成交金额（元）*<input required min="1" type="number" value={dealAmount} onChange={(event) => setDealAmount(event.target.value)}/></label>
+    <label>已收款（元）<input min="0" type="number" value={paidAmount} onChange={(event) => setPaidAmount(event.target.value)}/></label>
+    <label>成交日期 *<input required type="date" value={dealDate} onChange={(event) => setDealDate(event.target.value)}/></label>
+    <label>预计交付日期<input type="date" value={deliveryDate} onChange={(event) => setDeliveryDate(event.target.value)}/></label>
+    <label className="deal-wide">成交产品<input value={dealProducts} onChange={(event) => setDealProducts(event.target.value)} placeholder="多个产品用、分隔"/></label>
+    <div className="form-divider"><span>成交后持续营销</span></div>
+    <label>客户经营状态<select value={marketingStatus} onChange={(event) => setMarketingStatus(event.target.value as Customer['marketingStatus'])}><option>待回访</option><option>可加购</option><option>可转介绍</option><option>长期维护</option><option>暂不营销</option></select></label>
+    <label>下次触达日期<input type="date" value={marketingNextAt} onChange={(event) => setMarketingNextAt(event.target.value)}/></label>
+    <label className="deal-wide">后续机会说明<textarea rows={2} value={marketingNote} onChange={(event) => setMarketingNote(event.target.value)} placeholder="例如：后续可补购餐桌，交付后邀请转介绍"/></label>
+    <footer><button type="button" className="secondary-button" onClick={onClose}>取消</button><button type="submit" className="primary-button">确认成交</button></footer>
+  </form></section></div>
 }
 
 function HandoffDialog({ customer, salespeople, onClose, onSubmit }: { customer: Customer; salespeople: { id: string; name: string }[]; onClose: () => void; onSubmit: (salespersonId: string, summary: string, appointmentAt?: string) => void }) {

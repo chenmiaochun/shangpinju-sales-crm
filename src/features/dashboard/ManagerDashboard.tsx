@@ -35,6 +35,11 @@ export interface DashboardSummary {
   pipelineAmount: number
   highIntentCustomers: number
   conversionRate: number
+  revenueAmount: number
+  paidAmount: number
+  receivableAmount: number
+  averageOrderValue: number
+  marketingCustomers: Customer[]
   overdueCustomers: Customer[]
   staleCustomers: Customer[]
 }
@@ -48,15 +53,24 @@ export function getDashboardSummary(items: Customer[], now = new Date()): Dashbo
     (customer) => !customer.nextFollowUpAt && now.getTime() - new Date(customer.lastContactAt).getTime() >= 3 * DAY,
   )
   const won = items.filter((customer) => WON_STAGES.includes(customer.stage)).length
+  const completed = items.filter((customer) => customer.stage === '已成交')
+  const revenueAmount = completed.reduce((sum, customer) => sum + (customer.dealAmount ?? customer.expectedAmount), 0)
+  const paidAmount = completed.reduce((sum, customer) => sum + (customer.paidAmount ?? 0), 0)
+  const marketingCustomers = completed.filter((customer) => customer.marketingStatus !== '暂不营销')
 
   return {
     activeCustomers: active.length,
-    completedCustomers: items.filter((customer) => customer.stage === '已成交').length,
+    completedCustomers: completed.length,
     lostCustomers: items.filter((customer) => customer.stage === '已流失').length,
     pendingCustomers: active.filter((customer) => Boolean(customer.nextFollowUpAt)).length,
     pipelineAmount: active.reduce((sum, customer) => sum + customer.expectedAmount, 0),
     highIntentCustomers: active.filter((customer) => customer.intent === '高').length,
     conversionRate: items.length ? Math.round((won / items.length) * 100) : 0,
+    revenueAmount,
+    paidAmount,
+    receivableAmount: Math.max(0, revenueAmount - paidAmount),
+    averageOrderValue: completed.length ? Math.round(revenueAmount / completed.length) : 0,
+    marketingCustomers,
     overdueCustomers,
     staleCustomers,
   }
@@ -129,6 +143,22 @@ export function ManagerDashboard({
         <Metric icon={<Target />} label="高意向客户" value={`${summary.highIntentCustomers}`} detail="优先保障跟进" tone="red" />
         <Metric icon={<TrendingUp />} label="推进转化率" value={`${summary.conversionRate}%`} detail="定金及后续阶段" tone="blue" />
       </div>
+
+      <div className="metric-grid revenue-metric-grid">
+        <Metric icon={<CircleDollarSign />} label="累计成交金额" value={`¥${formatMoney(summary.revenueAmount)}`} detail={`${summary.completedCustomers} 位成交客户`} tone="green" />
+        <Metric icon={<CheckCircle2 />} label="已收款" value={`¥${formatMoney(summary.paidAmount)}`} detail="按成交登记汇总" tone="blue" />
+        <Metric icon={<CalendarClock />} label="待收款" value={`¥${formatMoney(summary.receivableAmount)}`} detail="需要继续跟进回款" tone="red" />
+        <Metric icon={<Target />} label="平均客单价" value={`¥${formatMoney(summary.averageOrderValue)}`} detail={`${summary.marketingCustomers.length} 位可持续经营`} tone="gold" />
+      </div>
+
+      <Panel title="成交后持续经营" subtitle={`${summary.marketingCustomers.length} 位客户可继续营销`}>
+        <div className="marketing-list">
+          {summary.marketingCustomers.slice(0, 6).map((customer) => <article key={customer.id}>
+            <span>{customer.name.slice(0, 1)}</span><div><strong>{customer.name}</strong><small>{customer.marketingNote || `${customer.dealProducts?.join('、') || customer.products.join('、') || '已成交客户'}后续维护`}</small></div><b>{customer.marketingStatus ?? '待回访'}</b><time>{customer.marketingNextAt || '待安排'}</time>
+          </article>)}
+          {!summary.marketingCustomers.length && <EmptyState text="成交登记后，可加购与转介绍客户会显示在这里" />}
+        </div>
+      </Panel>
 
       <div className="dashboard-grid dashboard-grid-top">
         <Panel title="销售人员对比" subtitle="按在跟商机金额排序">

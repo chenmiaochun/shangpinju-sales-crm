@@ -49,6 +49,14 @@ export interface Customer {
   nextFollowUpAt?: string
   createdAt: string
   lostReason?: string
+  dealAmount?: number
+  paidAmount?: number
+  dealDate?: string
+  deliveryDate?: string
+  dealProducts?: string[]
+  marketingStatus?: '待回访' | '可加购' | '可转介绍' | '长期维护' | '暂不营销'
+  marketingNextAt?: string
+  marketingNote?: string
 }
 
 export interface CustomerHandoff {

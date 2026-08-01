@@ -37,4 +37,15 @@ describe('ManagerDashboard', () => {
     expect(screen.getByText('暂无阶段数据')).toBeInTheDocument()
     expect(screen.getByText('暂无风险客户')).toBeInTheDocument()
   })
+
+  it('summarizes actual revenue, payments and post-sale opportunities', () => {
+    const completed = [
+      { ...customers[0], id: 'won-1', stage: '已成交' as const, dealAmount: 120000, paidAmount: 80000, marketingStatus: '可加购' as const },
+      { ...customers[1], id: 'won-2', stage: '已成交' as const, expectedAmount: 60000, paidAmount: 60000, marketingStatus: '暂不营销' as const },
+    ]
+    const summary = getDashboardSummary(completed, now)
+
+    expect(summary).toMatchObject({ completedCustomers: 2, revenueAmount: 180000, paidAmount: 140000, receivableAmount: 40000, averageOrderValue: 90000 })
+    expect(summary.marketingCustomers.map((customer) => customer.id)).toEqual(['won-1'])
+  })
 })
