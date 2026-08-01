@@ -34,10 +34,10 @@ describe('TeamAccessPage', () => {
   it('supports multiple positions for one employee', async () => {
     render(<TeamAccessPage />)
     fireEvent.click(await screen.findByRole('button', { name:'新增账号' }))
-    expect(screen.getByRole('checkbox', { name:'销售' })).toBeChecked()
+    expect(screen.getByRole('combobox', { name:/主岗位/ })).toHaveValue('sales')
     expect(screen.getByRole('checkbox', { name:'设计师' })).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name:'售后' })).toBeInTheDocument()
-    expect(screen.getByText(/保存后自动更新权限及设计师、售后指派名单/)).toBeInTheDocument()
+    expect(screen.getByText(/权限与主岗位合并/)).toBeInTheDocument()
   })
 
 })

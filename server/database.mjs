@@ -6,7 +6,10 @@ const tokenDigest = token => createHash('sha256').update(token).digest('hex')
 const validPermissions = new Set(['store.analytics', 'coaching', 'data.manage', 'members.manage', 'customers.own', 'customers.design', 'tasks.own', 'conversation.analysis', 'sop', 'revenue.summary'])
 const normalizePermissions = permissions => permissions == null ? null : [...new Set(permissions)].filter(permission => validPermissions.has(permission))
 const validRoles = ['manager', 'sales', 'designer', 'operations', 'aftersales']
-const normalizeRoles = (roles, fallback) => { const selected = new Set(Array.isArray(roles) && roles.length ? roles : [fallback]); return validRoles.filter(role => selected.has(role)) }
+const normalizeRoles = (roles, fallback) => {
+  const selected = Array.isArray(roles) && roles.length ? roles : [fallback]
+  return [...new Set([fallback, ...selected])].filter(role => validRoles.includes(role) && (role !== 'manager' || fallback === 'manager'))
+}
 
 function hashPassword(password) {
   const salt = randomBytes(16)

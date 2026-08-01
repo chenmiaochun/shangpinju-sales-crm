@@ -80,6 +80,13 @@ test('multi-position employees appear in every matching assignment directory', a
   assert.ok(delivery.body.deliveryStaff.some(item => item.id === created.body.account.id))
 })
 
+test('keeps the selected primary role ahead of auxiliary roles', async () => {
+  const created = await json('/api/accounts', { method: 'POST', body: JSON.stringify({ username: 'primary-operations', password: 'primary-role-pass', name: '主客服辅销售', role: 'operations', roles: ['operations', 'sales', 'designer'] }) })
+  assert.equal(created.status, 201)
+  assert.equal(created.body.account.role, 'operations')
+  assert.deepEqual(created.body.account.roles, ['operations', 'sales', 'designer'])
+})
+
 test('manager can register operations and aftersales employees', async () => {
   for (const role of ['operations', 'aftersales']) {
     const created = await json('/api/accounts', { method: 'POST', body: JSON.stringify({ username: `${role}-user`, password: `${role}-password-123`, name: role, role }) })
