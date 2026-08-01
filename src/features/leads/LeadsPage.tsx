@@ -44,7 +44,7 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
     const now = new Date()
     const quote = Number(form.initialQuote)
     const customer: Customer = { id: `lead-${now.getTime()}`, name: form.name.trim(), phone: form.phone.trim(), licensePlate: form.licensePlate.trim().toUpperCase(), source: form.source, salesperson: form.salesperson, stage: STATUS_STAGE[form.customerStatus] ?? '新线索', intent: form.customerStatus === '已成交' ? '高' : '中', expectedAmount: quote > 0 ? quote : BUDGET_AMOUNTS[form.budget] ?? 0, products: form.products, style: '', budget: form.budget, renovationProgress: form.renovationProgress, concerns: [], cityArea: form.cityArea, vehicleBrand: form.vehicleBrand, notes: form.notes.trim(), remarkImages: form.remarkImages, initialQuote: quote > 0 ? quote : undefined, quoteDescription: form.quoteDescription.trim() || undefined, discountType: form.discountType || undefined, discountDetails: form.discountDetails.trim() || undefined, businessFiles: form.businessFiles, lastContactAt: now.toISOString(), nextFollowUpAt: form.nextFollowUpAt ? new Date(`${form.nextFollowUpAt}T09:00:00`).toISOString() : undefined, createdAt: now.toISOString().slice(0, 10) }
-    onAddCustomers([customer]); setForm(initialForm); if (remarkImageInput.current) remarkImageInput.current.value = ''; if (businessFileInput.current) businessFileInput.current.value = ''; setNotice(`已新增客户：${customer.name}`)
+    onAddCustomers([customer]); setForm(initialForm); if (remarkImageInput.current) remarkImageInput.current.value = ''; if (businessFileInput.current) businessFileInput.current.value = ''; setNotice(`已新增客户：${customer.name}`); window.location.hash = `/customers?customer=${encodeURIComponent(customer.id)}`
   }
   async function addRemarkImages(files?: FileList | null) {
     if (!files) return
@@ -107,7 +107,7 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
           <div className="followup-column"><Field label="优惠类型"><ChoiceSelect value={form.discountType} options={DISCOUNT_TYPES} placeholder="请选择优惠类型" onChange={(value) => update('discountType', value)}/></Field><Field label="优惠详情"><input value={form.discountDetails} onChange={(event) => update('discountDetails', event.target.value)} placeholder="例：满减 5000、整单 95 折"/></Field></div>
           <BusinessFileUpload files={form.businessFiles} inputRef={businessFileInput} onAdd={addBusinessFiles} onDrop={dropBusinessFiles} onDelete={(id) => update('businessFiles', form.businessFiles.filter((file) => file.id !== id))}/>
           <Field label="备注" className="full-width"><textarea rows={2} value={form.notes} onChange={(event) => update('notes', event.target.value)} placeholder="可填写客户特殊需求、到店细节等补充信息" /></Field>
-          <div className="form-submit"><span>仅姓名和负责人为必填项，其他信息可以后续补充</span><button className="primary" type="submit"><Plus size={17} />保存并进入客户跟进</button></div>
+          <div className="form-submit"><span className={notice ? 'submit-feedback' : ''} aria-live="polite">{notice || '仅姓名和负责人为必填项，其他信息可以后续补充'}</span><button className="primary" type="submit"><Plus size={17} />保存并进入客户跟进</button></div>
         </form>
       </section>
       <section className="leads-panel import-panel">

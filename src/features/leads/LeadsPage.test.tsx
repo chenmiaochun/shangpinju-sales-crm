@@ -35,6 +35,7 @@ describe('LeadsPage customer intake', () => {
     expect(customer.businessFiles).toEqual([
       expect.objectContaining({ name: '户型图.pdf', type: 'application/pdf' }),
     ])
+    expect(window.location.hash).toContain('/customers?customer=lead-')
   })
 
   it('allows an unknown budget and reports the actual required fields', () => {
