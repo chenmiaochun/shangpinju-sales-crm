@@ -78,6 +78,7 @@
 .product-snapshot { min-height:40px; display:flex; flex-direction:column; justify-content:center; padding:4px 9px; border:1px solid #d9dedb; background:#f7faf8; }
 .product-snapshot strong { font-size:13px; color:#183d2d; }
 .product-snapshot span { font-size:11px; color:#68766f; white-space:nowrap; }
+.field-hint { color:#758078; font-size:11px; font-weight:400; }
 .add-deal-item { justify-self:start; }
 @media (max-width:720px) { .deal-item { grid-template-columns:1fr 80px; } .deal-item input:nth-child(2) { grid-column:1/-1; } }
 .channel-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }.channel-options label { display: block; }.channel-options input { position: absolute; opacity: 0; pointer-events: none; }.channel-options span { height: 36px; display: grid; place-items: center; border: 1px solid #dce1de; cursor: pointer; }.channel-options input:checked + span { border-color: var(--green); background: var(--green-soft); color: var(--green); font-weight: 600; }

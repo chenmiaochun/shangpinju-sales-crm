@@ -171,6 +171,8 @@ export interface SalesOrder {
   contractAmount: number
   signedAt: string
   expectedDeliveryAt?: string
+  deliveryReminderAt?: string
+  expectedDeliveryMonth?: string
   status: OrderStatus
   payments: PaymentRecord[]
   performanceRate: number
@@ -187,6 +189,8 @@ export interface DeliveryTask {
   address: string
   contactPhone: string
   scheduledAt?: string
+  remindAt?: string
+  expectedDeliveryMonth?: string
   status: DeliveryStatus
   owner: string
   ownerId?: string
