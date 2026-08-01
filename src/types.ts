@@ -38,8 +38,10 @@ export interface Customer {
   cityArea?: string
   visitPeriod?: string
   vehicleBrand?: string
+  licensePlate?: string
   notes?: string
   avatarDataUrl?: string
+  remarkImages?: CustomerRemarkImage[]
   initialQuote?: number
   quoteDescription?: string
   discountType?: string
@@ -76,6 +78,12 @@ export interface CustomerFile {
   name: string
   type: string
   size: number
+}
+
+export interface CustomerRemarkImage {
+  id: string
+  name: string
+  dataUrl: string
 }
 
 export type DesignTaskStatus = '待接收' | '设计中' | '待销售确认' | '客户沟通中' | '修改中' | '已完成'

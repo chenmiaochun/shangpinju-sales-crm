@@ -57,4 +57,20 @@ describe('LeadsPage customer intake', () => {
     expect(screen.queryByLabelText('偏好风格')).toBeNull()
     expect(screen.queryByLabelText('关注点')).toBeNull()
   })
+
+  it('finds returning customers by license plate and stores the plate on new records', () => {
+    const onAddCustomers = vi.fn()
+    const existing = [{ id: 'returning-1', name: '黄先生', phone: '13900001111', licensePlate: '粤V12345', source: '门店自然到店', salesperson: '陈婉珊', stage: '到店' as const, intent: '中' as const, expectedAmount: 0, products: [], style: '', budget: '待确认', renovationProgress: '', concerns: [], lastContactAt: '2026-08-01T00:00:00.000Z', createdAt: '2026-08-01' }]
+    render(<LeadsPage customers={existing} onAddCustomers={onAddCustomers}/>)
+
+    fireEvent.change(screen.getByLabelText('查找老客户'), { target: { value: '粤v12345' } })
+    expect(screen.getByText('黄先生')).toBeTruthy()
+    expect(screen.getByText(/13900001111 · 粤V12345/)).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('姓名 *'), { target: { value: '陈女士' } })
+    fireEvent.change(screen.getByLabelText('车牌号码'), { target: { value: '粤b88888' } })
+    fireEvent.change(screen.getByLabelText('负责人 *'), { target: { value: '陈婉珊' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存并进入客户跟进' }))
+    expect(onAddCustomers.mock.calls[0][0][0].licensePlate).toBe('粤B88888')
+  })
 })

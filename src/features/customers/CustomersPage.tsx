@@ -104,6 +104,11 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
     if (!controlled) try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch { /* no-op */ }
   }, [controlled, state])
 
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('customer')
+    if (requested && state.customers.some((customer) => customer.id === requested)) setSelectedId(requested)
+  }, [state.customers])
+
   function commit(updater: (current: CustomerWorkspaceState) => CustomerWorkspaceState) {
     if (controlled) onStateChange(updater(state))
     else setLocalState(updater)
@@ -113,7 +118,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
   const counts = useMemo(() => getCustomerCounts(state.customers), [state.customers])
   const filtered = useMemo(() => state.customers.filter((customer) => {
     const keyword = query.trim().toLowerCase()
-    const matchesQuery = !keyword || [customer.name, customer.phone, customer.source, ...customer.products]
+    const matchesQuery = !keyword || [customer.name, customer.phone, customer.licensePlate ?? '', customer.source, ...customer.products]
       .some((value) => value.toLowerCase().includes(keyword))
     const matchesStage = stageFilter === '全部' || customer.stage === stageFilter
     const matchesOwner = ownerFilter === '全部' || customer.salesperson === ownerFilter
@@ -281,9 +286,11 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
                   <div><dt>偏好风格</dt><dd>{selected.style}</dd></div>
                   <div><dt>客户预算</dt><dd>{selected.budget}</dd></div>
                   <div><dt>装修进度</dt><dd>{selected.renovationProgress}</dd></div>
+                  <div><dt>车牌号码</dt><dd>{selected.licensePlate || '未登记'}</dd></div>
                   <div><dt>主要顾虑</dt><dd className="concern-list">{selected.concerns.map((item) => <span key={item}>{item}</span>)}</dd></div>
                   <div><dt>客户来源</dt><dd>{selected.source}</dd></div>
                 </dl>
+                {selected.remarkImages?.length ? <div className="customer-remark-gallery">{selected.remarkImages.map((image) => <figure key={image.id}><img src={image.dataUrl} alt={image.name}/><figcaption>{image.name}</figcaption></figure>)}</div> : null}
               </section>
 
               {selected.stage === '已成交' && <section className="deal-card">

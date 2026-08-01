@@ -86,7 +86,7 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
   const hydrated = useRef(false)
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch { /* Server remains the source of truth when browser storage is full. */ }
   }, [state])
 
   const refreshAdminData = useCallback(async () => {

@@ -71,7 +71,7 @@ async function readJson(req, maxBodyBytes) {
   catch { throw new ApiError(400, 'INVALID_JSON', 'request body is not valid JSON') }
 }
 
-export function createApiServer({ database, maxBodyBytes = 1_048_576, corsOrigin = '*', sessionTtlMs = 8 * 60 * 60 * 1000, secureCookies = false, loginLimit = 5, loginWindowMs = 15 * 60 * 1000 }) {
+export function createApiServer({ database, maxBodyBytes = 20 * 1_048_576, corsOrigin = '*', sessionTtlMs = 8 * 60 * 60 * 1000, secureCookies = false, loginLimit = 5, loginWindowMs = 15 * 60 * 1000 }) {
   const loginAttempts = new Map()
   return createServer(async (req, res) => {
     const requestOrigin = req.headers.origin

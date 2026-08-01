@@ -1,13 +1,13 @@
-import { useRef, useState, type DragEvent, type FormEvent, type ReactNode, type RefObject } from 'react'
-import { ChevronDown, Download, File as FileIcon, FileDown, FileImage, FileUp, ImagePlus, Plus, Trash2, Upload, X } from 'lucide-react'
-import type { Customer, CustomerFile } from '../../types'
+import { useMemo, useRef, useState, type DragEvent, type FormEvent, type ReactNode, type RefObject } from 'react'
+import { ArrowRight, ChevronDown, Download, File as FileIcon, FileDown, FileImage, FileUp, Images, Plus, Search, Trash2, Upload, X } from 'lucide-react'
+import type { Customer, CustomerFile, CustomerRemarkImage } from '../../types'
 import { csvRowToCustomer, customerCsv, previewCustomerCsv, templateCsv, type CsvPreviewRow } from './csv'
 import { customerImportFileToCsv } from './import-file'
 import './leads.css'
 
 export interface LeadsPageProps { customers: Customer[]; onAddCustomers: (customers: Customer[]) => void }
-type FormState = { name: string; phone: string; source: string; salesperson: string; products: string[]; budget: string; renovationProgress: string; cityArea: string; vehicleBrand: string; customerStatus: string; nextFollowUpAt: string; notes: string; avatarDataUrl: string; initialQuote: string; quoteDescription: string; discountType: string; discountDetails: string; businessFiles: CustomerFile[] }
-const initialForm: FormState = { name: '', phone: '', source: '', salesperson: '', products: [], budget: '待确认', renovationProgress: '', cityArea: '', vehicleBrand: '', customerStatus: '', nextFollowUpAt: '', notes: '', avatarDataUrl: '', initialQuote: '', quoteDescription: '', discountType: '', discountDetails: '', businessFiles: [] }
+type FormState = { name: string; phone: string; licensePlate: string; source: string; salesperson: string; products: string[]; budget: string; renovationProgress: string; cityArea: string; vehicleBrand: string; customerStatus: string; nextFollowUpAt: string; notes: string; remarkImages: CustomerRemarkImage[]; initialQuote: string; quoteDescription: string; discountType: string; discountDetails: string; businessFiles: CustomerFile[] }
+const initialForm: FormState = { name: '', phone: '', licensePlate: '', source: '', salesperson: '', products: [], budget: '待确认', renovationProgress: '', cityArea: '', vehicleBrand: '', customerStatus: '', nextFollowUpAt: '', notes: '', remarkImages: [], initialQuote: '', quoteDescription: '', discountType: '', discountDetails: '', businessFiles: [] }
 const SOURCES = ['抖音', '小红书', '视频号', '门店自然到店', '老客户转介绍', '设计师推荐', '异业合作', '其他']
 const CITY_AREAS = ['揭阳', '汕头', '深圳', '潮州', '其他']
 const SALESPEOPLE = ['陈婉珊', '吴漫东', '郭予旭', '其他']
@@ -22,14 +22,20 @@ const DISCOUNT_TYPES = ['无', '门店专场活动', '老客转介绍折扣', '�
 
 export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
   const [form, setForm] = useState(initialForm)
+  const [customerLookup, setCustomerLookup] = useState('')
   const [preview, setPreview] = useState<CsvPreviewRow[]>([])
   const [fileErrors, setFileErrors] = useState<string[]>([])
   const [fileName, setFileName] = useState('')
   const [notice, setNotice] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
-  const avatarInput = useRef<HTMLInputElement>(null)
+  const remarkImageInput = useRef<HTMLInputElement>(null)
   const businessFileInput = useRef<HTMLInputElement>(null)
   const validRows = preview.filter((row) => row.errors.length === 0)
+  const lookupMatches = useMemo(() => {
+    const keyword = normalizeLookup(customerLookup)
+    if (!keyword) return []
+    return customers.filter((customer) => [customer.name, customer.phone, customer.licensePlate].some((value) => normalizeLookup(value).includes(keyword))).slice(0, 6)
+  }, [customerLookup, customers])
   function update<K extends keyof FormState>(key: K, value: FormState[K]) { setForm((current) => ({ ...current, [key]: value })) }
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -37,12 +43,14 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
     if (missing.length) { setNotice(`请先补充：${missing.join('、')}`); return }
     const now = new Date()
     const quote = Number(form.initialQuote)
-    const customer: Customer = { id: `lead-${now.getTime()}`, name: form.name.trim(), phone: form.phone.trim(), source: form.source, salesperson: form.salesperson, stage: STATUS_STAGE[form.customerStatus] ?? '新线索', intent: form.customerStatus === '已成交' ? '高' : '中', expectedAmount: quote > 0 ? quote : BUDGET_AMOUNTS[form.budget] ?? 0, products: form.products, style: '', budget: form.budget, renovationProgress: form.renovationProgress, concerns: [], cityArea: form.cityArea, vehicleBrand: form.vehicleBrand, notes: form.notes.trim(), avatarDataUrl: form.avatarDataUrl || undefined, initialQuote: quote > 0 ? quote : undefined, quoteDescription: form.quoteDescription.trim() || undefined, discountType: form.discountType || undefined, discountDetails: form.discountDetails.trim() || undefined, businessFiles: form.businessFiles, lastContactAt: now.toISOString(), nextFollowUpAt: form.nextFollowUpAt ? new Date(`${form.nextFollowUpAt}T09:00:00`).toISOString() : undefined, createdAt: now.toISOString().slice(0, 10) }
-    onAddCustomers([customer]); setForm(initialForm); if (avatarInput.current) avatarInput.current.value = ''; if (businessFileInput.current) businessFileInput.current.value = ''; setNotice(`已新增客户：${customer.name}`)
+    const customer: Customer = { id: `lead-${now.getTime()}`, name: form.name.trim(), phone: form.phone.trim(), licensePlate: form.licensePlate.trim().toUpperCase(), source: form.source, salesperson: form.salesperson, stage: STATUS_STAGE[form.customerStatus] ?? '新线索', intent: form.customerStatus === '已成交' ? '高' : '中', expectedAmount: quote > 0 ? quote : BUDGET_AMOUNTS[form.budget] ?? 0, products: form.products, style: '', budget: form.budget, renovationProgress: form.renovationProgress, concerns: [], cityArea: form.cityArea, vehicleBrand: form.vehicleBrand, notes: form.notes.trim(), remarkImages: form.remarkImages, initialQuote: quote > 0 ? quote : undefined, quoteDescription: form.quoteDescription.trim() || undefined, discountType: form.discountType || undefined, discountDetails: form.discountDetails.trim() || undefined, businessFiles: form.businessFiles, lastContactAt: now.toISOString(), nextFollowUpAt: form.nextFollowUpAt ? new Date(`${form.nextFollowUpAt}T09:00:00`).toISOString() : undefined, createdAt: now.toISOString().slice(0, 10) }
+    onAddCustomers([customer]); setForm(initialForm); if (remarkImageInput.current) remarkImageInput.current.value = ''; if (businessFileInput.current) businessFileInput.current.value = ''; setNotice(`已新增客户：${customer.name}`)
   }
-  async function selectAvatar(file?: File) {
-    if (!file || !/^image\/(jpeg|png|webp)$/.test(file.type)) return
-    update('avatarDataUrl', await cropAvatar(file))
+  async function addRemarkImages(files?: FileList | null) {
+    if (!files) return
+    const remaining = Math.max(0, 12 - form.remarkImages.length)
+    const images = await Promise.all(Array.from(files).filter((file) => file.type.startsWith('image/')).slice(0, remaining).map(async (file) => ({ id: `remark-${Date.now()}-${Math.random().toString(16).slice(2)}`, name: file.name, dataUrl: await compressImage(file) })))
+    update('remarkImages', [...form.remarkImages, ...images]); if (files.length > remaining) setNotice('单个客户最多保存 12 张备注图片')
   }
   function addBusinessFiles(files: FileList | File[]) {
     const incoming = Array.from(files).map((file) => ({ id: `file-${Date.now()}-${Math.random().toString(16).slice(2)}`, name: file.name, type: file.type || file.name.split('.').pop()?.toUpperCase() || '文件', size: file.size }))
@@ -78,8 +86,14 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
       <section className="leads-panel">
         <div className="panel-heading"><Plus size={19} /><div><h2>新增客户</h2><p>建立一条可立即跟进的新线索</p></div></div>
         <form className="lead-form" noValidate onSubmit={submit}>
+          <CustomerLookup query={customerLookup} matches={lookupMatches} onQuery={setCustomerLookup} onOpen={(id) => { window.location.hash = `/customers?customer=${encodeURIComponent(id)}` }}/>
           <div className="form-section-title"><strong>基础信息</strong><span>客户身份与归属</span></div>
-          <div className="basic-grid full-width"><div className="basic-column"><Field label="姓名" required><input required value={form.name} onChange={(e) => update('name', e.target.value)} /></Field><Field label="所在城市"><ChoiceSelect value={form.cityArea} options={CITY_AREAS} placeholder="请选择城市" onChange={(value) => update('cityArea', value)} /></Field></div><div className="basic-column"><AvatarUpload value={form.avatarDataUrl} inputRef={avatarInput} onSelect={(file) => void selectAvatar(file)} onDelete={() => update('avatarDataUrl', '')}/><Field label="电话"><input type="tel" pattern="[+0-9][0-9 -]{5,19}" value={form.phone} onChange={(e) => update('phone', e.target.value)} placeholder="选填" /></Field><Field label="负责人" required><ChoiceSelect required value={form.salesperson} options={SALESPEOPLE} placeholder="请选择负责人" onChange={(value) => update('salesperson', value)} /></Field></div></div>
+          <Field label="姓名" required><input required value={form.name} onChange={(e) => update('name', e.target.value)} /></Field>
+          <Field label="电话"><input type="tel" pattern="[+0-9][0-9 -]{5,19}" value={form.phone} onChange={(e) => update('phone', e.target.value)} placeholder="选填" /></Field>
+          <Field label="车牌号码"><input value={form.licensePlate} onChange={(e) => update('licensePlate', e.target.value.toUpperCase())} placeholder="例：粤V12345" /></Field>
+          <Field label="所在城市"><ChoiceSelect value={form.cityArea} options={CITY_AREAS} placeholder="请选择城市" onChange={(value) => update('cityArea', value)} /></Field>
+          <Field label="负责人" required><ChoiceSelect required value={form.salesperson} options={SALESPEOPLE} placeholder="请选择负责人" onChange={(value) => update('salesperson', value)} /></Field>
+          <RemarkImageUpload images={form.remarkImages} inputRef={remarkImageInput} onAdd={(files) => void addRemarkImages(files)} onDelete={(id) => update('remarkImages', form.remarkImages.filter((image) => image.id !== id))}/>
           <div className="form-section-title"><strong>业务信息</strong><span>跟进判断与客户需求</span></div>
           <Field label="预算范围"><ChoiceSelect value={form.budget} options={BUDGETS} onChange={(value) => update('budget', value)} /></Field>
           <ProductSelect values={form.products} onChange={(values) => update('products', values)} />
@@ -111,11 +125,13 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
 }
 
 function Field({ label, required, className, children }: { label: string; required?: boolean; className?: string; children: ReactNode }) { return <label className={className}><span>{label}{required && <b> *</b>}</span>{children}</label> }
+function CustomerLookup({ query, matches, onQuery, onOpen }: { query: string; matches: Customer[]; onQuery: (value: string) => void; onOpen: (id: string) => void }) { return <section className="customer-lookup"><div className="lookup-title"><Search size={18}/><div><strong>先查找老客户</strong><span>客户再次到店时，可输入手机号、姓名或车牌号码调出原有资料</span></div></div><label><Search size={16}/><input aria-label="查找老客户" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="输入手机号、姓名或车牌号，例如 粤V12345"/>{query && <button type="button" aria-label="清空查找" onClick={() => onQuery('')}><X size={15}/></button>}</label>{query && <div className="lookup-results">{matches.length ? matches.map((customer) => <button type="button" key={customer.id} onClick={() => onOpen(customer.id)}><span className="lookup-avatar">{customer.name.slice(0, 1)}</span><span><strong>{customer.name}</strong><small>{customer.phone || '未登记电话'}{customer.licensePlate ? ` · ${customer.licensePlate}` : ''}</small></span><em>{customer.stage} · {customer.salesperson}</em><ArrowRight size={16}/></button>) : <p>没有找到旧客户，可以继续新建资料。</p>}</div>}</section> }
 function ChoiceSelect({ value, options, placeholder, required, onChange }: { value: string; options: string[]; placeholder?: string; required?: boolean; onChange: (value: string) => void }) { return <select required={required} value={value} onChange={(event) => onChange(event.target.value)}>{placeholder && <option value="">{placeholder}</option>}{options.map((option) => <option key={option} value={option}>{option}</option>)}</select> }
 function ProductSelect({ values, onChange }: { values: string[]; onChange: (values: string[]) => void }) { return <label className="product-field"><span>意向产品</span><details className="product-select"><summary>{values.length ? values.join(' | ') : '请选择意向产品'}<ChevronDown size={15} /></summary><div>{PRODUCTS.map((option) => <label key={option}><input type="checkbox" checked={values.includes(option)} onChange={() => onChange(values.includes(option) ? values.filter((value) => value !== option) : [...values, option])} />{option}</label>)}</div></details></label> }
-function AvatarUpload({ value, inputRef, onSelect, onDelete }: { value: string; inputRef: RefObject<HTMLInputElement | null>; onSelect: (file?: File) => void; onDelete: () => void }) { return <div className="avatar-upload"><span>客户头像</span><input ref={inputRef} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => onSelect(event.target.files?.[0])}/><div className="avatar-frame">{value ? <img src={value} alt="客户头像预览"/> : <button type="button" onClick={() => inputRef.current?.click()}><ImagePlus size={24}/></button>}{value && <div className="avatar-overlay"><button type="button" onClick={() => inputRef.current?.click()}>重新上传</button><button type="button" onClick={onDelete}>删除</button></div>}</div><small>点击上传客户照片</small></div> }
+function RemarkImageUpload({ images, inputRef, onAdd, onDelete }: { images: CustomerRemarkImage[]; inputRef: RefObject<HTMLInputElement | null>; onAdd: (files?: FileList | null) => void; onDelete: (id: string) => void }) { return <div className="remark-images full-width"><div className="remark-images-heading"><span>备注资料图片</span><small>车辆、车牌、现场或其他需要留档的照片，最多 12 张</small></div><input ref={inputRef} className="visually-hidden" type="file" multiple accept="image/*" onChange={(event) => onAdd(event.target.files)}/><div className="remark-gallery">{images.map((image) => <figure key={image.id}><img src={image.dataUrl} alt={image.name}/><figcaption>{image.name}</figcaption><button type="button" aria-label={`删除图片 ${image.name}`} onClick={() => onDelete(image.id)}><Trash2 size={14}/></button></figure>)}{images.length < 12 && <button className="add-remark-image" type="button" onClick={() => inputRef.current?.click()}><Images size={22}/><span>{images.length ? '继续添加' : '添加备注图片'}</span></button>}</div></div> }
 function BusinessFileUpload({ files, inputRef, onAdd, onDrop, onDelete }: { files: CustomerFile[]; inputRef: RefObject<HTMLInputElement | null>; onAdd: (files: FileList | File[]) => void; onDrop: (event: DragEvent<HTMLDivElement>) => void; onDelete: (id: string) => void }) { return <div className="business-upload full-width"><span>业务资料上传</span><input ref={inputRef} className="visually-hidden" type="file" multiple accept="image/*,.pdf,.dwg,.dxf,.cad,.zip" onChange={(event) => event.target.files && onAdd(event.target.files)}/><div className="business-drop" onDragOver={(event) => event.preventDefault()} onDrop={onDrop}><FileUp size={21}/><p>可上传客户提供的平面图、效果图、户型图、报价单等业务资料</p><button type="button" onClick={() => inputRef.current?.click()}>选择文件</button></div>{files.length > 0 && <div className="business-files">{files.map((file) => <div key={file.id}>{file.type.startsWith('image/') ? <FileImage size={15}/> : <FileIcon size={15}/>}<span title={file.name}>{file.name}<small>{formatFileSize(file.size)}</small></span><button type="button" aria-label={`删除 ${file.name}`} onClick={() => onDelete(file.id)}><Trash2 size={14}/></button></div>)}</div>}</div> }
-async function cropAvatar(file: File): Promise<string> { const source = await readDataUrl(file); const image = await loadImage(source); const canvas = document.createElement('canvas'); canvas.width = 160; canvas.height = 160; const context = canvas.getContext('2d'); if (!context) return source; const side = Math.min(image.naturalWidth, image.naturalHeight); context.drawImage(image, (image.naturalWidth - side) / 2, (image.naturalHeight - side) / 2, side, side, 0, 0, 160, 160); return canvas.toDataURL('image/jpeg', .82) }
+async function compressImage(file: File): Promise<string> { const source = await readDataUrl(file); const image = await loadImage(source); const scale = Math.min(1, 960 / Math.max(image.naturalWidth, image.naturalHeight)); const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(image.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(image.naturalHeight * scale)); const context = canvas.getContext('2d'); if (!context) return source; context.drawImage(image, 0, 0, canvas.width, canvas.height); return canvas.toDataURL('image/jpeg', .72) }
+function normalizeLookup(value?: string) { return String(value ?? '').toLowerCase().replace(/[\s-]/g, '') }
 function readDataUrl(file: File) { return new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file) }) }
 function loadImage(source: string) { return new Promise<HTMLImageElement>((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = reject; image.src = source }) }
 function formatFileSize(size: number) { return size < 1024 * 1024 ? `${Math.max(1, Math.round(size / 1024))} KB` : `${(size / 1024 / 1024).toFixed(1)} MB` }
