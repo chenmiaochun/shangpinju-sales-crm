@@ -12,6 +12,7 @@
 .search-field input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; }
 .filter-row { display: grid; grid-template-columns: 18px 1fr 1fr; align-items: center; gap: 8px; margin-top: 10px; color: var(--muted); }
 .filter-row select, .stage-editor select { min-width: 0; height: 34px; border: 1px solid #dce1de; background: #fff; color: var(--ink); padding: 0 8px; }
+.dashboard-filter-note{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border:1px solid #c8dbcf;background:#f2f8f4;color:#526159;font-size:11px}.dashboard-filter-note strong{color:var(--green)}.dashboard-filter-note button{flex:0 0 auto;padding:3px 6px;border:0;background:transparent;color:var(--green);font-weight:700;cursor:pointer}
 .segmented-control { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 12px; padding: 3px; background: #eff1ef; }
 .segmented-control button { height: 30px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
 .segmented-control button.active { background: #fff; color: var(--green); box-shadow: 0 1px 3px rgba(30, 40, 35, .1); font-weight: 600; }

@@ -19,7 +19,7 @@ describe('ManagerDashboard', () => {
   })
 
   it('renders the complete manager view from supplied data', () => {
-    render(<ManagerDashboard customers={customers} followUps={followUps} now={now} />)
+    const { container } = render(<ManagerDashboard customers={customers} followUps={followUps} now={now} />)
 
     expect(screen.getByRole('heading', { name: '经营总览' })).toBeInTheDocument()
     expect(screen.getByText('¥41.3万')).toBeInTheDocument()
@@ -27,6 +27,9 @@ describe('ManagerDashboard', () => {
     expect(screen.getByText('客户阶段分布')).toBeInTheDocument()
     expect(screen.getByText('刘先生')).toBeInTheDocument()
     expect(screen.getByText(/先处理 2 位逾期客户/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '查看高意向客户明细' })).toHaveAttribute('href', '#/customers?scope=active&intent=%E9%AB%98')
+    expect(container.querySelector('.sales-table a[href*="owner="]')).not.toBeNull()
+    expect(container.querySelector('.suggestion-list a[href*="task="]')).not.toBeNull()
   })
 
   it('handles an empty dataset without invalid values', () => {

@@ -24,6 +24,8 @@ import './customers.css'
 
 const STORAGE_KEY = 'shangpinju.customer-followup.v1'
 const CLOSED_STAGES = new Set<CustomerStage>(['已成交', '已流失'])
+const WON_STAGES = new Set<CustomerStage>(['已定金', '生产交付', '已成交'])
+type CustomerScope = 'active' | 'won' | 'deals' | 'paid' | 'receivable' | 'marketing'
 
 export function getCustomerCounts(customers: Customer[]) {
   const completed = customers.filter((customer) => customer.stage === '已成交').length
@@ -37,6 +39,25 @@ const stages: CustomerStage[] = [
   '新线索', '已初聊', '需求确认', '到店', '量尺', '方案设计', '已报价',
   '方案调整', '已定金', '生产交付', '已成交', '已流失',
 ]
+
+function readCustomerFilters() {
+  const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] ?? '')
+  const stage = params.get('stage')
+  const task = params.get('task')
+  const intent = params.get('intent')
+  const scope = params.get('scope')
+  return {
+    customer: params.get('customer') ?? '',
+    stage: stages.includes(stage as CustomerStage) ? stage as CustomerStage : '全部' as const,
+    owner: params.get('owner') ?? '全部',
+    task: task === '待跟进' || task === '已逾期' ? task : '全部' as const,
+    intent: intent === '高' || intent === '中' || intent === '低' ? intent : '全部' as const,
+    scope: ['active', 'won', 'deals', 'paid', 'receivable', 'marketing'].includes(scope ?? '') ? scope as CustomerScope : undefined,
+    sort: params.get('sort') === 'amount-desc' ? 'amount-desc' as const : undefined,
+  }
+}
+
+const SCOPE_LABELS: Record<CustomerScope, string> = { active: '全部在跟客户', won: '定金及后续阶段客户', deals: '已登记成交客户', paid: '已有收款客户', receivable: '仍有待收款客户', marketing: '可持续经营客户' }
 
 export type CustomerWorkspaceState = { customers: Customer[]; followUps: FollowUp[] }
 export interface CustomersPageProps {
@@ -88,14 +109,17 @@ function isOverdue(value?: string) {
 }
 
 export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-designer', name: '林设计师' }], salespeople = [{ id: 'demo-sales', name: '林晓' }], deliveryStaff = [{ id: 'demo-aftersales', name: '售后配送组' }], activeMember = { id: 'manager', name: '店长', role: 'manager', active: true }, onStateChange, onAddDesignTask, onRegisterDeal }: CustomersPageProps = {}) {
+  const initialFilters = useMemo(readCustomerFilters, [])
   const [localState, setLocalState] = useState<CustomerWorkspaceState>(readState)
   const controlled = customers !== undefined && followUps !== undefined && onStateChange !== undefined
   const state = controlled ? { customers, followUps } : localState
-  const [selectedId, setSelectedId] = useState(seedCustomers[0]?.id ?? '')
+  const [selectedId, setSelectedId] = useState(initialFilters.customer || (initialFilters.scope || initialFilters.intent !== '全部' || initialFilters.stage !== '全部' || initialFilters.owner !== '全部' || initialFilters.task !== '全部' ? '' : seedCustomers[0]?.id ?? ''))
   const [query, setQuery] = useState('')
-  const [stageFilter, setStageFilter] = useState<CustomerStage | '全部'>('全部')
-  const [ownerFilter, setOwnerFilter] = useState('全部')
-  const [taskFilter, setTaskFilter] = useState<'全部' | '待跟进' | '已逾期'>('全部')
+  const [stageFilter, setStageFilter] = useState<CustomerStage | '全部'>(initialFilters.stage)
+  const [ownerFilter, setOwnerFilter] = useState(initialFilters.owner)
+  const [taskFilter, setTaskFilter] = useState<'全部' | '待跟进' | '已逾期'>(initialFilters.task as '全部' | '待跟进' | '已逾期')
+  const [intentFilter, setIntentFilter] = useState<'全部' | Customer['intent']>(initialFilters.intent as '全部' | Customer['intent'])
+  const [scopeFilter, setScopeFilter] = useState<CustomerScope | undefined>(initialFilters.scope)
   const [formOpen, setFormOpen] = useState(false)
   const [handoffOpen, setHandoffOpen] = useState(false)
   const [dealOpen, setDealOpen] = useState(false)
@@ -122,11 +146,24 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
       .some((value) => value.toLowerCase().includes(keyword))
     const matchesStage = stageFilter === '全部' || customer.stage === stageFilter
     const matchesOwner = ownerFilter === '全部' || customer.salesperson === ownerFilter
+    const matchesIntent = intentFilter === '全部' || customer.intent === intentFilter
     const matchesTask = taskFilter === '全部'
       || (taskFilter === '待跟进' && !CLOSED_STAGES.has(customer.stage) && Boolean(customer.nextFollowUpAt))
       || (taskFilter === '已逾期' && !CLOSED_STAGES.has(customer.stage) && isOverdue(customer.nextFollowUpAt))
-    return matchesQuery && matchesStage && matchesOwner && matchesTask
-  }), [ownerFilter, query, stageFilter, state.customers, taskFilter])
+    const completed = (customer.dealAmount ?? 0) > 0 || customer.stage === '已成交'
+    const matchesScope = !scopeFilter
+      || (scopeFilter === 'active' && !CLOSED_STAGES.has(customer.stage))
+      || (scopeFilter === 'won' && WON_STAGES.has(customer.stage))
+      || (scopeFilter === 'deals' && completed)
+      || (scopeFilter === 'paid' && completed && (customer.paidAmount ?? 0) > 0)
+      || (scopeFilter === 'receivable' && completed && (customer.dealAmount ?? customer.expectedAmount) > (customer.paidAmount ?? 0))
+      || (scopeFilter === 'marketing' && completed && customer.marketingStatus !== '暂不营销')
+    return matchesQuery && matchesStage && matchesOwner && matchesIntent && matchesTask && matchesScope
+  }).sort((a, b) => initialFilters.sort === 'amount-desc' ? b.expectedAmount - a.expectedAmount : 0), [initialFilters.sort, intentFilter, ownerFilter, query, scopeFilter, stageFilter, state.customers, taskFilter])
+
+  const activeDashboardFilter = Boolean(scopeFilter || intentFilter !== '全部' || stageFilter !== '全部' || ownerFilter !== '全部' || taskFilter !== '全部')
+  const dashboardFilterLabel = [scopeFilter && SCOPE_LABELS[scopeFilter], intentFilter !== '全部' && `${intentFilter}意向`, stageFilter !== '全部' && stageFilter, ownerFilter !== '全部' && `负责人 ${ownerFilter}`, taskFilter !== '全部' && taskFilter].filter(Boolean).join(' · ')
+  function clearDashboardFilters() { setScopeFilter(undefined); setIntentFilter('全部'); setStageFilter('全部'); setOwnerFilter('全部'); setTaskFilter('全部'); window.location.hash = '/customers' }
 
   const selected = state.customers.find((customer) => customer.id === selectedId)
   const canWorkOnSelected = Boolean(selected && (
@@ -233,7 +270,9 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
               <select aria-label="负责人" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
                 <option>全部</option>{owners.map((owner) => <option key={owner}>{owner}</option>)}
               </select>
+              <select aria-label="客户意向" value={intentFilter} onChange={(event) => setIntentFilter(event.target.value as Customer['intent'] | '全部')}><option>全部</option><option>高</option><option>中</option><option>低</option></select>
             </div>
+            {activeDashboardFilter && <div className="dashboard-filter-note"><span>经营分析筛选：<strong>{dashboardFilterLabel}</strong> · 共 {filtered.length} 位客户</span><button type="button" onClick={clearDashboardFilters}>查看全部</button></div>}
             <div className="segmented-control" aria-label="跟进状态">
               {(['全部', '待跟进', '已逾期'] as const).map((filter) => <button key={filter} className={taskFilter === filter ? 'active' : ''} onClick={() => setTaskFilter(filter)}>{filter}</button>)}
             </div>

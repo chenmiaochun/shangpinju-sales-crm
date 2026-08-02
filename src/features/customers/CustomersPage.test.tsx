@@ -1,8 +1,10 @@
 import '@testing-library/jest-dom'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { customers, followUps } from '../../data'
 import { CustomersPage, getCustomerCounts } from './CustomersPage'
+
+afterEach(() => { window.location.hash = '' })
 
 describe('customer counts', () => {
   it('removes completed and lost customers from active and pending counts', () => {
@@ -12,6 +14,15 @@ describe('customer counts', () => {
       { ...customers[0], id: 'lost', stage: '已流失' as const, nextFollowUpAt: '2026-08-03T10:00:00Z' },
     ]
     expect(getCustomerCounts(items)).toEqual({ total: 3, active: 1, completed: 1, lost: 1, pending: 1 })
+  })
+})
+
+describe('dashboard drill-down filters', () => {
+  it('opens the customer workspace with intent and scope filters from the URL', () => {
+    window.location.hash = '/customers?scope=active&intent=%E9%AB%98'
+    render(<CustomersPage customers={customers} followUps={followUps} onStateChange={vi.fn()} />)
+    expect(screen.getByText(/经营分析筛选：/)).toHaveTextContent('全部在跟客户 · 高意向')
+    expect(screen.getByLabelText('客户意向')).toHaveValue('高')
   })
 })
 
