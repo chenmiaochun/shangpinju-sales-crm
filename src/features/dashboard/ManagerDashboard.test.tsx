@@ -32,7 +32,7 @@ describe('ManagerDashboard', () => {
     expect(screen.getByText('客户阶段分布')).toBeInTheDocument()
     expect(screen.getByText('刘先生')).toBeInTheDocument()
     expect(screen.getByText(/先处理 2 位逾期客户/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '查看高意向客户明细' })).toHaveAttribute('href', '#/customers?scope=active&intent=%E9%AB%98')
+    expect(screen.getByRole('link', { name: '查看高意向客户明细' })).toHaveAttribute('href', '#/customers?scope=active&intent=%E9%AB%98&metric=high-intent')
     expect(container.querySelector('.sales-table a[href*="owner="]')).not.toBeNull()
     expect(container.querySelector('.suggestion-list a[href*="task="]')).not.toBeNull()
     expect(container.querySelector('.risk-list a[href="#/customers?customer=c1"]')).toHaveTextContent('查看资料')

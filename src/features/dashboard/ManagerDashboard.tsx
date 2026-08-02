@@ -231,17 +231,17 @@ export function ManagerDashboard({
       </section>
 
       <div className="metric-grid">
-        <Metric href={customerUrl({ scope: 'active' })} icon={<Users />} label="在跟客户" value={`${summary.activeCustomers}`} detail={`待跟进 ${summary.pendingCustomers} · 成交 ${summary.completedCustomers} · 流失 ${summary.lostCustomers}`} tone="green" />
-        <Metric href={customerUrl({ scope: 'active', sort: 'amount-desc' })} icon={<CircleDollarSign />} label="预计商机金额" value={`¥${formatMoney(summary.pipelineAmount)}`} detail="未关闭商机合计" tone="gold" />
-        <Metric href={customerUrl({ scope: 'active', intent: '高' })} icon={<Target />} label="高意向客户" value={`${summary.highIntentCustomers}`} detail="优先保障跟进" tone="red" />
-        <Metric href={customerUrl({ scope: 'won' })} icon={<TrendingUp />} label="推进转化率" value={`${summary.conversionRate}%`} detail="定金及后续阶段" tone="blue" />
+        <Metric href={customerUrl({ scope: 'active', metric: 'active' })} icon={<Users />} label="在跟客户" value={`${summary.activeCustomers}`} detail={`待跟进 ${summary.pendingCustomers} · 成交 ${summary.completedCustomers} · 流失 ${summary.lostCustomers}`} tone="green" />
+        <Metric href={customerUrl({ scope: 'active', sort: 'amount-desc', metric: 'pipeline' })} icon={<CircleDollarSign />} label="预计商机金额" value={`¥${formatMoney(summary.pipelineAmount)}`} detail="未关闭商机合计" tone="gold" />
+        <Metric href={customerUrl({ scope: 'active', intent: '高', metric: 'high-intent' })} icon={<Target />} label="高意向客户" value={`${summary.highIntentCustomers}`} detail="优先保障跟进" tone="red" />
+        <Metric href={customerUrl({ scope: 'won', metric: 'conversion' })} icon={<TrendingUp />} label="推进转化率" value={`${summary.conversionRate}%`} detail="定金及后续阶段" tone="blue" />
       </div>
 
       <div className="metric-grid revenue-metric-grid">
-        <Metric href={customerUrl({ scope: 'deals' })} icon={<CircleDollarSign />} label="累计成交金额" value={`¥${formatMoney(summary.revenueAmount)}`} detail={`${summary.completedCustomers} 位成交客户`} tone="green" />
-        <Metric href={customerUrl({ scope: 'paid' })} icon={<CheckCircle2 />} label="已收款" value={`¥${formatMoney(summary.paidAmount)}`} detail="按成交登记汇总" tone="blue" />
-        <Metric href={customerUrl({ scope: 'receivable' })} icon={<CalendarClock />} label="待收款" value={`¥${formatMoney(summary.receivableAmount)}`} detail="需要继续跟进回款" tone="red" />
-        <Metric href={customerUrl({ scope: 'deals' })} icon={<Target />} label="平均客单价" value={`¥${formatMoney(summary.averageOrderValue)}`} detail={`${summary.marketingCustomers.length} 位可持续经营`} tone="gold" />
+        <Metric href={customerUrl({ scope: 'deals', metric: 'revenue' })} icon={<CircleDollarSign />} label="累计成交金额" value={`¥${formatMoney(summary.revenueAmount)}`} detail={`${summary.completedCustomers} 位成交客户`} tone="green" />
+        <Metric href={customerUrl({ scope: 'paid', metric: 'paid' })} icon={<CheckCircle2 />} label="已收款" value={`¥${formatMoney(summary.paidAmount)}`} detail="按成交登记汇总" tone="blue" />
+        <Metric href={customerUrl({ scope: 'receivable', metric: 'receivable' })} icon={<CalendarClock />} label="待收款" value={`¥${formatMoney(summary.receivableAmount)}`} detail="需要继续跟进回款" tone="red" />
+        <Metric href={customerUrl({ scope: 'deals', metric: 'average-order' })} icon={<Target />} label="平均客单价" value={`¥${formatMoney(summary.averageOrderValue)}`} detail={`${summary.marketingCustomers.length} 位可持续经营`} tone="gold" />
       </div>
 
       <Panel title="成交后持续经营" subtitle={`${summary.marketingCustomers.length} 位客户可继续营销`}>

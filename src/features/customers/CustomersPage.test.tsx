@@ -38,10 +38,12 @@ describe('customer counts', () => {
 
 describe('dashboard drill-down filters', () => {
   it('opens the customer workspace with intent and scope filters from the URL', () => {
-    window.location.hash = '/customers?scope=active&intent=%E9%AB%98'
+    window.location.hash = '/customers?scope=active&intent=%E9%AB%98&metric=high-intent'
     render(<CustomersPage customers={customers} followUps={followUps} onStateChange={vi.fn()} />)
     expect(screen.getByText(/经营分析筛选：/)).toHaveTextContent('全部在跟客户 · 高意向')
     expect(screen.getByLabelText('客户意向')).toHaveValue('高')
+    expect(screen.getByRole('region', { name:'高意向客户明细' })).toBeInTheDocument()
+    expect(screen.getByRole('table', { name:'高意向客户客户清单' })).toBeInTheDocument()
   })
 })
 

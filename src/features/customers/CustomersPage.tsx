@@ -50,6 +50,7 @@ function readCustomerFilters() {
   const task = params.get('task')
   const intent = params.get('intent')
   const scope = params.get('scope')
+  const metric = params.get('metric')
   return {
     customer: params.get('customer') ?? '',
     stage: stages.includes(stage as CustomerStage) ? stage as CustomerStage : '全部' as const,
@@ -57,6 +58,7 @@ function readCustomerFilters() {
     task: task === '待跟进' || task === '已逾期' ? task : '全部' as const,
     intent: intent === '高' || intent === '中' || intent === '低' ? intent : '全部' as const,
     scope: ['active', 'won', 'deals', 'paid', 'receivable', 'marketing'].includes(scope ?? '') ? scope as CustomerScope : undefined,
+    metric: ['active', 'pipeline', 'high-intent', 'conversion', 'revenue', 'paid', 'receivable', 'average-order'].includes(metric ?? '') ? metric as DashboardMetric : undefined,
     sort: params.get('sort') === 'amount-desc' ? 'amount-desc' as const : undefined,
     period: ['leads', 'visits', 'deals'].includes(params.get('period') ?? '') ? params.get('period') as 'leads' | 'visits' | 'deals' : undefined,
     from: params.get('from') ?? '',
@@ -65,6 +67,8 @@ function readCustomerFilters() {
 }
 
 const SCOPE_LABELS: Record<CustomerScope, string> = { active: '全部在跟客户', won: '定金及后续阶段客户', deals: '已登记成交客户', paid: '已有收款客户', receivable: '仍有待收款客户', marketing: '可持续经营客户' }
+type DashboardMetric = 'active' | 'pipeline' | 'high-intent' | 'conversion' | 'revenue' | 'paid' | 'receivable' | 'average-order'
+const METRIC_LABELS: Record<DashboardMetric, string> = { active:'在跟客户', pipeline:'预计商机金额', 'high-intent':'高意向客户', conversion:'推进转化客户', revenue:'累计成交金额', paid:'已收款', receivable:'待收款', 'average-order':'平均客单价' }
 
 export type CustomerWorkspaceState = { customers: Customer[]; followUps: FollowUp[] }
 export interface CustomersPageProps {
@@ -336,7 +340,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
           </div>
         </aside>
 
-        <main className={`customer-detail ${!selected ? 'mobile-hidden' : ''}`}>
+        <main className={`customer-detail ${!selected && !activeDashboardFilter ? 'mobile-hidden' : ''}`}>
           {selected ? (
             <>
               <button className="mobile-back" onClick={() => setSelectedId('')}><ArrowLeft size={18} />返回客户列表</button>
@@ -403,7 +407,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
                 </div>
               </section>
             </>
-          ) : <div className="detail-placeholder"><UserRound size={34} /><strong>选择一位客户</strong><span>查看客户画像与跟进记录</span></div>}
+          ) : activeDashboardFilter ? <DashboardDrilldown customers={filtered} title={routeFilters.metric ? METRIC_LABELS[routeFilters.metric] : dashboardFilterLabel} onOpen={setSelectedId} /> : <div className="detail-placeholder"><UserRound size={34} /><strong>选择一位客户</strong><span>查看客户画像与跟进记录</span></div>}
         </main>
       </div>
       {formOpen && selected && <FollowUpDialog customer={selected} designers={designers} purpose={followUpPurpose} initialAction={currentNextAction} onClose={() => setFormOpen(false)} onSubmit={addFollowUp} onDealRequested={() => setDealOpen(true)} />}
@@ -412,6 +416,15 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
       {profileOpen && selected && <ProfileEditDialog customer={selected} onClose={() => setProfileOpen(false)} onSubmit={saveProfile} />}
     </section>
   )
+}
+
+function DashboardDrilldown({ customers, title, onOpen }: { customers: Customer[]; title: string; onOpen: (id: string) => void }) {
+  const totals = customers.reduce((sum, customer) => {
+    const deal = customer.dealAmount ?? (customer.stage === '已成交' ? customer.expectedAmount : 0)
+    const paid = customer.paidAmount ?? 0
+    return { expected:sum.expected + customer.expectedAmount, deal:sum.deal + deal, paid:sum.paid + paid, receivable:sum.receivable + Math.max(0, deal - paid) }
+  }, { expected:0, deal:0, paid:0, receivable:0 })
+  return <section className="dashboard-drilldown" aria-label={`${title}明细`}><header><div><p>经营指标明细</p><h2>{title}</h2><span>共 {customers.length} 位客户，可点击客户继续查看完整资料</span></div></header><div className="drilldown-totals"><div><span>预计金额</span><strong>{formatMoney(totals.expected)}</strong></div><div><span>成交金额</span><strong>{formatMoney(totals.deal)}</strong></div><div><span>已收款</span><strong>{formatMoney(totals.paid)}</strong></div><div><span>待收款</span><strong>{formatMoney(totals.receivable)}</strong></div></div>{customers.length ? <div className="drilldown-table" role="table" aria-label={`${title}客户清单`}><div className="drilldown-row drilldown-head" role="row"><span>客户 / 负责人</span><span>阶段</span><span>预计金额</span><span>成交 / 已收 / 待收</span><span/></div>{customers.map((customer) => { const deal = customer.dealAmount ?? (customer.stage === '已成交' ? customer.expectedAmount : 0); const paid = customer.paidAmount ?? 0; return <button type="button" className="drilldown-row" role="row" key={customer.id} onClick={() => onOpen(customer.id)}><span><strong>{customer.name}</strong><small>{customer.salesperson}</small></span><span>{customer.stage}<small>{customer.intent}意向</small></span><span>{formatMoney(customer.expectedAmount)}</span><span><strong>{formatMoney(deal)}</strong><small>已收 {formatMoney(paid)} · 待收 {formatMoney(Math.max(0, deal - paid))}</small></span><ChevronRight size={16}/></button>})}</div> : <div className="drilldown-empty"><Search size={25}/><strong>当前没有符合条件的客户</strong><span>可返回经营分析调整指标或统计周期</span></div>}</section>
 }
 
 function ProfileEditDialog({ customer, onClose, onSubmit }: { customer: Customer; onClose: () => void; onSubmit: (changes: Partial<Customer>) => void }) {
