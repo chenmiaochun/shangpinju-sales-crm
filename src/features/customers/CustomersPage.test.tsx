@@ -89,6 +89,19 @@ describe('CustomersPage design collaboration', () => {
     expect(onStateChange.mock.calls[0][0].followUps[0]).toMatchObject({ nextAction:'发送报价、确认预算、带木样上门确认颜色' })
   })
 
+  it('saves multiple preset communication details and optional supplements', () => {
+    const onStateChange = vi.fn()
+    render(<CustomersPage customers={customers} followUps={followUps} onStateChange={onStateChange} />)
+    fireEvent.click(screen.getAllByRole('button', { name:'新增跟进' })[0])
+    fireEvent.click(screen.getByRole('checkbox', { name:'了解产品需求' }))
+    fireEvent.click(screen.getByRole('checkbox', { name:'确认客户预算' }))
+    fireEvent.change(screen.getByLabelText('沟通内容'), { target:{ value:'偏好胡桃木色' } })
+    fireEvent.click(screen.getByRole('checkbox', { name:'客户意向明确' }))
+    fireEvent.click(screen.getByRole('checkbox', { name:'已发送资料' }))
+    fireEvent.click(screen.getByRole('button', { name:'保存跟进' }))
+    expect(onStateChange.mock.calls[0][0].followUps[0]).toMatchObject({ content:'了解产品需求；确认客户预算；偏好胡桃木色', result:'客户意向明确；已发送资料' })
+  })
+
   it('registers a structured order from the customer follow-up workspace', () => {
     const onRegisterDeal = vi.fn()
     render(<CustomersPage customers={customers} followUps={followUps} onStateChange={vi.fn()} onRegisterDeal={onRegisterDeal} />)

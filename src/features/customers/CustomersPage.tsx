@@ -532,11 +532,27 @@ function HandoffDialog({ customer, salespeople, onClose, onSubmit }: { customer:
 
 type DesignTaskDraft = Omit<DesignTask, 'id' | 'customerId' | 'customerName' | 'salesperson' | 'status' | 'solutionFiles' | 'createdAt' | 'updatedAt'>
 
+const followUpContentOptions = ['了解产品需求', '确认尺寸户型', '沟通风格材质', '确认客户预算', '沟通价格优惠', '确认交付时间', '邀约到店', '沟通量尺']
+const followUpResultOptions = ['客户意向明确', '已发送资料', '已完成报价', '已预约到店', '已预约量尺', '方案待确认', '客户继续考虑', '预算暂未确定', '暂时搁置', '未联系上']
+
+function mergeFollowUpText(selected: string[], supplement: string) {
+  return [...selected, supplement.trim()].filter(Boolean).join('；')
+}
+
+function FollowUpChoiceField({ label, options, selected, supplement, placeholder, onSelectedChange, onSupplementChange }: { label: string; options: string[]; selected: string[]; supplement: string; placeholder: string; onSelectedChange: (items: string[]) => void; onSupplementChange: (value: string) => void }) {
+  function toggle(option: string) {
+    onSelectedChange(selected.includes(option) ? selected.filter((item) => item !== option) : [...selected, option])
+  }
+  return <fieldset className="followup-choice-field"><legend>{label}<small>可多选</small></legend><div className="followup-choice-options">{options.map((option) => <label key={option}><input type="checkbox" checked={selected.includes(option)} onChange={() => toggle(option)} /><span>{option}</span></label>)}</div><label className="followup-supplement">补充说明<textarea aria-label={label} required={selected.length === 0} rows={2} value={supplement} onChange={(event) => onSupplementChange(event.target.value)} placeholder={placeholder} /></label></fieldset>
+}
+
 function FollowUpDialog({ customer, designers, purpose = 'default', initialAction, onClose, onSubmit, onDealRequested }: { customer: Customer; designers: { id: string; name: string }[]; purpose?: 'default' | 'execute' | 'schedule'; initialAction?: string; onClose: () => void; onSubmit: (data: Omit<FollowUp, 'id' | 'customerId' | 'salesperson'>, design?: DesignTaskDraft) => void; onDealRequested?: () => void }) {
   const [channel, setChannel] = useState<Channel>('微信')
   const [at, setAt] = useState(toLocalInput())
   const [content, setContent] = useState(purpose === 'execute' && initialAction ? `执行任务：${initialAction}` : '')
   const [result, setResult] = useState('')
+  const [contentChoices, setContentChoices] = useState<string[]>([])
+  const [resultChoices, setResultChoices] = useState<string[]>([])
   const [nextActions, setNextActions] = useState<string[]>([])
   const [customAction, setCustomAction] = useState('')
   const [nextAt, setNextAt] = useState('')
@@ -554,7 +570,7 @@ function FollowUpDialog({ customer, designers, purpose = 'default', initialActio
     event.preventDefault()
     const designer = designers.find((item) => item.id === designerId)
     const nextAction = buildNextAction(nextActions, customAction)
-    onSubmit({ channel, at: new Date(at).toISOString(), content: content.trim(), result: result.trim(), nextAction: nextAction || undefined, nextAt: nextAt ? new Date(nextAt).toISOString() : undefined }, needsDesign && designer ? { designerId, designerName: designer.name, type: designType, requirement: requirement.trim(), dueAt: new Date(dueAt).toISOString(), priority: designPriority, referenceFiles } : undefined)
+    onSubmit({ channel, at: new Date(at).toISOString(), content: mergeFollowUpText(contentChoices, content), result: mergeFollowUpText(resultChoices, result), nextAction: nextAction || undefined, nextAt: nextAt ? new Date(nextAt).toISOString() : undefined }, needsDesign && designer ? { designerId, designerName: designer.name, type: designType, requirement: requirement.trim(), dueAt: new Date(dueAt).toISOString(), priority: designPriority, referenceFiles } : undefined)
     if (dealConfirmed) window.setTimeout(() => onDealRequested?.(), 0)
   }
 
@@ -564,8 +580,8 @@ function FollowUpDialog({ customer, designers, purpose = 'default', initialActio
       <form onSubmit={submit}>
         <fieldset><legend>沟通方式</legend><div className="channel-options">{(['微信', '电话', '到店', '量尺'] as Channel[]).map((item) => <label key={item}><input type="radio" name="channel" checked={channel === item} onChange={() => setChannel(item)} /><span>{item}</span></label>)}</div></fieldset>
         <label>跟进时间<input type="datetime-local" required value={at} onChange={(event) => setAt(event.target.value)} /></label>
-        <label>沟通内容<textarea required rows={3} value={content} onChange={(event) => setContent(event.target.value)} placeholder="客户关注了什么、表达了哪些需求？" /></label>
-        <label>本次结果<input required value={result} onChange={(event) => setResult(event.target.value)} placeholder="例如：已发送材质方案" /></label>
+        <FollowUpChoiceField label="沟通内容" options={followUpContentOptions} selected={contentChoices} supplement={content} onSelectedChange={setContentChoices} onSupplementChange={setContent} placeholder="如有特殊需求，可在这里补充" />
+        <FollowUpChoiceField label="本次结果" options={followUpResultOptions} selected={resultChoices} supplement={result} onSelectedChange={setResultChoices} onSupplementChange={setResult} placeholder="如有特殊结果，可在这里补充" />
         <div className="design-assist-toggle"><label><input type="checkbox" checked={dealConfirmed} onChange={(event) => { setDealConfirmed(event.target.checked); if (event.target.checked) { setNextActions([]); setCustomAction(''); setNextAt('') } }} /><span>客户本次已确认成交</span></label><small>保存跟进后继续登记产品、金额和备货方式</small></div>
         <div className="form-divider"><span>下一步任务</span></div>
         <NextActionPicker selected={nextActions} customAction={customAction} onSelectedChange={setNextActions} onCustomActionChange={setCustomAction} />
