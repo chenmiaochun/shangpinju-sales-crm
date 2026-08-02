@@ -21,6 +21,8 @@ const categories: { id: TaskCategory; label: string }[] = [
   { id: 'future', label: '未来' }, { id: 'unscheduled', label: '无计划' },
 ]
 
+type TaskView = TaskCategory | 'due'
+
 const money = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', maximumFractionDigits: 0 })
 const dateTime = new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false })
 
@@ -37,7 +39,7 @@ function groupTitle(key: string, now: Date) {
 
 export function TaskCenterPage({ customers, followUps, onCompleteTask, now = new Date(), designTasks = [], activeMember, onUpdateDesignTask }: TaskCenterPageProps) {
   const [focusedCustomerId, setFocusedCustomerId] = useState(() => new URLSearchParams(typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] ?? '').get('customer') ?? '')
-  const [category, setCategory] = useState<TaskCategory>('today')
+  const [category, setCategory] = useState<TaskView>('today')
   const [owner, setOwner] = useState('全部')
   const [priority, setPriority] = useState<TaskPriority | '全部'>('全部')
   const [activeTask, setActiveTask] = useState<FollowUpTask | null>(null)
@@ -47,19 +49,19 @@ export function TaskCenterPage({ customers, followUps, onCompleteTask, now = new
   useEffect(() => { if (requestedTask) { setMode('sales'); setCategory(requestedTask.category) } }, [requestedTask?.category])
   const owners = useMemo(() => [...new Set(customers.map((item) => item.salesperson))], [customers])
   const counts = useMemo(() => Object.fromEntries(categories.map(({ id }) => [id, tasks.filter((task) => task.category === id).length])) as Record<TaskCategory, number>, [tasks])
-  const visible = tasks.filter((task) => task.category === category && (!focusedCustomerId || task.customer.id === focusedCustomerId) && (owner === '全部' || task.customer.salesperson === owner) && (priority === '全部' || task.priority === priority))
+  const visible = tasks.filter((task) => (category === 'due' ? task.category === 'today' || task.category === 'overdue' : task.category === category) && (!focusedCustomerId || task.customer.id === focusedCustomerId) && (owner === '全部' || task.customer.salesperson === owner) && (priority === '全部' || task.priority === priority))
   const groups = groupTasksBySchedule(visible)
   const visibleDesignTasks = designTasks.filter((task) => !activeMember || activeMember.role === 'manager' || task.designerId === activeMember.id || task.designerName === activeMember.name || task.salesperson === activeMember.name)
 
   return <section className="task-center" aria-label="跟进任务中心">
     <header className="task-header">
       <div><p>销售执行</p><h1>跟进任务中心</h1><span>{tasks.length} 位客户需要持续推进</span></div>
-      <div className="task-header-stat"><ListTodo size={20} /><strong>{counts.today + counts.overdue}</strong><span>今日待处理</span></div>
+      <button type="button" className={`task-header-stat${mode === 'sales' && category === 'due' ? ' active' : ''}`} aria-pressed={mode === 'sales' && category === 'due'} onClick={() => { setMode('sales'); setCategory('due'); setFocusedCustomerId('') }}><ListTodo size={20} /><strong>{counts.today + counts.overdue}</strong><span>今日待处理</span></button>
     </header>
 
     <nav className="task-tabs" aria-label="任务分类">
       <button className={mode === 'design' ? 'design-tab active' : 'design-tab'} onClick={() => setMode('design')}><span>设计协作</span><b>{visibleDesignTasks.filter((task) => task.status !== '已完成').length}</b></button>
-      {categories.map((item) => <button key={item.id} className={mode === 'sales' && category === item.id ? 'active' : ''} onClick={() => { setMode('sales'); setCategory(item.id) }}><span>{item.label}</span><b>{counts[item.id]}</b></button>)}
+      {categories.map((item) => <button key={item.id} className={mode === 'sales' && category === item.id ? 'active' : ''} onClick={() => { setMode('sales'); setCategory(item.id); setFocusedCustomerId('') }}><span>{item.label}</span><b>{counts[item.id]}</b></button>)}
     </nav>
 
     {mode === 'sales' && <div className="task-toolbar">

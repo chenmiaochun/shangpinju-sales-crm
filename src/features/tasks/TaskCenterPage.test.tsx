@@ -19,6 +19,15 @@ describe('TaskCenterPage', () => {
     expect(screen.getByText('超期 1 天')).toBeInTheDocument()
   })
 
+  it('opens today and overdue tasks from the header summary', () => {
+    render(<TaskCenterPage customers={customers} followUps={followUps} onCompleteTask={() => {}} now={now} />)
+    const summary = screen.getByRole('button', { name:/今日待处理/ })
+    fireEvent.click(summary)
+    expect(summary).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('超期 1 天')).toBeInTheDocument()
+    expect(screen.getByText('张女士')).toBeInTheDocument()
+  })
+
   it('submits a completed task as a FollowUp', () => {
     const complete = vi.fn()
     render(<TaskCenterPage customers={customers} followUps={followUps} onCompleteTask={complete} now={now} />)
