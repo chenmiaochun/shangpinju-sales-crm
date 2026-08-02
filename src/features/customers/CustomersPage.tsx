@@ -20,6 +20,7 @@ import { customers as seedCustomers, followUps as seedFollowUps } from '../../da
 import { productCatalog } from '../../productCatalog'
 import type { Customer, CustomerFile, CustomerStage, DesignTask, DesignTaskType, FollowUp, OrderItem } from '../../types'
 import type { TeamMember } from '../team'
+import { buildNextAction, NextActionPicker } from '../followups/NextActionPicker'
 import './customers.css'
 
 const STORAGE_KEY = 'shangpinju.customer-followup.v1'
@@ -433,7 +434,8 @@ function FollowUpDialog({ customer, designers, onClose, onSubmit, onDealRequeste
   const [at, setAt] = useState(toLocalInput())
   const [content, setContent] = useState('')
   const [result, setResult] = useState('')
-  const [nextAction, setNextAction] = useState('')
+  const [nextActions, setNextActions] = useState<string[]>([])
+  const [customAction, setCustomAction] = useState('')
   const [nextAt, setNextAt] = useState('')
   const [needsDesign, setNeedsDesign] = useState(false)
   const [designerId, setDesignerId] = useState('')
@@ -448,7 +450,8 @@ function FollowUpDialog({ customer, designers, onClose, onSubmit, onDealRequeste
   function submit(event: FormEvent) {
     event.preventDefault()
     const designer = designers.find((item) => item.id === designerId)
-    onSubmit({ channel, at: new Date(at).toISOString(), content: content.trim(), result: result.trim(), nextAction: nextAction.trim() || undefined, nextAt: nextAt ? new Date(nextAt).toISOString() : undefined }, needsDesign && designer ? { designerId, designerName: designer.name, type: designType, requirement: requirement.trim(), dueAt: new Date(dueAt).toISOString(), priority: designPriority, referenceFiles } : undefined)
+    const nextAction = buildNextAction(nextActions, customAction)
+    onSubmit({ channel, at: new Date(at).toISOString(), content: content.trim(), result: result.trim(), nextAction: nextAction || undefined, nextAt: nextAt ? new Date(nextAt).toISOString() : undefined }, needsDesign && designer ? { designerId, designerName: designer.name, type: designType, requirement: requirement.trim(), dueAt: new Date(dueAt).toISOString(), priority: designPriority, referenceFiles } : undefined)
     if (dealConfirmed) window.setTimeout(() => onDealRequested?.(), 0)
   }
 
@@ -460,9 +463,9 @@ function FollowUpDialog({ customer, designers, onClose, onSubmit, onDealRequeste
         <label>跟进时间<input type="datetime-local" required value={at} onChange={(event) => setAt(event.target.value)} /></label>
         <label>沟通内容<textarea required rows={3} value={content} onChange={(event) => setContent(event.target.value)} placeholder="客户关注了什么、表达了哪些需求？" /></label>
         <label>本次结果<input required value={result} onChange={(event) => setResult(event.target.value)} placeholder="例如：已发送材质方案" /></label>
-        <div className="design-assist-toggle"><label><input type="checkbox" checked={dealConfirmed} onChange={(event) => { setDealConfirmed(event.target.checked); if (event.target.checked) { setNextAction(''); setNextAt('') } }} /><span>客户本次已确认成交</span></label><small>保存跟进后继续登记产品、金额和备货方式</small></div>
+        <div className="design-assist-toggle"><label><input type="checkbox" checked={dealConfirmed} onChange={(event) => { setDealConfirmed(event.target.checked); if (event.target.checked) { setNextActions([]); setCustomAction(''); setNextAt('') } }} /><span>客户本次已确认成交</span></label><small>保存跟进后继续登记产品、金额和备货方式</small></div>
         <div className="form-divider"><span>下一步任务</span></div>
-        <label>行动内容<input value={nextAction} onChange={(event) => setNextAction(event.target.value)} placeholder="例如：邀请客户到店看样" /></label>
+        <NextActionPicker selected={nextActions} customAction={customAction} onSelectedChange={setNextActions} onCustomActionChange={setCustomAction} />
         <label>计划时间<input type="datetime-local" value={nextAt} onChange={(event) => setNextAt(event.target.value)} /></label>
         <div className="design-assist-toggle"><label><input type="checkbox" checked={needsDesign} onChange={(event) => setNeedsDesign(event.target.checked)} /><span>需要设计师协助</span></label><small>保存后自动 @设计师，并在任务中心生成待办</small></div>
         {needsDesign && <section className="design-assist-fields"><div className="design-grid"><label>指派设计师 *<select required disabled={!designers.length} value={designerId} onChange={(event) => setDesignerId(event.target.value)}><option value="">{designers.length ? '请选择设计师' : '暂无设计师账号，请先在团队权限中新增'}</option>{designers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>任务类型 *<select required value={designType} onChange={(event) => setDesignType(event.target.value as DesignTaskType)}>{(['平面布局', '家具搭配', '效果图', '报价方案', '方案修改', '其他'] as DesignTaskType[]).map((item) => <option key={item}>{item}</option>)}</select></label><label>计划完成时间 *<input required type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} /></label><label>紧急程度<select value={designPriority} onChange={(event) => setDesignPriority(event.target.value as '普通' | '紧急')}><option>普通</option><option>紧急</option></select></label></div><label>设计任务要求 *<textarea required rows={2} value={requirement} onChange={(event) => setRequirement(event.target.value)} placeholder="说明客户需求、空间范围和设计重点" /></label><div className="reference-upload"><input ref={referenceInput} className="visually-hidden" type="file" multiple accept="image/*,.pdf,.dwg,.dxf,.cad,.zip" onChange={(event) => { const files = Array.from(event.target.files ?? []).map((file) => ({ id: `ref-${Date.now()}-${file.name}`, name: file.name, type: file.type || '文件', size: file.size })); setReferenceFiles((current) => [...current, ...files]) }} /><button type="button" onClick={() => referenceInput.current?.click()}><FileUp size={16} />添加参考资料</button><span>户型图、现场照片、PDF、CAD</span>{referenceFiles.map((file) => <div key={file.id}><span>{file.name}</span><button type="button" aria-label={`删除 ${file.name}`} onClick={() => setReferenceFiles((current) => current.filter((item) => item.id !== file.id))}><Trash2 size={14} /></button></div>)}</div></section>}

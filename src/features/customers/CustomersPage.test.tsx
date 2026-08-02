@@ -27,6 +27,20 @@ describe('dashboard drill-down filters', () => {
 })
 
 describe('CustomersPage design collaboration', () => {
+  it('saves multiple preset and custom next actions in one follow-up', () => {
+    const onStateChange = vi.fn()
+    render(<CustomersPage customers={customers} followUps={followUps} onStateChange={onStateChange} />)
+    fireEvent.click(screen.getAllByRole('button', { name:'新增跟进' })[0])
+    fireEvent.change(screen.getByLabelText('沟通内容'), { target:{ value:'沟通下一步安排' } })
+    fireEvent.change(screen.getByLabelText('本次结果'), { target:{ value:'客户需要继续比较' } })
+    fireEvent.click(screen.getByRole('checkbox', { name:'发送报价' }))
+    fireEvent.click(screen.getByRole('checkbox', { name:'确认预算' }))
+    fireEvent.click(screen.getByRole('checkbox', { name:'其他' }))
+    fireEvent.change(screen.getByLabelText('其他特殊情况'), { target:{ value:'带木样上门确认颜色' } })
+    fireEvent.click(screen.getByRole('button', { name:'保存跟进' }))
+    expect(onStateChange.mock.calls[0][0].followUps[0]).toMatchObject({ nextAction:'发送报价、确认预算、带木样上门确认颜色' })
+  })
+
   it('registers a structured order from the customer follow-up workspace', () => {
     const onRegisterDeal = vi.fn()
     render(<CustomersPage customers={customers} followUps={followUps} onStateChange={vi.fn()} onRegisterDeal={onRegisterDeal} />)

@@ -23,9 +23,22 @@ describe('TaskCenterPage', () => {
     fireEvent.click(screen.getByRole('button', { name:'完成跟进' }))
     fireEvent.change(screen.getByLabelText('沟通内容'), { target:{ value:'客户确认方案细节' } })
     fireEvent.change(screen.getByLabelText('跟进结果'), { target:{ value:'等待最终确认' } })
-    fireEvent.change(screen.getByLabelText('下次动作'), { target:{ value:'确认签约时间' } })
+    fireEvent.click(screen.getByRole('checkbox', { name:'发送设计方案' }))
+    fireEvent.click(screen.getByRole('checkbox', { name:'确认签约时间' }))
     fireEvent.click(screen.getByRole('button', { name:/确认完成/ }))
-    expect(complete).toHaveBeenCalledWith(expect.objectContaining({ customerId:'c1', salesperson:'林晓', channel:'微信', content:'客户确认方案细节', result:'等待最终确认', nextAction:'确认签约时间', at:now.toISOString() }))
+    expect(complete).toHaveBeenCalledWith(expect.objectContaining({ customerId:'c1', salesperson:'林晓', channel:'微信', content:'客户确认方案细节', result:'等待最终确认', nextAction:'发送设计方案、确认签约时间', at:now.toISOString() }))
+  })
+
+  it('supports a custom next action', () => {
+    const complete = vi.fn()
+    render(<TaskCenterPage customers={customers} followUps={followUps} onCompleteTask={complete} now={now} />)
+    fireEvent.click(screen.getByRole('button', { name:'完成跟进' }))
+    fireEvent.change(screen.getByLabelText('沟通内容'), { target:{ value:'客户有特殊时间安排' } })
+    fireEvent.change(screen.getByLabelText('跟进结果'), { target:{ value:'等待家人共同确认' } })
+    fireEvent.click(screen.getByRole('checkbox', { name:'其他' }))
+    fireEvent.change(screen.getByLabelText('其他特殊情况'), { target:{ value:'周日与客户家人视频确认' } })
+    fireEvent.click(screen.getByRole('button', { name:/确认完成/ }))
+    expect(complete).toHaveBeenCalledWith(expect.objectContaining({ nextAction:'周日与客户家人视频确认' }))
   })
 
   it('lets an assigned designer submit solution files for sales review', () => {
