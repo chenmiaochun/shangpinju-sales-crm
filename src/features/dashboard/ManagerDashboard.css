@@ -17,6 +17,22 @@
 .dashboard-subtitle { margin: 7px 0 0; color: var(--muted); font-size: 14px; }
 .dashboard-date { display: flex; align-items: center; gap: 8px; flex: none; color: #42504a; font-size: 14px; font-weight: 600; }
 
+.period-analysis { margin-bottom:14px; padding:18px 20px; border:1px solid var(--line); border-radius:7px; background:#fff; }
+.period-analysis>header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:16px; }
+.period-analysis h2 { margin:0; font-size:17px; }.period-analysis header p { margin:5px 0 0; color:var(--muted); font-size:12px; }
+.period-toolbar { display:flex; align-items:center; gap:10px; }
+.period-tabs { display:flex; padding:3px; border:1px solid #dce3df; border-radius:6px; background:#f5f7f6; }
+.period-tabs button { min-width:52px; height:30px; padding:0 10px; border:0; border-radius:4px; color:#64706a; background:transparent; cursor:pointer; }
+.period-tabs button.active { color:#fff; background:#246b4a; font-weight:700; }
+.period-stepper { display:grid; grid-template-columns:30px minmax(112px,auto) 30px; align-items:center; height:36px; border:1px solid #dce3df; border-radius:6px; }
+.period-stepper button { height:100%; border:0; color:#53615a; background:transparent; font-size:21px; cursor:pointer; }.period-stepper button:hover{background:#f3f7f5}.period-stepper strong{text-align:center;font-size:12px;white-space:nowrap}
+.period-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border-top:1px solid #edf0ee; border-left:1px solid #edf0ee; }
+.period-metric { display:flex; align-items:center; gap:12px; min-height:92px; padding:15px; border-right:1px solid #edf0ee; border-bottom:1px solid #edf0ee; }
+.period-metrics a.period-metric{position:relative;color:inherit;text-decoration:none}.period-metrics a.period-metric:hover,.period-metrics a.period-metric:focus-visible{background:#f7faf8;outline:none}.period-metric>svg{position:absolute;right:10px;top:10px;width:13px;color:#9aa69f}
+.period-metric>span { display:grid; place-items:center; width:36px; height:36px; flex:none; border-radius:6px; color:#246b4a; background:#e6f1eb; }.period-metric svg{width:19px}
+.period-metric p { margin:0 0 5px; color:var(--muted); font-size:12px; }.period-metric strong{display:block;font-size:22px;line-height:1.1}.period-metric strong small{margin-left:3px;color:#67736d;font-size:11px;font-weight:500}
+.period-metric em { display:block; margin-top:7px; font-size:11px; font-style:normal; }.compare-up{color:#237348}.compare-down{color:#b0443b}.compare-flat{color:#7c8781}
+
 .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
 .revenue-metric-grid .metric { min-height:112px; }
 .metric { position:relative; display: flex; align-items: flex-start; gap: 13px; min-height: 128px; padding: 20px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color:inherit; text-decoration:none; transition:border-color .15s,box-shadow .15s,transform .15s; }.metric:hover,.metric:focus-visible{border-color:#8db29d;box-shadow:0 5px 14px rgba(37,80,57,.1);transform:translateY(-1px);outline:none}.metric-arrow{position:absolute;top:15px;right:14px;width:15px;color:#91a098}
@@ -97,6 +113,7 @@
   .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-grid-top, .dashboard-grid-bottom { grid-template-columns: 1fr; }
   .marketing-list { grid-template-columns:1fr; }
+  .period-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 
 @media (max-width: 620px) {
@@ -104,6 +121,7 @@
   .dashboard-header { align-items: flex-start; }
   .dashboard-date { margin-top: 2px; font-size: 0; }
   .dashboard-date svg { width: 20px; }
+  .period-analysis { padding:15px 12px; }.period-analysis>header{display:block}.period-toolbar{justify-content:space-between;margin-top:13px}.period-tabs button{min-width:46px;padding:0 7px}.period-stepper{grid-template-columns:26px minmax(92px,auto) 26px}.period-metric{padding:12px 10px;gap:8px}.period-metric>span{width:31px;height:31px}.period-metric strong{font-size:19px}
   .metric-grid { gap: 9px; }
   .metric { min-height: 116px; padding: 14px; gap: 9px; }
   .metric-icon { width: 32px; height: 32px; }

@@ -17,6 +17,14 @@ it('switches to the customer requested by a dashboard entry after a hash change'
   expect(screen.getByRole('heading', { name: customers.find((customer) => customer.id === 'c2')!.name })).toBeInTheDocument()
 })
 
+it('filters customers from a dashboard period metric', () => {
+  window.location.hash = '/customers?period=leads&from=2026-07-01&to=2026-08-01'
+  render(<CustomersPage customers={customers} followUps={followUps} onStateChange={vi.fn()} />)
+
+  expect(screen.getByText(/新增线索/)).toBeInTheDocument()
+  expect(screen.getByText(/共 4 位客户/)).toBeInTheDocument()
+})
+
 describe('customer counts', () => {
   it('removes completed and lost customers from active and pending counts', () => {
     const items = [

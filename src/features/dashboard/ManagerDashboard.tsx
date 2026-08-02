@@ -8,7 +8,10 @@ import {
   Target,
   TrendingUp,
   Users,
+  UserPlus,
+  Store,
 } from 'lucide-react'
+import { useState } from 'react'
 import { customers as defaultCustomers, followUps as defaultFollowUps } from '../../data'
 import type { Customer, CustomerStage, FollowUp } from '../../types'
 import './ManagerDashboard.css'
@@ -20,6 +23,58 @@ const STAGES: CustomerStage[] = [
 const CLOSED_STAGES: CustomerStage[] = ['已成交', '已流失']
 const WON_STAGES: CustomerStage[] = ['已定金', '生产交付', '已成交']
 const DAY = 86_400_000
+type PeriodUnit = 'month' | 'quarter' | 'year'
+
+export interface DashboardPeriod { start: Date; end: Date; label: string }
+export interface PeriodSummary { newLeads: number; newVisits: number; deals: number; dealAmount: number }
+
+function atLocalStart(value: string) {
+  return new Date(value.length <= 10 ? `${value}T00:00:00` : value)
+}
+
+export function getDashboardPeriod(unit: PeriodUnit, anchor: Date): DashboardPeriod {
+  const year = anchor.getFullYear()
+  const month = anchor.getMonth()
+  if (unit === 'year') return { start: new Date(year, 0, 1), end: new Date(year + 1, 0, 1), label: `${year}年` }
+  if (unit === 'quarter') {
+    const quarter = Math.floor(month / 3)
+    return { start: new Date(year, quarter * 3, 1), end: new Date(year, quarter * 3 + 3, 1), label: `${year}年第${quarter + 1}季度` }
+  }
+  return { start: new Date(year, month, 1), end: new Date(year, month + 1, 1), label: `${year}年${month + 1}月` }
+}
+
+function previousPeriod(unit: PeriodUnit, current: DashboardPeriod) {
+  const anchor = new Date(current.start)
+  if (unit === 'year') anchor.setFullYear(anchor.getFullYear() - 1)
+  else anchor.setMonth(anchor.getMonth() - (unit === 'quarter' ? 3 : 1))
+  return getDashboardPeriod(unit, anchor)
+}
+
+export function getPeriodSummary(items: Customer[], followUps: FollowUp[], period: DashboardPeriod): PeriodSummary {
+  const inPeriod = (value?: string) => {
+    if (!value) return false
+    const time = atLocalStart(value).getTime()
+    return time >= period.start.getTime() && time < period.end.getTime()
+  }
+  const newCustomers = items.filter((customer) => inPeriod(customer.createdAt))
+  const visitIds = new Set(followUps.filter((item) => item.channel === '到店' && inPeriod(item.at)).map((item) => item.customerId))
+  newCustomers.forEach((customer) => {
+    if (STAGES.indexOf(customer.stage) >= STAGES.indexOf('到店') && customer.stage !== '已流失') visitIds.add(customer.id)
+  })
+  const completed = items.filter((customer) => inPeriod(customer.dealDate))
+  return {
+    newLeads: newCustomers.length,
+    newVisits: visitIds.size,
+    deals: completed.length,
+    dealAmount: completed.reduce((sum, customer) => sum + (customer.dealAmount ?? customer.expectedAmount), 0),
+  }
+}
+
+function comparison(current: number, previous: number) {
+  if (!previous) return current ? { text: `新增 ${current}`, tone: 'up' } : { text: '持平', tone: 'flat' }
+  const change = Math.round(((current - previous) / previous) * 100)
+  return { text: change === 0 ? '持平' : `${change > 0 ? '增长' : '下降'} ${Math.abs(change)}%`, tone: change > 0 ? 'up' : change < 0 ? 'down' : 'flat' }
+}
 
 export interface ManagerDashboardProps {
   customers?: Customer[]
@@ -83,6 +138,8 @@ const formatDateTime = (value: string) =>
   new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
     .format(new Date(value))
 
+const dateKey = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+
 function customerUrl(params: Record<string, string | undefined>) {
   const query = new URLSearchParams(Object.entries(params).filter((entry): entry is [string, string] => Boolean(entry[1])))
   return `#/customers?${query.toString()}`
@@ -93,7 +150,20 @@ export function ManagerDashboard({
   followUps = defaultFollowUps,
   now = new Date(),
 }: ManagerDashboardProps) {
+  const [periodUnit, setPeriodUnit] = useState<PeriodUnit>('month')
+  const [periodAnchor, setPeriodAnchor] = useState(() => new Date(now))
   const summary = getDashboardSummary(customers, now)
+  const period = getDashboardPeriod(periodUnit, periodAnchor)
+  const previous = previousPeriod(periodUnit, period)
+  const periodSummary = getPeriodSummary(customers, followUps, period)
+  const previousSummary = getPeriodSummary(customers, followUps, previous)
+  const comparisonLabel = periodUnit === 'month' ? '上月' : periodUnit === 'quarter' ? '上季度' : '上年'
+  const movePeriod = (direction: -1 | 1) => setPeriodAnchor((current) => {
+    const next = new Date(current)
+    if (periodUnit === 'year') next.setFullYear(next.getFullYear() + direction)
+    else next.setMonth(next.getMonth() + direction * (periodUnit === 'quarter' ? 3 : 1))
+    return next
+  })
   const active = customers.filter((customer) => !CLOSED_STAGES.includes(customer.stage))
   const salespeople = [...new Set(customers.map((customer) => customer.salesperson))]
     .map((name) => {
@@ -139,8 +209,26 @@ export function ManagerDashboard({
           <h1 id="dashboard-title">经营总览</h1>
           <p className="dashboard-subtitle">聚焦团队产能、商机推进与今日风险</p>
         </div>
-        <div className="dashboard-date"><CalendarClock size={17} />{now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })}</div>
+        <div className="dashboard-date"><CalendarClock size={17} />数据更新至 {now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}</div>
       </header>
+
+      <section className="period-analysis" aria-labelledby="period-analysis-title">
+        <header>
+          <div><h2 id="period-analysis-title">周期经营对比</h2><p>{period.label}与{comparisonLabel}经营结果</p></div>
+          <div className="period-toolbar">
+            <div className="period-tabs" aria-label="统计周期">
+              {([['month', '月度'], ['quarter', '季度'], ['year', '年度']] as const).map(([unit, label]) => <button type="button" className={periodUnit === unit ? 'active' : ''} aria-pressed={periodUnit === unit} onClick={() => { setPeriodUnit(unit); setPeriodAnchor(new Date(now)) }} key={unit}>{label}</button>)}
+            </div>
+            <div className="period-stepper"><button type="button" aria-label="上一周期" onClick={() => movePeriod(-1)}>‹</button><strong>{period.label}</strong><button type="button" aria-label="下一周期" onClick={() => movePeriod(1)}>›</button></div>
+          </div>
+        </header>
+        <div className="period-metrics">
+          <PeriodMetric href={customerUrl({ period: 'leads', from: dateKey(period.start), to: dateKey(period.end) })} icon={<UserPlus />} label="新增线索" value={`${periodSummary.newLeads}`} unit="人" compare={comparison(periodSummary.newLeads, previousSummary.newLeads)} comparisonLabel={comparisonLabel} />
+          <PeriodMetric href={customerUrl({ period: 'visits', from: dateKey(period.start), to: dateKey(period.end) })} icon={<Store />} label="新到店客户" value={`${periodSummary.newVisits}`} unit="人" compare={comparison(periodSummary.newVisits, previousSummary.newVisits)} comparisonLabel={comparisonLabel} />
+          <PeriodMetric href={customerUrl({ period: 'deals', from: dateKey(period.start), to: dateKey(period.end) })} icon={<CheckCircle2 />} label="新增成交" value={`${periodSummary.deals}`} unit="单" compare={comparison(periodSummary.deals, previousSummary.deals)} comparisonLabel={comparisonLabel} />
+          <PeriodMetric href={customerUrl({ period: 'deals', from: dateKey(period.start), to: dateKey(period.end) })} icon={<CircleDollarSign />} label="成交金额" value={`¥${formatMoney(periodSummary.dealAmount)}`} compare={comparison(periodSummary.dealAmount, previousSummary.dealAmount)} comparisonLabel={comparisonLabel} />
+        </div>
+      </section>
 
       <div className="metric-grid">
         <Metric href={customerUrl({ scope: 'active' })} icon={<Users />} label="在跟客户" value={`${summary.activeCustomers}`} detail={`待跟进 ${summary.pendingCustomers} · 成交 ${summary.completedCustomers} · 流失 ${summary.lostCustomers}`} tone="green" />
@@ -237,6 +325,10 @@ export function ManagerDashboard({
 
 function Metric({ icon, label, value, detail, tone, href }: { icon: React.ReactNode; label: string; value: string; detail: string; tone: string; href: string }) {
   return <a href={href} className={`metric metric-${tone}`} aria-label={`查看${label}明细`}><span className="metric-icon">{icon}</span><div><p>{label}</p><strong>{value}</strong><small>{detail}</small></div><ArrowRight className="metric-arrow" aria-hidden="true" /></a>
+}
+
+function PeriodMetric({ icon, label, value, unit, compare, comparisonLabel, href }: { icon: React.ReactNode; label: string; value: string; unit?: string; compare: { text: string; tone: string }; comparisonLabel: string; href: string }) {
+  return <a href={href} className="period-metric" aria-label={`查看${label}明细`}><span>{icon}</span><div><p>{label}</p><strong>{value}<small>{unit}</small></strong><em className={`compare-${compare.tone}`}>较{comparisonLabel} {compare.text}</em></div><ArrowRight aria-hidden="true" /></a>
 }
 
 function Panel({ title, subtitle, children, alert = false }: { title: string; subtitle: string; children: React.ReactNode; alert?: boolean }) {

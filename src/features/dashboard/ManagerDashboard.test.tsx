@@ -2,7 +2,7 @@ import '@testing-library/jest-dom'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { customers, followUps } from '../../data'
-import { getDashboardSummary, ManagerDashboard } from './ManagerDashboard'
+import { getDashboardPeriod, getDashboardSummary, getPeriodSummary, ManagerDashboard } from './ManagerDashboard'
 
 describe('ManagerDashboard', () => {
   const now = new Date('2026-07-30T12:00:00+08:00')
@@ -22,6 +22,11 @@ describe('ManagerDashboard', () => {
     const { container } = render(<ManagerDashboard customers={customers} followUps={followUps} now={now} />)
 
     expect(screen.getByRole('heading', { name: '经营总览' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '周期经营对比' })).toBeInTheDocument()
+    expect(screen.getByText('2026年7月与上月经营结果')).toBeInTheDocument()
+    expect(screen.getByText('新增线索')).toBeInTheDocument()
+    expect(screen.getByText('新到店客户')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '查看新增线索明细' })).toHaveAttribute('href', '#/customers?period=leads&from=2026-07-01&to=2026-08-01')
     expect(screen.getByText('¥41.3万')).toBeInTheDocument()
     expect(screen.getByText('销售人员对比')).toBeInTheDocument()
     expect(screen.getByText('客户阶段分布')).toBeInTheDocument()
@@ -31,6 +36,16 @@ describe('ManagerDashboard', () => {
     expect(container.querySelector('.sales-table a[href*="owner="]')).not.toBeNull()
     expect(container.querySelector('.suggestion-list a[href*="task="]')).not.toBeNull()
     expect(container.querySelector('.risk-list a[href="#/customers?customer=c1"]')).toHaveTextContent('查看资料')
+  })
+
+  it('summarizes monthly leads, visits and deals for period comparison', () => {
+    const period = getDashboardPeriod('month', now)
+    const summary = getPeriodSummary(customers, followUps, period)
+
+    expect(period.label).toBe('2026年7月')
+    expect(summary.newLeads).toBe(4)
+    expect(summary.newVisits).toBe(3)
+    expect(summary.deals).toBe(0)
   })
 
   it('handles an empty dataset without invalid values', () => {

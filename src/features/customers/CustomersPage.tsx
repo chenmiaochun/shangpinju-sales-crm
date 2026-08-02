@@ -55,6 +55,9 @@ function readCustomerFilters() {
     intent: intent === '高' || intent === '中' || intent === '低' ? intent : '全部' as const,
     scope: ['active', 'won', 'deals', 'paid', 'receivable', 'marketing'].includes(scope ?? '') ? scope as CustomerScope : undefined,
     sort: params.get('sort') === 'amount-desc' ? 'amount-desc' as const : undefined,
+    period: ['leads', 'visits', 'deals'].includes(params.get('period') ?? '') ? params.get('period') as 'leads' | 'visits' | 'deals' : undefined,
+    from: params.get('from') ?? '',
+    to: params.get('to') ?? '',
   }
 }
 
@@ -173,11 +176,22 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
       || (scopeFilter === 'paid' && completed && (customer.paidAmount ?? 0) > 0)
       || (scopeFilter === 'receivable' && completed && (customer.dealAmount ?? customer.expectedAmount) > (customer.paidAmount ?? 0))
       || (scopeFilter === 'marketing' && completed && customer.marketingStatus !== '暂不营销')
-    return matchesQuery && matchesStage && matchesOwner && matchesIntent && matchesTask && matchesScope
-  }).sort((a, b) => initialFilters.sort === 'amount-desc' ? b.expectedAmount - a.expectedAmount : 0), [initialFilters.sort, intentFilter, ownerFilter, query, scopeFilter, stageFilter, state.customers, taskFilter])
+    const inPeriod = (value?: string) => {
+      if (!value || !routeFilters.from || !routeFilters.to) return false
+      const time = new Date(value.length <= 10 ? `${value}T00:00:00` : value).getTime()
+      return time >= new Date(`${routeFilters.from}T00:00:00`).getTime() && time < new Date(`${routeFilters.to}T00:00:00`).getTime()
+    }
+    const reachedStore = stages.indexOf(customer.stage) >= stages.indexOf('到店') && customer.stage !== '已流失'
+    const matchesPeriod = !routeFilters.period
+      || (routeFilters.period === 'leads' && inPeriod(customer.createdAt))
+      || (routeFilters.period === 'deals' && inPeriod(customer.dealDate))
+      || (routeFilters.period === 'visits' && (state.followUps.some((item) => item.customerId === customer.id && item.channel === '到店' && inPeriod(item.at)) || (reachedStore && inPeriod(customer.createdAt))))
+    return matchesQuery && matchesStage && matchesOwner && matchesIntent && matchesTask && matchesScope && matchesPeriod
+  }).sort((a, b) => initialFilters.sort === 'amount-desc' ? b.expectedAmount - a.expectedAmount : 0), [initialFilters.sort, intentFilter, ownerFilter, query, routeFilters, scopeFilter, stageFilter, state.customers, state.followUps, taskFilter])
 
-  const activeDashboardFilter = Boolean(scopeFilter || intentFilter !== '全部' || stageFilter !== '全部' || ownerFilter !== '全部' || taskFilter !== '全部')
-  const dashboardFilterLabel = [scopeFilter && SCOPE_LABELS[scopeFilter], intentFilter !== '全部' && `${intentFilter}意向`, stageFilter !== '全部' && stageFilter, ownerFilter !== '全部' && `负责人 ${ownerFilter}`, taskFilter !== '全部' && taskFilter].filter(Boolean).join(' · ')
+  const activeDashboardFilter = Boolean(scopeFilter || routeFilters.period || intentFilter !== '全部' || stageFilter !== '全部' || ownerFilter !== '全部' || taskFilter !== '全部')
+  const periodLabel = routeFilters.period && `${routeFilters.from} 至 ${routeFilters.to} ${routeFilters.period === 'leads' ? '新增线索' : routeFilters.period === 'visits' ? '新到店客户' : '新增成交'}`
+  const dashboardFilterLabel = [periodLabel, scopeFilter && SCOPE_LABELS[scopeFilter], intentFilter !== '全部' && `${intentFilter}意向`, stageFilter !== '全部' && stageFilter, ownerFilter !== '全部' && `负责人 ${ownerFilter}`, taskFilter !== '全部' && taskFilter].filter(Boolean).join(' · ')
   function clearDashboardFilters() { setScopeFilter(undefined); setIntentFilter('全部'); setStageFilter('全部'); setOwnerFilter('全部'); setTaskFilter('全部'); window.location.hash = '/customers' }
 
   const selected = state.customers.find((customer) => customer.id === selectedId)
