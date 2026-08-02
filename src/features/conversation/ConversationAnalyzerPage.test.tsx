@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { Customer } from '../../types'
 import { ConversationAnalyzerPage } from './ConversationAnalyzerPage'
@@ -17,5 +17,21 @@ describe('ConversationAnalyzerPage', () => {
     expect(apply).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name:'确认并回写' }))
     expect(apply).toHaveBeenCalledWith('c1', expect.objectContaining({ budget:'10万', products:['衣柜'], style:'原木风' }), expect.objectContaining({ customerId:'c1', channel:'微信' }))
+  })
+
+  it('imports chat screenshots and saves them with the confirmed follow-up', async () => {
+    const apply = vi.fn()
+    render(<ConversationAnalyzerPage customers={[customer]} onApplyAnalysis={apply} />)
+    const image = new File(['chat-image'], '客户聊天.png', { type:'image/png' })
+    fireEvent.change(screen.getByLabelText('选择微信聊天截图'), { target: { files:[image] } })
+    await screen.findByAltText('聊天截图 客户聊天.png')
+    fireEvent.change(screen.getByLabelText('微信或电话沟通文本'), { target: { value:'客户：预算10万，想做衣柜。' } })
+    fireEvent.click(screen.getByRole('button', { name:'开始本地分析' }))
+    fireEvent.click(screen.getByRole('button', { name:'确认并回写' }))
+    await waitFor(() => expect(apply).toHaveBeenCalledWith(
+      'c1',
+      expect.objectContaining({ remarkImages:[expect.objectContaining({ name:'客户聊天.png' })] }),
+      expect.objectContaining({ content:expect.stringContaining('[微信聊天截图：客户聊天.png]') }),
+    ))
   })
 })
