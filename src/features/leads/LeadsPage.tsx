@@ -3,11 +3,12 @@ import { ArrowRight, ChevronDown, Download, File as FileIcon, FileDown, FileImag
 import type { Customer, CustomerFile, CustomerRemarkImage } from '../../types'
 import { csvRowToCustomer, customerCsv, previewCustomerCsv, templateCsv, type CsvPreviewRow } from './csv'
 import { customerImportFileToCsv } from './import-file'
+import { findVehiclePrice, VEHICLE_BRANDS, vehicleSeriesFor } from './vehicle-catalog'
 import './leads.css'
 
 export interface LeadsPageProps { customers: Customer[]; onAddCustomers: (customers: Customer[]) => void }
-type FormState = { name: string; phone: string; licenseProvince: string; licenseLetter: string; licenseNumber: string; source: string; salesperson: string; products: string[]; budget: string; renovationProgress: string; cityArea: string; vehicleBrand: string; customerStatus: string; nextFollowUpAt: string; notes: string; remarkImages: CustomerRemarkImage[]; initialQuote: string; quoteDescription: string; discountType: string; discountDetails: string; businessFiles: CustomerFile[] }
-const initialForm: FormState = { name: '', phone: '', licenseProvince: '粤', licenseLetter: 'V', licenseNumber: '', source: '', salesperson: '', products: [], budget: '待确认', renovationProgress: '', cityArea: '', vehicleBrand: '', customerStatus: '', nextFollowUpAt: '', notes: '', remarkImages: [], initialQuote: '', quoteDescription: '', discountType: '', discountDetails: '', businessFiles: [] }
+type FormState = { name: string; phone: string; licenseProvince: string; licenseLetter: string; licenseNumber: string; source: string; salesperson: string; products: string[]; budget: string; renovationProgress: string; cityArea: string; vehicleBrand: string; vehicleSeries: string; customerStatus: string; nextFollowUpAt: string; notes: string; remarkImages: CustomerRemarkImage[]; initialQuote: string; quoteDescription: string; discountType: string; discountDetails: string; businessFiles: CustomerFile[] }
+const initialForm: FormState = { name: '', phone: '', licenseProvince: '粤', licenseLetter: 'V', licenseNumber: '', source: '', salesperson: '', products: [], budget: '待确认', renovationProgress: '', cityArea: '', vehicleBrand: '', vehicleSeries: '', customerStatus: '', nextFollowUpAt: '', notes: '', remarkImages: [], initialQuote: '', quoteDescription: '', discountType: '', discountDetails: '', businessFiles: [] }
 const LICENSE_PROVINCES = ['粤', '京', '津', '沪', '渝', '冀', '豫', '云', '辽', '黑', '湘', '皖', '鲁', '新', '苏', '浙', '赣', '鄂', '桂', '甘', '晋', '蒙', '陕', '吉', '闽', '贵', '青', '藏', '川', '宁', '琼']
 const LICENSE_LETTERS = ['V', 'U', 'D', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').filter((letter) => !['V', 'U', 'D'].includes(letter))]
 const SOURCES = ['抖音', '小红书', '视频号', '门店自然到店', '老客户转介绍', '设计师推荐', '异业合作', '其他']
@@ -19,7 +20,6 @@ const BUDGET_AMOUNTS: Record<string, number> = { '2 万以下': 20000, '2-5 万'
 const RENOVATION_PROGRESS = ['未开工', '硬装中', '硬装完成', '已入住补购', '未交房']
 const CUSTOMER_STATUS = ['首次到店', '持续跟进', '已成交', '已流失']
 const STATUS_STAGE: Record<string, Customer['stage']> = { '首次到店': '到店', '持续跟进': '需求确认', '已成交': '已成交', '已流失': '已流失' }
-const VEHICLE_BRANDS = ['比亚迪', '特斯拉', '宝马', '丰田', '其他']
 const DISCOUNT_TYPES = ['无', '门店专场活动', '老客转介绍折扣', '专属议价优惠', '节日活动', '其他']
 
 export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
@@ -38,6 +38,8 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
     if (!keyword) return []
     return customers.filter((customer) => [customer.name, customer.phone, customer.licensePlate].some((value) => normalizeLookup(value).includes(keyword))).slice(0, 6)
   }, [customerLookup, customers])
+  const vehicleSeries = vehicleSeriesFor(form.vehicleBrand)
+  const vehiclePriceRange = findVehiclePrice(form.vehicleBrand, form.vehicleSeries)
   function update<K extends keyof FormState>(key: K, value: FormState[K]) { setForm((current) => ({ ...current, [key]: value })) }
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -46,7 +48,7 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
     const now = new Date()
     const quote = Number(form.initialQuote)
     const licenseNumber = form.licenseNumber.trim().toUpperCase()
-    const customer: Customer = { id: `lead-${now.getTime()}`, name: form.name.trim(), phone: form.phone.trim(), licensePlate: licenseNumber ? `${form.licenseProvince}${form.licenseLetter}${licenseNumber}` : '', source: form.source, salesperson: form.salesperson, stage: STATUS_STAGE[form.customerStatus] ?? '新线索', intent: form.customerStatus === '已成交' ? '高' : '中', expectedAmount: quote > 0 ? quote : BUDGET_AMOUNTS[form.budget] ?? 0, products: form.products, style: '', budget: form.budget, renovationProgress: form.renovationProgress, concerns: [], cityArea: form.cityArea, vehicleBrand: form.vehicleBrand, notes: form.notes.trim(), remarkImages: form.remarkImages, initialQuote: quote > 0 ? quote : undefined, quoteDescription: form.quoteDescription.trim() || undefined, discountType: form.discountType || undefined, discountDetails: form.discountDetails.trim() || undefined, businessFiles: form.businessFiles, lastContactAt: now.toISOString(), nextFollowUpAt: form.nextFollowUpAt ? new Date(`${form.nextFollowUpAt}T09:00:00`).toISOString() : undefined, createdAt: now.toISOString().slice(0, 10) }
+    const customer: Customer = { id: `lead-${now.getTime()}`, name: form.name.trim(), phone: form.phone.trim(), licensePlate: licenseNumber ? `${form.licenseProvince}${form.licenseLetter}${licenseNumber}` : '', source: form.source, salesperson: form.salesperson, stage: STATUS_STAGE[form.customerStatus] ?? '新线索', intent: form.customerStatus === '已成交' ? '高' : '中', expectedAmount: quote > 0 ? quote : BUDGET_AMOUNTS[form.budget] ?? 0, products: form.products, style: '', budget: form.budget, renovationProgress: form.renovationProgress, concerns: [], cityArea: form.cityArea, vehicleBrand: form.vehicleBrand.trim(), vehicleSeries: form.vehicleSeries.trim() || undefined, vehiclePriceRange: vehiclePriceRange || undefined, notes: form.notes.trim(), remarkImages: form.remarkImages, initialQuote: quote > 0 ? quote : undefined, quoteDescription: form.quoteDescription.trim() || undefined, discountType: form.discountType || undefined, discountDetails: form.discountDetails.trim() || undefined, businessFiles: form.businessFiles, lastContactAt: now.toISOString(), nextFollowUpAt: form.nextFollowUpAt ? new Date(`${form.nextFollowUpAt}T09:00:00`).toISOString() : undefined, createdAt: now.toISOString().slice(0, 10) }
     onAddCustomers([customer]); setForm(initialForm); if (remarkImageInput.current) remarkImageInput.current.value = ''; if (businessFileInput.current) businessFileInput.current.value = ''; setNotice(`已新增客户：${customer.name}`); window.location.hash = `/customers?customer=${encodeURIComponent(customer.id)}`
   }
   async function addRemarkImages(files?: FileList | null) {
@@ -104,7 +106,7 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
           <Field label="客户状态"><ChoiceSelect value={form.customerStatus} options={CUSTOMER_STATUS} placeholder="请选择客户状态" onChange={(value) => update('customerStatus', value)} /></Field>
           <Field label="装修进度"><ChoiceSelect value={form.renovationProgress} options={RENOVATION_PROGRESS} placeholder="请选择装修进度" onChange={(value) => update('renovationProgress', value)} /></Field>
           <Field label="下次跟进时间"><input type="date" value={form.nextFollowUpAt} onChange={(e) => update('nextFollowUpAt', e.target.value)} /></Field>
-          <Field label="车辆品牌"><ChoiceSelect value={form.vehicleBrand} options={VEHICLE_BRANDS} placeholder="请选择车辆品牌" onChange={(value) => update('vehicleBrand', value)} /></Field>
+          <Field label="车辆品牌与车系" className="vehicle-field"><div className="vehicle-picker"><input list="vehicle-brand-options" aria-label="车辆品牌" value={form.vehicleBrand} onChange={(event) => setForm((current) => ({ ...current, vehicleBrand: event.target.value, vehicleSeries: '' }))} placeholder="选择或输入品牌"/><datalist id="vehicle-brand-options">{VEHICLE_BRANDS.map((brand) => <option key={brand} value={brand}/>)}</datalist><input list="vehicle-series-options" aria-label="车辆系列" value={form.vehicleSeries} onChange={(event) => update('vehicleSeries', event.target.value)} placeholder={form.vehicleBrand ? '输入或选择车系' : '请先选择品牌'}/><datalist id="vehicle-series-options">{vehicleSeries.map((series) => <option key={series.name} value={series.name}>{series.priceRange}</option>)}</datalist><span className={vehiclePriceRange ? 'vehicle-price matched' : 'vehicle-price'}>{vehiclePriceRange ? `参考新车价 ${vehiclePriceRange}` : form.vehicleSeries ? '未匹配到参考价，可继续保存' : '选择车系后自动显示参考价位'}</span></div></Field>
           <div className="form-section-title"><strong>跟进资料</strong><span>报价、优惠及客户资料登记</span></div>
           <div className="followup-column"><Field label="初步报价金额"><div className="money-input"><input min="0" step="1" type="number" value={form.initialQuote} onChange={(event) => update('initialQuote', event.target.value)} placeholder="例：58000"/><span>元</span></div></Field><Field label="报价说明"><input value={form.quoteDescription} onChange={(event) => update('quoteDescription', event.target.value)} placeholder="简要说明报价包含的产品范围"/></Field></div>
           <div className="followup-column"><Field label="优惠类型"><ChoiceSelect value={form.discountType} options={DISCOUNT_TYPES} placeholder="请选择优惠类型" onChange={(value) => update('discountType', value)}/></Field><Field label="优惠详情"><input value={form.discountDetails} onChange={(event) => update('discountDetails', event.target.value)} placeholder="例：满减 5000、整单 95 折"/></Field></div>

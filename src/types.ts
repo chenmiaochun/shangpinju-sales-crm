@@ -38,6 +38,8 @@ export interface Customer {
   cityArea?: string
   visitPeriod?: string
   vehicleBrand?: string
+  vehicleSeries?: string
+  vehiclePriceRange?: string
   licensePlate?: string
   notes?: string
   avatarDataUrl?: string

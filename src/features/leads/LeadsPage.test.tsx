@@ -59,6 +59,18 @@ describe('LeadsPage customer intake', () => {
     expect(screen.queryByLabelText('关注点')).toBeNull()
   })
 
+  it('suggests vehicle series and stores its reference price', () => {
+    const onAddCustomers = vi.fn()
+    render(<LeadsPage customers={[]} onAddCustomers={onAddCustomers}/>)
+    fireEvent.change(screen.getByLabelText('姓名 *'), { target: { value: '林先生' } })
+    fireEvent.change(screen.getByLabelText('负责人 *'), { target: { value: '陈婉珊' } })
+    fireEvent.change(screen.getByLabelText('车辆品牌'), { target: { value: '宝马' } })
+    fireEvent.change(screen.getByLabelText('车辆系列'), { target: { value: 'X5' } })
+    expect(screen.getByText('参考新车价 62-80万')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '保存并进入客户跟进' }))
+    expect(onAddCustomers.mock.calls[0][0][0]).toMatchObject({ vehicleBrand: '宝马', vehicleSeries: 'X5', vehiclePriceRange: '62-80万' })
+  })
+
   it('finds returning customers by license plate and stores the plate on new records', () => {
     const onAddCustomers = vi.fn()
     const existing = [{ id: 'returning-1', name: '黄先生', phone: '13900001111', licensePlate: '粤V12345', source: '门店自然到店', salesperson: '陈婉珊', stage: '到店' as const, intent: '中' as const, expectedAmount: 0, products: [], style: '', budget: '待确认', renovationProgress: '', concerns: [], lastContactAt: '2026-08-01T00:00:00.000Z', createdAt: '2026-08-01' }]
