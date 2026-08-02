@@ -1,2 +1,1 @@
 export { LifecyclePage } from './LifecyclePage'
-
