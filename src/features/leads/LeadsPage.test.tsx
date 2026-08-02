@@ -69,7 +69,11 @@ describe('LeadsPage customer intake', () => {
     expect(screen.getByText(/13900001111 · 粤V12345/)).toBeTruthy()
 
     fireEvent.change(screen.getByLabelText('姓名 *'), { target: { value: '陈女士' } })
-    fireEvent.change(screen.getByLabelText('车牌号码'), { target: { value: '粤b88888' } })
+    expect((screen.getByLabelText('车牌省份') as HTMLSelectElement).value).toBe('粤')
+    expect((screen.getByLabelText('车牌字母') as HTMLSelectElement).value).toBe('V')
+    expect(Array.from((screen.getByLabelText('车牌字母') as HTMLSelectElement).options).slice(0, 3).map((option) => option.value)).toEqual(['V', 'U', 'D'])
+    fireEvent.change(screen.getByLabelText('车牌字母'), { target: { value: 'B' } })
+    fireEvent.change(screen.getByLabelText('车牌后五位'), { target: { value: '88888' } })
     fireEvent.change(screen.getByLabelText('负责人 *'), { target: { value: '陈婉珊' } })
     fireEvent.click(screen.getByRole('button', { name: '保存并进入客户跟进' }))
     expect(onAddCustomers.mock.calls[0][0][0].licensePlate).toBe('粤B88888')
