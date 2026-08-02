@@ -5,6 +5,8 @@ import { TeamAccessPage } from './TeamAccessPage'
 
 const accounts = [{ id: 'a1', username: 'manager', name: '陈店长', role: 'manager' as const, active: true, mustChangePassword: false }]
 vi.mock('../../api/salesApi', () => ({ salesApi: {
+  isStaticDemo: true,
+  staticTestPassword: '123456',
   getAccounts: vi.fn(async () => ({ accounts })),
   createAccount: vi.fn(async (input) => ({ account: { id: 'a2', ...input, active: true, mustChangePassword: true } })),
   updateAccount: vi.fn(async (id, input) => ({ account: { ...accounts[0], ...input, id } })),
@@ -18,7 +20,8 @@ describe('TeamAccessPage', () => {
 
   it('renders secure account management and employee permission settings', async () => {
     render(<TeamAccessPage storageKey="team-test" />)
-    expect(await screen.findByText('账号由服务端安全管理')).toBeInTheDocument()
+    expect(await screen.findByText('当前是外网离线测试模式')).toBeInTheDocument()
+    expect(screen.getByText(/spj001 至 spj005/)).toHaveTextContent('123456')
     expect(screen.getByRole('heading', { name: '员工权限设置' })).toBeInTheDocument()
     expect(screen.getByText('店长固定拥有全部权限')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: '本人客户' })).toBeDisabled()

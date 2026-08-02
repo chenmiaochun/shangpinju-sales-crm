@@ -73,7 +73,7 @@ export function TeamAccessPage(_props: TeamAccessPageProps) {
 
   return <main className="team-access" aria-labelledby="team-title">
     <header className="team-header"><div><p>团队与安全</p><h1 id="team-title">成员账号管理</h1><span>创建员工账号，分配岗位权限，管控登录状态。</span></div><button type="button" onClick={() => openDialog('add')}><UserPlus size={17}/>新增账号</button></header>
-    <aside className="team-security-note secure"><ShieldCheck size={19}/><div><strong>账号由服务端安全管理</strong><span>初始密码仅用于首次登录，员工登录后须修改密码；停用账号会阻止其继续访问系统。</span></div></aside>
+    {salesApi.isStaticDemo ? <aside className="team-security-note offline"><AlertTriangle size={19}/><div><strong>当前是外网离线测试模式</strong><span>本页新增账号、修改权限或重置密码只保存在当前浏览器，不会同步到员工设备。跨设备内置测试账号为 spj001 至 spj005，统一临时密码 <code>{salesApi.staticTestPassword}</code>。</span></div></aside> : <aside className="team-security-note secure"><ShieldCheck size={19}/><div><strong>账号由服务端安全管理</strong><span>初始密码仅用于首次登录，员工登录后须修改密码；停用账号会阻止其继续访问系统。</span></div></aside>}
     {error && <div className="team-feedback warning" role="alert"><AlertTriangle size={17}/><span>{error}</span><button type="button" disabled={retrying} onClick={() => void load(true)}>{retrying ? <><LoaderCircle className="spin" size={15}/>重试中</> : <><RotateCw size={15}/>重试</>}</button></div>}
     {success && <div className="team-feedback success" role="status"><CircleCheck size={17}/><span>{success}</span></div>}
     <div className="team-layout">
@@ -85,9 +85,9 @@ export function TeamAccessPage(_props: TeamAccessPageProps) {
       </section>
       <PermissionEditor accounts={accounts} selectedId={permissionAccountId} onSelect={setPermissionAccountId} onSaved={(account) => { setAccounts((items) => items.map((item) => item.id === account.id ? account : item)); showSuccess(`${account.name} 的权限已更新，对方刷新页面后生效`) }} onError={setError}/>
     </div>
-    {dialog === 'add' && <AccountDialog mode="add" onClose={closeDialog} onSave={(account) => { setAccounts((items) => [...items, account]); closeDialog(); showSuccess(`员工账号「${account.name}」新增成功`) }} onError={setError}/>}
+    {dialog === 'add' && <AccountDialog mode="add" onClose={closeDialog} onSave={(account) => { setAccounts((items) => [...items, account]); closeDialog(); showSuccess(`员工账号「${account.name}」新增成功${salesApi.isStaticDemo ? '，仅当前浏览器有效' : ''}`) }} onError={setError}/>}
     {dialog === 'edit' && selected && <AccountDialog mode="edit" account={selected} onClose={closeDialog} onSave={(account) => { setAccounts((items) => items.map((item) => item.id === account.id ? account : item)); closeDialog(); showSuccess(`员工账号「${account.name}」已更新`) }} onError={setError}/>}
-    {dialog === 'reset' && selected && <ResetPasswordDialog account={selected} onClose={closeDialog} onDone={() => showSuccess(`${selected.name} 的初始密码已重置`)} onError={setError}/>}
+    {dialog === 'reset' && selected && <ResetPasswordDialog account={selected} onClose={closeDialog} onDone={() => showSuccess(`${selected.name} 的初始密码已重置${salesApi.isStaticDemo ? '，仅当前浏览器有效' : ''}`)} onError={setError}/>}
     {dialog === 'delete' && selected && <DeleteAccountDialog account={selected} onClose={closeDialog} onDeleted={() => { setAccounts((items) => items.filter((item) => item.id !== selected.id)); window.dispatchEvent(new Event('sales-crm:accounts-changed')); closeDialog(); showSuccess(`员工账号「${selected.name}」已删除`) }} onError={setError}/>}
   </main>
 }

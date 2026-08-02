@@ -34,9 +34,15 @@ export interface RemoteAccount {
 export interface CreateAccountInput { username: string; name: string; role: AccountRole; roles?: AccountRole[]; canDesign?: boolean; permissions?: AccessPermission[]; password: string; phone?: string }
 export interface UpdateAccountInput { username: string; name: string; role: AccountRole; roles?: AccountRole[]; canDesign?: boolean; permissions?: AccessPermission[]; phone?: string }
 
-const defaultStaticAccounts: RemoteAccount[] = [
+export const STATIC_TEST_PASSWORD = '123456'
+export const STATIC_TEST_ACCOUNTS: RemoteAccount[] = [
   { id: 'static-manager', username: 'manager', name: '访客店长', role: 'manager', active: true, mustChangePassword: false, phone: '', createdAt: new Date().toISOString() },
   { id: 'static-aftersales', username: 'delivery', name: '售后配送组', role: 'aftersales', active: true, mustChangePassword: false, phone: '', createdAt: new Date().toISOString() },
+  { id: 'static-spj001', username: 'spj001', name: '陈婉珊', role: 'sales', roles: ['sales'], active: true, mustChangePassword: true, phone: '', createdAt: '2026-08-02T00:00:00.000Z' },
+  { id: 'static-spj002', username: 'spj002', name: '林泽鹏', role: 'sales', roles: ['sales', 'designer'], canDesign: true, active: true, mustChangePassword: true, phone: '', createdAt: '2026-08-02T00:00:00.000Z' },
+  { id: 'static-spj003', username: 'spj003', name: '郭予旭', role: 'sales', roles: ['sales', 'designer'], canDesign: true, active: true, mustChangePassword: true, phone: '', createdAt: '2026-08-02T00:00:00.000Z' },
+  { id: 'static-spj004', username: 'spj004', name: '吴漫东', role: 'sales', roles: ['sales'], active: true, mustChangePassword: true, phone: '', createdAt: '2026-08-02T00:00:00.000Z' },
+  { id: 'static-spj005', username: 'spj005', name: '江惠柔', role: 'operations', roles: ['operations'], active: true, mustChangePassword: true, phone: '', createdAt: '2026-08-02T00:00:00.000Z' },
 ]
 type StaticAccount = RemoteAccount & { password?: string }
 function loadStaticAccounts() {
@@ -44,11 +50,11 @@ function loadStaticAccounts() {
     const value = localStorage.getItem(STATIC_ACCOUNTS_KEY)
     if (value) {
       const saved = (JSON.parse(value) as StaticAccount[]).map((account) => ({ ...account, password: account.password ?? '123456' }))
-      const missingDefaults = defaultStaticAccounts.filter((account) => !saved.some((item) => item.username === account.username)).map((account) => ({ ...account, password: '123456' }))
+      const missingDefaults = STATIC_TEST_ACCOUNTS.filter((account) => !saved.some((item) => item.username === account.username)).map((account) => ({ ...account, password: STATIC_TEST_PASSWORD }))
       return [...saved, ...missingDefaults]
     }
   } catch { /* Use demo account. */ }
-  return defaultStaticAccounts.map((account) => ({ ...account, password: '123456' }))
+  return STATIC_TEST_ACCOUNTS.map((account) => ({ ...account, password: STATIC_TEST_PASSWORD }))
 }
 function saveStaticAccounts(accounts: StaticAccount[]) { localStorage.setItem(STATIC_ACCOUNTS_KEY, JSON.stringify(accounts)); return accounts }
 function publicStaticAccount({ password: _password, ...account }: StaticAccount): RemoteAccount { return account }
@@ -71,6 +77,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const salesApi = {
+  isStaticDemo: STATIC_DEMO,
+  staticTestPassword: STATIC_TEST_PASSWORD,
   getCurrentUser: <T>() => {
     if (!STATIC_DEMO) return request<{ user: T }>('/auth/me')
     const value = sessionStorage.getItem(STATIC_SESSION_KEY); if (!value) return Promise.reject(new ApiError(401, 'API 401'))
