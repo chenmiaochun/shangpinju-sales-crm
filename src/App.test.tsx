@@ -25,6 +25,19 @@ describe('App routes', () => {
     expect(within(settings).getByRole('link', { name: /数据管理/ })).toBeTruthy()
   })
 
+  it('opens the sidebar account menu with working account actions', () => {
+    renderAt('/dashboard')
+    const trigger = screen.getByRole('button', { name: '打开账号菜单' })
+    fireEvent.click(trigger)
+
+    const menu = screen.getByRole('menu', { name: '账号菜单' })
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    expect(within(menu).getByRole('menuitem', { name: '系统设置' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: '成员与权限' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: '数据管理' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: '退出登录' })).toBeTruthy()
+  })
+
   it('renders the customer follow-up workspace', () => {
     renderAt('/customers')
     expect(screen.getByRole('heading', { name: '客户与跟进' })).toBeTruthy()

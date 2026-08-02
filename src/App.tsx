@@ -54,6 +54,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
   const auth = useAuth()
   const access = useRoleAccess()
   const [topbarPanel, setTopbarPanel] = useState<'notifications' | 'settings' | null>(null)
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [notificationsRead, setNotificationsRead] = useState(false)
   const visibleNavigation = navigation.filter((item) => canUseItem(access.can, item))
   const visibleCustomers = useMemo(() => {
@@ -95,7 +96,16 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
           ))}
         </nav>
         <div className="sidebar-note"><span>今日进度</span><strong>3 / 5</strong><div><i /></div><small>还有 2 位客户待跟进</small></div>
-        <div className="account"><span>{activeMember.name.slice(0, 1)}</span><div><strong>{activeMember.name}</strong><small>{getIdentityRoles(activeMember).map((role) => ROLE_LABELS[role]).join(' + ')} · {sales.serverStatus === 'connected' ? '已同步' : '离线模式'}</small></div><ChevronDown size={15} /></div>
+        <div className="account-area">
+          {accountMenuOpen && <div className="account-menu" id="account-menu" role="menu" aria-label="账号菜单">
+            <div className="account-menu-status"><strong>{activeMember.name}</strong><small>{getIdentityRoles(activeMember).map((role) => ROLE_LABELS[role]).join(' + ')}</small><span className={sales.serverStatus === 'connected' ? 'is-connected' : ''}>{sales.serverStatus === 'connected' ? '数据已同步' : '当前为离线模式'}</span></div>
+            <button type="button" role="menuitem" onClick={() => { setAccountMenuOpen(false); setTopbarPanel('settings') }}><Settings size={16}/><span>系统设置</span></button>
+            {access.can('members.manage') && <NavLink role="menuitem" to="/team" onClick={() => setAccountMenuOpen(false)}><UserCog size={16}/><span>成员与权限</span></NavLink>}
+            {access.can('data.manage') && <NavLink role="menuitem" to="/data-admin" onClick={() => setAccountMenuOpen(false)}><Database size={16}/><span>数据管理</span></NavLink>}
+            <button type="button" role="menuitem" className="account-logout" onClick={() => void auth.logout()}><LogOut size={16}/><span>退出登录</span></button>
+          </div>}
+          <button type="button" className="account" aria-label="打开账号菜单" aria-expanded={accountMenuOpen} aria-controls="account-menu" onClick={() => setAccountMenuOpen((open) => !open)}><span>{activeMember.name.slice(0, 1)}</span><div><strong>{activeMember.name}</strong><small>{getIdentityRoles(activeMember).map((role) => ROLE_LABELS[role]).join(' + ')} · {sales.serverStatus === 'connected' ? '已同步' : '离线模式'}</small></div><ChevronDown className={accountMenuOpen ? 'is-open' : ''} size={15} /></button>
+        </div>
       </aside>
 
       <section className="app-main">

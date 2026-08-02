@@ -27,10 +27,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .sidebar-note div { height: 5px; margin: 12px 0 8px; overflow: hidden; border-radius: 3px; background: #dfe7e2; }
 .sidebar-note i { display: block; width: 60%; height: 100%; background: #377456; }
 .sidebar-note small { color: #77817b; font-size: 10px; }
-.account { display: flex; width: 100%; align-items: center; gap: 9px; padding: 10px 8px; border-top: 1px solid #edf0ee; color: #26302b; text-align: left; }
+.account-area { position:relative; }
+.account { display: flex; width: 100%; align-items: center; gap: 9px; padding: 10px 8px; border:0; border-top: 1px solid #edf0ee; background:#fff; color: #26302b; cursor:pointer; text-align: left; }
+.account:hover,.account[aria-expanded="true"] { background:#f4f8f5; }.account>svg{transition:transform .15s}.account>svg.is-open{transform:rotate(180deg)}
 .account > span { display: grid; width: 32px; height: 32px; flex: none; place-items: center; border-radius: 50%; background: #d9e7df; color: #275740; font-weight: 700; }
 .account div { flex: 1; }
 .account strong { font-size: 13px; }
+.account-menu { position:absolute; z-index:30; left:0; right:0; bottom:calc(100% + 7px); overflow:hidden; border:1px solid #d9e1dc; border-radius:7px; background:#fff; box-shadow:0 12px 28px rgba(29,49,39,.18); }
+.account-menu-status { display:grid; gap:3px; padding:12px; border-bottom:1px solid #edf0ee; background:#f7faf8; }.account-menu-status strong{font-size:12px}.account-menu-status small{color:#6f7b75;font-size:10px}.account-menu-status span{margin-top:3px;color:#9a6b19;font-size:10px}.account-menu-status span.is-connected{color:#28704d}
+.account-menu>a,.account-menu>button { display:flex; width:100%; min-height:38px; align-items:center; gap:9px; padding:0 12px; border:0; border-bottom:1px solid #f0f2f1; background:#fff; color:#3d4943; font-size:11px; text-decoration:none; cursor:pointer; }.account-menu>a:hover,.account-menu>button:hover{background:#f3f7f5;color:#245c45}.account-menu .account-logout{border-bottom:0;color:#a4493f}
 .app-main { grid-column: 2; min-width: 0; }
 .app-topbar { position: sticky; top: 0; z-index: 15; display: flex; height: 58px; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid #e1e5e2; background: rgba(255,255,255,.96); }
 .topbar-search { display: flex; align-items: center; gap: 9px; color: #89918d; font-size: 12px; }
