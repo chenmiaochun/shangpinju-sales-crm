@@ -30,6 +30,7 @@ describe('ManagerDashboard', () => {
     expect(screen.getByRole('link', { name: '查看高意向客户明细' })).toHaveAttribute('href', '#/customers?scope=active&intent=%E9%AB%98')
     expect(container.querySelector('.sales-table a[href*="owner="]')).not.toBeNull()
     expect(container.querySelector('.suggestion-list a[href*="task="]')).not.toBeNull()
+    expect(container.querySelector('.risk-list a[href="#/customers?customer=c1"]')).toHaveTextContent('查看资料')
   })
 
   it('handles an empty dataset without invalid values', () => {

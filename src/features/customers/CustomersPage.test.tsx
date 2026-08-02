@@ -6,6 +6,17 @@ import { CustomersPage, getCustomerCounts } from './CustomersPage'
 
 afterEach(() => { window.location.hash = '' })
 
+it('switches to the customer requested by a dashboard entry after a hash change', () => {
+  window.location.hash = '/customers?customer=c1'
+  const { rerender } = render(<CustomersPage customers={customers} followUps={followUps} onStateChange={vi.fn()} />)
+
+  window.location.hash = '/customers?customer=c2'
+  window.dispatchEvent(new HashChangeEvent('hashchange'))
+  rerender(<CustomersPage customers={customers} followUps={followUps} onStateChange={vi.fn()} />)
+
+  expect(screen.getByRole('heading', { name: customers.find((customer) => customer.id === 'c2')!.name })).toBeInTheDocument()
+})
+
 describe('customer counts', () => {
   it('removes completed and lost customers from active and pending counts', () => {
     const items = [

@@ -111,6 +111,7 @@ function isOverdue(value?: string) {
 
 export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-designer', name: '林设计师' }], salespeople = [{ id: 'demo-sales', name: '林晓' }], deliveryStaff = [{ id: 'demo-aftersales', name: '售后配送组' }], activeMember = { id: 'manager', name: '店长', role: 'manager', active: true }, onStateChange, onAddDesignTask, onRegisterDeal }: CustomersPageProps = {}) {
   const initialFilters = useMemo(readCustomerFilters, [])
+  const [routeFilters, setRouteFilters] = useState(initialFilters)
   const [localState, setLocalState] = useState<CustomerWorkspaceState>(readState)
   const controlled = customers !== undefined && followUps !== undefined && onStateChange !== undefined
   const state = controlled ? { customers, followUps } : localState
@@ -130,9 +131,22 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
   }, [controlled, state])
 
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('customer')
-    if (requested && state.customers.some((customer) => customer.id === requested)) setSelectedId(requested)
-  }, [state.customers])
+    const syncRoute = () => setRouteFilters(readCustomerFilters())
+    window.addEventListener('hashchange', syncRoute)
+    return () => window.removeEventListener('hashchange', syncRoute)
+  }, [])
+
+  useEffect(() => {
+    const requested = routeFilters.customer
+    if (requested && state.customers.some((customer) => customer.id === requested)) {
+      setSelectedId(requested)
+    }
+    setStageFilter(routeFilters.stage)
+    setOwnerFilter(routeFilters.owner)
+    setTaskFilter(routeFilters.task as '全部' | '待跟进' | '已逾期')
+    setIntentFilter(routeFilters.intent as '全部' | Customer['intent'])
+    setScopeFilter(routeFilters.scope)
+  }, [routeFilters, state.customers])
 
   function commit(updater: (current: CustomerWorkspaceState) => CustomerWorkspaceState) {
     if (controlled) onStateChange(updater(state))

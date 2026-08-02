@@ -63,7 +63,8 @@
 
 .risk-list, .suggestion-list { display: grid; gap: 9px; }
 .risk-item { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 12px; border: 1px solid #eaeeeb; border-radius: 6px; background: #fbfcfb; }
-.risk-list a.risk-item{color:inherit;text-decoration:none}.risk-list a.risk-item:hover{border-color:#c1d4c8;background:#f7faf8}
+.risk-list a.risk-item{color:inherit;text-decoration:none;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}.risk-list a.risk-item:hover,.risk-list a.risk-item:focus-visible{border-color:#8db29d;background:#f7faf8;box-shadow:0 3px 10px rgba(37,80,57,.09);outline:none}
+.risk-entry{display:inline-flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:5px;color:#246b4a;font-size:11px;font-weight:700}
 .risk-avatar { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; color: #fff; background: #587467; font-size: 13px; font-weight: 700; }
 .risk-main > div { display: flex; align-items: center; gap: 7px; }
 .risk-main strong { font-size: 14px; }

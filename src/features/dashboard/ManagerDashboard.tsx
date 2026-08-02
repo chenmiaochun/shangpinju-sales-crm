@@ -210,6 +210,7 @@ export function ManagerDashboard({
                   <div className={`risk-status ${overdue ? 'is-overdue' : ''}`}>
                     {overdue ? '已逾期' : '久未联系'}
                     <small>{formatDateTime(customer.nextFollowUpAt ?? customer.lastContactAt)}</small>
+                    <span className="risk-entry">查看资料 <ArrowRight size={13} aria-hidden="true" /></span>
                   </div>
                 </a>
               )
