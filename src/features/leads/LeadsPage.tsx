@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type DragEvent, type FormEvent, type ReactNode, type RefObject } from 'react'
-import { ArrowRight, ChevronDown, Download, File as FileIcon, FileDown, FileImage, FileUp, Images, Plus, Search, Trash2, Upload, X } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, Download, File as FileIcon, FileDown, FileImage, FileUp, Images, Plus, Search, Trash2, Upload, X } from 'lucide-react'
 import type { Customer, CustomerFile, CustomerRemarkImage } from '../../types'
 import { csvRowToCustomer, customerCsv, previewCustomerCsv, templateCsv, type CsvPreviewRow } from './csv'
 import { customerImportFileToCsv } from './import-file'
@@ -14,7 +14,13 @@ const LICENSE_LETTERS = ['V', 'U', 'D', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''
 const SOURCES = ['抖音', '小红书', '视频号', '门店自然到店', '老客户转介绍', '设计师推荐', '异业合作', '其他']
 const CITY_AREAS = ['揭阳', '汕头', '深圳', '潮州', '其他']
 const SALESPEOPLE = ['陈婉珊', '吴漫东', '郭予旭', '其他']
-const PRODUCTS = ['沙发', '茶台', '餐桌', '床', '全屋定制', '其他']
+const PRODUCTS = [
+  '沙发', '单椅/休闲椅', '茶几', '茶台', '电视柜',
+  '餐桌', '餐椅', '餐边柜', '床', '床头柜',
+  '床垫', '床品', '衣柜', '梳妆台', '书桌/书柜',
+  '窗帘', '地毯', '灯具', '挂画', '软装饰品',
+  '绿植', '全屋定制', '其他',
+]
 const BUDGETS = ['待确认', '2 万以下', '2-5 万', '5-8 万', '8-15 万', '15 万以上']
 const BUDGET_AMOUNTS: Record<string, number> = { '2 万以下': 20000, '2-5 万': 50000, '5-8 万': 80000, '8-15 万': 150000, '15 万以上': 200000 }
 const RENOVATION_PROGRESS = ['未开工', '硬装中', '硬装完成', '已入住补购', '未交房']
@@ -134,7 +140,16 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
 function Field({ label, required, className, children }: { label: string; required?: boolean; className?: string; children: ReactNode }) { return <label className={className}><span>{label}{required && <b> *</b>}</span>{children}</label> }
 function CustomerLookup({ query, matches, onQuery, onOpen }: { query: string; matches: Customer[]; onQuery: (value: string) => void; onOpen: (id: string) => void }) { return <section className="customer-lookup"><div className="lookup-title"><Search size={18}/><div><strong>先查找老客户</strong><span>客户再次到店时，可输入手机号、姓名或车牌号码调出原有资料</span></div></div><label><Search size={16}/><input aria-label="查找老客户" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="输入手机号、姓名或车牌号，例如 粤V12345"/>{query && <button type="button" aria-label="清空查找" onClick={() => onQuery('')}><X size={15}/></button>}</label>{query && <div className="lookup-results">{matches.length ? matches.map((customer) => <button type="button" key={customer.id} onClick={() => onOpen(customer.id)}><span className="lookup-avatar">{customer.name.slice(0, 1)}</span><span><strong>{customer.name}</strong><small>{customer.phone || '未登记电话'}{customer.licensePlate ? ` · ${customer.licensePlate}` : ''}</small></span><em>{customer.stage} · {customer.salesperson}</em><ArrowRight size={16}/></button>) : <p>没有找到旧客户，可以继续新建资料。</p>}</div>}</section> }
 function ChoiceSelect({ value, options, placeholder, required, onChange }: { value: string; options: string[]; placeholder?: string; required?: boolean; onChange: (value: string) => void }) { return <select required={required} value={value} onChange={(event) => onChange(event.target.value)}>{placeholder && <option value="">{placeholder}</option>}{options.map((option) => <option key={option} value={option}>{option}</option>)}</select> }
-function ProductSelect({ values, onChange }: { values: string[]; onChange: (values: string[]) => void }) { return <label className="product-field"><span>意向产品</span><details className="product-select"><summary>{values.length ? values.join(' | ') : '请选择意向产品'}<ChevronDown size={15} /></summary><div>{PRODUCTS.map((option) => <label key={option}><input type="checkbox" checked={values.includes(option)} onChange={() => onChange(values.includes(option) ? values.filter((value) => value !== option) : [...values, option])} />{option}</label>)}</div></details></label> }
+function ProductSelect({ values, onChange }: { values: string[]; onChange: (values: string[]) => void }) {
+  const detailsRef = useRef<HTMLDetailsElement>(null)
+  return <div className="product-field"><span>意向产品</span><details ref={detailsRef} className="product-select">
+    <summary>{values.length ? values.join(' | ') : '请选择意向产品'}<ChevronDown size={15} /></summary>
+    <div className="product-menu">
+      <div className="product-options">{PRODUCTS.map((option) => <label key={option}><input type="checkbox" checked={values.includes(option)} onChange={() => onChange(values.includes(option) ? values.filter((value) => value !== option) : [...values, option])} />{option}</label>)}</div>
+      <footer><span>已选 {values.length} 项</span><button type="button" onClick={() => detailsRef.current?.removeAttribute('open')}><Check size={15}/>确定</button></footer>
+    </div>
+  </details></div>
+}
 function RemarkImageUpload({ images, inputRef, onAdd, onDelete }: { images: CustomerRemarkImage[]; inputRef: RefObject<HTMLInputElement | null>; onAdd: (files?: FileList | null) => void; onDelete: (id: string) => void }) { return <div className="remark-images full-width"><div className="remark-images-heading"><span>备注资料图片</span><small>车辆、车牌、现场或其他需要留档的照片，最多 12 张</small></div><input ref={inputRef} className="visually-hidden" type="file" multiple accept="image/*" onChange={(event) => onAdd(event.target.files)}/><div className="remark-gallery">{images.map((image) => <figure key={image.id}><img src={image.dataUrl} alt={image.name}/><figcaption>{image.name}</figcaption><button type="button" aria-label={`删除图片 ${image.name}`} onClick={() => onDelete(image.id)}><Trash2 size={14}/></button></figure>)}{images.length < 12 && <button className="add-remark-image" type="button" onClick={() => inputRef.current?.click()}><Images size={22}/><span>{images.length ? '继续添加' : '添加备注图片'}</span></button>}</div></div> }
 function BusinessFileUpload({ files, inputRef, onAdd, onDrop, onDelete }: { files: CustomerFile[]; inputRef: RefObject<HTMLInputElement | null>; onAdd: (files: FileList | File[]) => void; onDrop: (event: DragEvent<HTMLDivElement>) => void; onDelete: (id: string) => void }) { return <div className="business-upload full-width"><span>业务资料上传</span><input ref={inputRef} className="visually-hidden" type="file" multiple accept="image/*,.pdf,.dwg,.dxf,.cad,.zip" onChange={(event) => event.target.files && onAdd(event.target.files)}/><div className="business-drop" onDragOver={(event) => event.preventDefault()} onDrop={onDrop}><FileUp size={21}/><p>可上传客户提供的平面图、效果图、户型图、报价单等业务资料</p><button type="button" onClick={() => inputRef.current?.click()}>选择文件</button></div>{files.length > 0 && <div className="business-files">{files.map((file) => <div key={file.id}>{file.type.startsWith('image/') ? <FileImage size={15}/> : <FileIcon size={15}/>}<span title={file.name}>{file.name}<small>{formatFileSize(file.size)}</small></span><button type="button" aria-label={`删除 ${file.name}`} onClick={() => onDelete(file.id)}><Trash2 size={14}/></button></div>)}</div>}</div> }
 async function compressImage(file: File): Promise<string> { const source = await readDataUrl(file); const image = await loadImage(source); const scale = Math.min(1, 960 / Math.max(image.naturalWidth, image.naturalHeight)); const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(image.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(image.naturalHeight * scale)); const context = canvas.getContext('2d'); if (!context) return source; context.drawImage(image, 0, 0, canvas.width, canvas.height); return canvas.toDataURL('image/jpeg', .72) }

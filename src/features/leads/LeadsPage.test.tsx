@@ -50,11 +50,20 @@ describe('LeadsPage customer intake', () => {
   })
 
   it('renders the compact follow-up data fields without legacy style fields', () => {
-    render(<LeadsPage customers={[]} onAddCustomers={vi.fn()} />)
+    const { container } = render(<LeadsPage customers={[]} onAddCustomers={vi.fn()} />)
 
     expect(screen.getByText('跟进资料')).toBeTruthy()
     expect(screen.getByText('报价、优惠及客户资料登记')).toBeTruthy()
     expect(screen.getByText('支持 XLSX、XLS、UTF-8 CSV')).toBeTruthy()
+    const productSelect = container.querySelector<HTMLDetailsElement>('.product-select')!
+    fireEvent.click(productSelect.querySelector('summary')!)
+    fireEvent.click(screen.getByLabelText('床垫'))
+    fireEvent.click(screen.getByLabelText('床品'))
+    fireEvent.click(screen.getByLabelText('软装饰品'))
+    expect(productSelect.open).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name:'确定' }))
+    expect(productSelect.open).toBe(false)
+    expect(screen.getByText('床垫 | 床品 | 软装饰品')).toBeTruthy()
     expect(screen.queryByLabelText('偏好风格')).toBeNull()
     expect(screen.queryByLabelText('关注点')).toBeNull()
   })
