@@ -75,6 +75,18 @@ function loadState(): SalesState {
   return { customers: seedCustomers, followUps: seedFollowUps, designTasks: [], orders: [], deliveryTasks: [], afterSalesTickets: [], supplyDemands: [] }
 }
 
+function uniqueDirectoryMembers(items: { id: string; name: string }[]) {
+  const names = new Set<string>()
+  return items.reduce<{ id: string; name: string }[]>((members, item) => {
+    const name = item.name.trim()
+    const key = name.toLocaleLowerCase('zh-CN')
+    if (!name || names.has(key)) return members
+    names.add(key)
+    members.push({ id:item.id, name })
+    return members
+  }, [])
+}
+
 export function SalesDataProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SalesState>(loadState)
   const [serverStatus, setServerStatus] = useState<'connecting' | 'connected' | 'offline'>('connecting')
@@ -99,9 +111,9 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
     const [designerResult, salesResult, deliveryResult] = await Promise.all([
       salesApi.getDesigners(), salesApi.getSalespeople(), salesApi.getDeliveryStaff(),
     ])
-    setDesigners(designerResult.designers.map((item) => ({ id: item.id, name: item.name })))
-    setSalespeople(salesResult.salespeople.map((item) => ({ id: item.id, name: item.name })))
-    setDeliveryStaff(deliveryResult.deliveryStaff.map((item) => ({ id: item.id, name: item.name })))
+    setDesigners(uniqueDirectoryMembers(designerResult.designers))
+    setSalespeople(uniqueDirectoryMembers(salesResult.salespeople))
+    setDeliveryStaff(uniqueDirectoryMembers(deliveryResult.deliveryStaff))
   }, [])
 
   useEffect(() => {
