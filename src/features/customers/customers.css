@@ -43,6 +43,7 @@
 .section-icon { width: 36px; height: 36px; display: grid; place-items: center; background: rgba(255,255,255,.12); }
 .next-task div:nth-child(2) { display: flex; flex-direction: column; gap: 3px; }.next-task div > span { font-size: 11px; opacity: .72; }.next-task strong { font-size: 14px; }.next-task small { opacity: .72; }
 .next-task.task-overdue { background: #864633; }.task-status { padding: 4px 8px; border: 1px solid rgba(255,255,255,.3); font-size: 11px; }
+.next-task-actions{display:flex;align-items:flex-end!important;flex-direction:column;gap:6px!important}.next-task-actions button,.next-task-actions a{display:inline-flex;min-width:104px;height:30px;align-items:center;justify-content:center;gap:5px;padding:0 9px;border:1px solid rgba(255,255,255,.45);color:#fff;background:rgba(255,255,255,.1);font-size:11px;font-weight:700;text-decoration:none;cursor:pointer}.next-task-actions a{height:26px;border-color:transparent;background:transparent;font-weight:500}.next-task-actions button:hover,.next-task-actions a:hover{background:rgba(255,255,255,.18)}
 .customer-profile, .timeline-section { margin-top: 22px; padding: 20px; border: 1px solid var(--line); background: #fff; }
 .deal-card { margin-top:22px; padding:20px; border:1px solid #cddbd2; background:#f7faf8; }
 .deal-card .section-title h3 { display:flex; align-items:center; gap:8px; }
@@ -91,7 +92,7 @@
   .customers-workspace { display: block; height: calc(100vh - 96px); min-height: 0; }.customer-list-panel, .customer-detail { height: 100%; }.customer-list-panel.mobile-hidden, .customer-detail.mobile-hidden { display: none; }
   .customer-detail { padding: 16px 14px 38px; }.mobile-back { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 16px; padding: 0; border: 0; background: transparent; color: var(--green); }
   .customer-tools { padding: 14px; }.customer-row { min-height: 106px; padding-left: 16px; }
-  .stage-editor { align-items: flex-start; flex-wrap: wrap; }.stage-editor span { width: 100%; margin-left: 0; }.next-task { grid-template-columns: 36px 1fr; }.task-status { display: none; }
+  .stage-editor { align-items: flex-start; flex-wrap: wrap; }.stage-editor span { width: 100%; margin-left: 0; }.next-task { grid-template-columns: 36px 1fr; }.next-task-actions{grid-column:2;align-items:flex-start!important;flex-direction:row;flex-wrap:wrap}.next-task-actions button,.next-task-actions a{min-width:auto}.task-status { display: none; }
   .customer-profile, .timeline-section { margin-top: 14px; padding: 16px; }.customer-profile dl { grid-template-columns: 1fr 1fr; gap: 15px; }.handoff-card { align-items:flex-start; flex-direction:column; }.handoff-card>div:last-child,.handoff-card button { width:100%; }
   .deal-card { margin-top:14px; padding:16px; }.deal-summary { grid-template-columns:1fr 1fr; }
   .followup-dialog form { grid-template-columns: 1fr; }.followup-dialog form > * { grid-column: 1; }.dialog-backdrop { padding: 0; align-items: end; }.followup-dialog { max-height: 92vh; }.design-grid { grid-template-columns:1fr; }.design-assist-toggle { align-items:flex-start; flex-direction:column; }

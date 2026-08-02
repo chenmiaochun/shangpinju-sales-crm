@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { AlertTriangle, CalendarDays, Check, Clock3, FileUp, ListTodo, UserRound, X } from 'lucide-react'
 import type { Customer, CustomerFile, DesignTask, FollowUp } from '../../types'
 import type { TeamMember } from '../team'
@@ -36,15 +36,18 @@ function groupTitle(key: string, now: Date) {
 }
 
 export function TaskCenterPage({ customers, followUps, onCompleteTask, now = new Date(), designTasks = [], activeMember, onUpdateDesignTask }: TaskCenterPageProps) {
+  const [focusedCustomerId, setFocusedCustomerId] = useState(() => new URLSearchParams(typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] ?? '').get('customer') ?? '')
   const [category, setCategory] = useState<TaskCategory>('today')
   const [owner, setOwner] = useState('全部')
   const [priority, setPriority] = useState<TaskPriority | '全部'>('全部')
   const [activeTask, setActiveTask] = useState<FollowUpTask | null>(null)
   const [mode, setMode] = useState<'sales' | 'design'>('sales')
   const tasks = useMemo(() => deriveFollowUpTasks(customers, followUps, now), [customers, followUps, now])
+  const requestedTask = tasks.find((task) => task.customer.id === focusedCustomerId)
+  useEffect(() => { if (requestedTask) { setMode('sales'); setCategory(requestedTask.category) } }, [requestedTask?.category])
   const owners = useMemo(() => [...new Set(customers.map((item) => item.salesperson))], [customers])
   const counts = useMemo(() => Object.fromEntries(categories.map(({ id }) => [id, tasks.filter((task) => task.category === id).length])) as Record<TaskCategory, number>, [tasks])
-  const visible = tasks.filter((task) => task.category === category && (owner === '全部' || task.customer.salesperson === owner) && (priority === '全部' || task.priority === priority))
+  const visible = tasks.filter((task) => task.category === category && (!focusedCustomerId || task.customer.id === focusedCustomerId) && (owner === '全部' || task.customer.salesperson === owner) && (priority === '全部' || task.priority === priority))
   const groups = groupTasksBySchedule(visible)
   const visibleDesignTasks = designTasks.filter((task) => !activeMember || activeMember.role === 'manager' || task.designerId === activeMember.id || task.designerName === activeMember.name || task.salesperson === activeMember.name)
 
@@ -64,6 +67,7 @@ export function TaskCenterPage({ customers, followUps, onCompleteTask, now = new
       <label>优先级<select aria-label="优先级" value={priority} onChange={(event) => setPriority(event.target.value as TaskPriority | '全部')}><option>全部</option><option value="高">高优先</option><option value="中">中优先</option><option value="低">低优先</option></select></label></div>
       <span>共 {visible.length} 项</span>
     </div>}
+    {mode === 'sales' && focusedCustomerId && <div className="task-customer-focus"><span>{requestedTask ? `已定位客户：${requestedTask.customer.name} · ${requestedTask.nextAction}` : '该客户当前没有可执行任务'}</span><button type="button" onClick={() => setFocusedCustomerId('')}>查看全部任务</button></div>}
 
     <main className="task-schedule">
       {mode === 'design' ? <DesignTaskList tasks={visibleDesignTasks} canReview={activeMember?.role === 'manager' || activeMember?.role === 'sales'} onUpdate={onUpdateDesignTask} /> : <>

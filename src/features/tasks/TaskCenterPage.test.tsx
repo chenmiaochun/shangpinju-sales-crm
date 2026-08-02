@@ -1,9 +1,11 @@
 import '@testing-library/jest-dom'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { customers, followUps } from '../../data'
 import { TaskCenterPage } from './TaskCenterPage'
 import type { DesignTask } from '../../types'
+
+afterEach(() => { window.location.hash = '' })
 
 describe('TaskCenterPage', () => {
   const now = new Date('2026-07-30T12:00:00+08:00')
@@ -39,6 +41,16 @@ describe('TaskCenterPage', () => {
     fireEvent.change(screen.getByLabelText('其他特殊情况'), { target:{ value:'周日与客户家人视频确认' } })
     fireEvent.click(screen.getByRole('button', { name:/确认完成/ }))
     expect(complete).toHaveBeenCalledWith(expect.objectContaining({ nextAction:'周日与客户家人视频确认' }))
+  })
+
+  it('focuses the customer requested from the customer workspace', () => {
+    window.location.hash = '/tasks?customer=c4'
+    render(<TaskCenterPage customers={customers} followUps={followUps} onCompleteTask={() => {}} now={now} />)
+
+    expect(screen.getByText(/已定位客户：刘先生/)).toBeInTheDocument()
+    expect(screen.getByText('超期 1 天')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name:'查看全部任务' }))
+    expect(screen.queryByText(/已定位客户/)).not.toBeInTheDocument()
   })
 
   it('lets an assigned designer submit solution files for sales review', () => {

@@ -14,6 +14,8 @@ import {
   UserRound,
   FileUp,
   HandCoins,
+  ListTodo,
+  PlayCircle,
   Trash2,
   X,
 } from 'lucide-react'
@@ -127,6 +129,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
   const [intentFilter, setIntentFilter] = useState<'全部' | Customer['intent']>(initialFilters.intent as '全部' | Customer['intent'])
   const [scopeFilter, setScopeFilter] = useState<CustomerScope | undefined>(initialFilters.scope)
   const [formOpen, setFormOpen] = useState(false)
+  const [followUpPurpose, setFollowUpPurpose] = useState<'default' | 'execute' | 'schedule'>('default')
   const [handoffOpen, setHandoffOpen] = useState(false)
   const [dealOpen, setDealOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -208,6 +211,8 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
   const timeline = useMemo(() => state.followUps
     .filter((item) => item.customerId === selectedId)
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()), [selectedId, state.followUps])
+  const currentNextAction = timeline[0]?.nextAction
+  const openFollowUp = (purpose: 'default' | 'execute' | 'schedule' = 'default') => { setFollowUpPurpose(purpose); setFormOpen(true) }
 
   function updateStage(stage: CustomerStage) {
     if (stage === '已成交') {
@@ -292,7 +297,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
           <h1>客户与跟进</h1>
           <p className="customers-summary">在跟 {counts.active} 位 · 已成交 {counts.completed} 位 · 已流失 {counts.lost} 位 · {counts.pending} 项待跟进</p>
         </div>
-        {canWorkOnSelected && <button className="primary-button header-action" onClick={() => setFormOpen(true)}><MessageSquarePlus size={18} />新增跟进</button>}
+        {canWorkOnSelected && <button className="primary-button header-action" onClick={() => openFollowUp()}><MessageSquarePlus size={18} />新增跟进</button>}
       </header>
 
       <div className={`customers-workspace ${selected ? 'has-selection' : ''}`}>
@@ -351,8 +356,8 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
 
               <section className={`next-task ${isOverdue(selected.nextFollowUpAt) ? 'task-overdue' : ''}`}>
                 <div className="section-icon"><CalendarClock size={19} /></div>
-                <div><span>下一步任务</span><strong>{timeline[0]?.nextAction || '尚未安排具体行动'}</strong><small>{selected.nextFollowUpAt ? `${formatDate(selected.nextFollowUpAt)} · ${selected.salesperson}` : '新增跟进时可同步安排'}</small></div>
-                {selected.nextFollowUpAt && <span className="task-status">{isOverdue(selected.nextFollowUpAt) ? '已逾期' : '待执行'}</span>}
+                <div><span>下一步任务</span><strong>{currentNextAction || '尚未安排具体行动'}</strong><small>{selected.nextFollowUpAt ? `${formatDate(selected.nextFollowUpAt)} · ${selected.salesperson}` : currentNextAction ? '动作已有，尚未安排执行时间' : '新增跟进时可同步安排'}</small></div>
+                <div className="next-task-actions">{selected.nextFollowUpAt && <span className="task-status">{isOverdue(selected.nextFollowUpAt) ? '已逾期' : '待执行'}</span>}{canWorkOnSelected && <button type="button" onClick={() => openFollowUp(selected.nextFollowUpAt ? 'execute' : 'schedule')}><PlayCircle size={15}/>{selected.nextFollowUpAt ? '执行并记录' : currentNextAction ? '安排时间' : '安排下一步'}</button>}<a href={`#/tasks?customer=${encodeURIComponent(selected.id)}`}><ListTodo size={14}/>任务中心</a></div>
               </section>
 
               <section className="customer-profile">
@@ -384,7 +389,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
               </section>}
 
               <section className="timeline-section">
-                <div className="section-title"><h3>跟进记录</h3>{canWorkOnSelected && <button className="text-button" onClick={() => setFormOpen(true)}><MessageSquarePlus size={16} />新增跟进</button>}</div>
+                <div className="section-title"><h3>跟进记录</h3>{canWorkOnSelected && <button className="text-button" onClick={() => openFollowUp()}><MessageSquarePlus size={16} />新增跟进</button>}</div>
                 <div className="timeline">
                   {timeline.map((item) => <article className="timeline-item" key={item.id}>
                     <span className="timeline-marker"><CheckCircle2 size={16} /></span>
@@ -401,7 +406,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
           ) : <div className="detail-placeholder"><UserRound size={34} /><strong>选择一位客户</strong><span>查看客户画像与跟进记录</span></div>}
         </main>
       </div>
-      {formOpen && selected && <FollowUpDialog customer={selected} designers={designers} onClose={() => setFormOpen(false)} onSubmit={addFollowUp} onDealRequested={() => setDealOpen(true)} />}
+      {formOpen && selected && <FollowUpDialog customer={selected} designers={designers} purpose={followUpPurpose} initialAction={currentNextAction} onClose={() => setFormOpen(false)} onSubmit={addFollowUp} onDealRequested={() => setDealOpen(true)} />}
       {handoffOpen && selected && <HandoffDialog customer={selected} salespeople={salespeople} onClose={() => setHandoffOpen(false)} onSubmit={createHandoff} />}
       {dealOpen && selected && <DealDialog customer={selected} deliveryStaff={deliveryStaff} onClose={() => setDealOpen(false)} onSubmit={saveDeal} />}
       {profileOpen && selected && <ProfileEditDialog customer={selected} onClose={() => setProfileOpen(false)} onSubmit={saveProfile} />}
@@ -527,10 +532,10 @@ function HandoffDialog({ customer, salespeople, onClose, onSubmit }: { customer:
 
 type DesignTaskDraft = Omit<DesignTask, 'id' | 'customerId' | 'customerName' | 'salesperson' | 'status' | 'solutionFiles' | 'createdAt' | 'updatedAt'>
 
-function FollowUpDialog({ customer, designers, onClose, onSubmit, onDealRequested }: { customer: Customer; designers: { id: string; name: string }[]; onClose: () => void; onSubmit: (data: Omit<FollowUp, 'id' | 'customerId' | 'salesperson'>, design?: DesignTaskDraft) => void; onDealRequested?: () => void }) {
+function FollowUpDialog({ customer, designers, purpose = 'default', initialAction, onClose, onSubmit, onDealRequested }: { customer: Customer; designers: { id: string; name: string }[]; purpose?: 'default' | 'execute' | 'schedule'; initialAction?: string; onClose: () => void; onSubmit: (data: Omit<FollowUp, 'id' | 'customerId' | 'salesperson'>, design?: DesignTaskDraft) => void; onDealRequested?: () => void }) {
   const [channel, setChannel] = useState<Channel>('微信')
   const [at, setAt] = useState(toLocalInput())
-  const [content, setContent] = useState('')
+  const [content, setContent] = useState(purpose === 'execute' && initialAction ? `执行任务：${initialAction}` : '')
   const [result, setResult] = useState('')
   const [nextActions, setNextActions] = useState<string[]>([])
   const [customAction, setCustomAction] = useState('')
@@ -555,7 +560,7 @@ function FollowUpDialog({ customer, designers, onClose, onSubmit, onDealRequeste
 
   return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="followup-dialog" role="dialog" aria-modal="true" aria-labelledby="followup-title">
-      <header><div><p>记录客户沟通</p><h2 id="followup-title">新增跟进 · {customer.name}</h2></div><button className="icon-button" onClick={onClose} aria-label="关闭"><X size={20} /></button></header>
+      <header><div><p>{purpose === 'execute' ? '执行任务并反馈结果' : purpose === 'schedule' ? '补充沟通并安排任务' : '记录客户沟通'}</p><h2 id="followup-title">{purpose === 'execute' ? '执行任务' : purpose === 'schedule' ? '安排下一步' : '新增跟进'} · {customer.name}</h2></div><button className="icon-button" onClick={onClose} aria-label="关闭"><X size={20} /></button></header>
       <form onSubmit={submit}>
         <fieldset><legend>沟通方式</legend><div className="channel-options">{(['微信', '电话', '到店', '量尺'] as Channel[]).map((item) => <label key={item}><input type="radio" name="channel" checked={channel === item} onChange={() => setChannel(item)} /><span>{item}</span></label>)}</div></fieldset>
         <label>跟进时间<input type="datetime-local" required value={at} onChange={(event) => setAt(event.target.value)} /></label>

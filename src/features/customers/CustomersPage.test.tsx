@@ -46,6 +46,22 @@ describe('dashboard drill-down filters', () => {
 })
 
 describe('CustomersPage design collaboration', () => {
+  it('turns a pending next task into an executable action', () => {
+    render(<CustomersPage customers={customers} followUps={followUps} onStateChange={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name:'执行并记录' }))
+
+    expect(screen.getByRole('heading', { name:/执行任务 · 张女士/ })).toBeInTheDocument()
+    expect((screen.getByLabelText('沟通内容') as HTMLTextAreaElement).value).toContain('执行任务：')
+  })
+
+  it('opens scheduling when the customer has no next task', () => {
+    const unscheduled = [{ ...customers[0], nextFollowUpAt:undefined }]
+    render(<CustomersPage customers={unscheduled} followUps={[]} onStateChange={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name:'安排下一步' }))
+
+    expect(screen.getByRole('heading', { name:/安排下一步 · 张女士/ })).toBeInTheDocument()
+  })
+
   it('lets the salesperson repeatedly enrich the customer profile', () => {
     const onStateChange = vi.fn()
     render(<CustomersPage customers={customers} followUps={followUps} onStateChange={onStateChange} />)
