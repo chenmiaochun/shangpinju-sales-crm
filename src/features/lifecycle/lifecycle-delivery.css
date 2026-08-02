@@ -1,0 +1,50 @@
+.delivery-months {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.delivery-months > button {
+  min-height: 82px;
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 4px 9px;
+  padding: 13px;
+  border: 1px solid #e0e4e1;
+  border-radius: 5px;
+  color: #303a34;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.delivery-months > button.active { border-color: #2e684d; background: #f0f7f3; box-shadow: inset 0 0 0 1px #2e684d; }
+.delivery-months svg { grid-row: 1 / 3; color: #2e684d; }
+.delivery-months span { font-size: 12px; font-weight: 700; }
+.delivery-months strong { grid-row: 1 / 3; font-size: 24px; }
+.delivery-months small { color: #858d88; font-size: 10px; }
+
+.monthly-delivery-list { border: 1px solid #e1e5e2; }
+.monthly-delivery-list > header { min-height: 62px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 15px; border-bottom: 1px solid #e5e8e6; background: #fafbfa; }
+.monthly-delivery-list h3 { margin: 0 0 4px; font-size: 15px; }
+.monthly-delivery-list header span, .monthly-delivery-list header small { color: #7b847e; font-size: 11px; }
+.monthly-delivery-table { overflow-x: auto; }
+.monthly-delivery-row { min-width: 940px; min-height: 58px; display: grid; grid-template-columns: 1.35fr 1.2fr 1.25fr .75fr .65fr 1.25fr; align-items: center; gap: 10px; padding: 9px 14px; border-top: 1px solid #edf0ee; }
+.monthly-delivery-row:first-child { border-top: 0; }
+.monthly-delivery-row > span { min-width: 0; color: #48514c; font-size: 11px; overflow-wrap: anywhere; }
+.monthly-delivery-row > span:first-child { display: grid; gap: 3px; }
+.monthly-delivery-row b { color: #202923; font-size: 12px; }
+.monthly-delivery-row small { color: #818984; font-size: 10px; }
+.monthly-delivery-row i { display: inline-flex; width: fit-content; padding: 3px 6px; background: #f2ece8; color: #775f52; font-style: normal; }
+.monthly-delivery-head { min-height: 38px; color: #78817b; background: #f7f9f8; font-weight: 700; }
+.delivery-links { display: flex; align-items: center; gap: 5px; }
+.delivery-links a, .delivery-links button { min-height: 29px; display: inline-flex; align-items: center; gap: 3px; padding: 0 8px; border: 1px solid #cfd8d2; border-radius: 4px; color: #285f45; background: #fff; font: inherit; text-decoration: none; }
+.delivery-links svg { width: 11px; height: 11px; }
+.delivery-links button:disabled { color: #9aa19d; background: #f6f7f6; cursor: not-allowed; }
+
+@media (max-width: 720px) {
+  .delivery-months { grid-template-columns: 1fr 1fr; }
+  .monthly-delivery-list > header { align-items: flex-start; flex-direction: column; }
+}

@@ -10,7 +10,9 @@ $env:PORT = '3001'                     # 可选
 node server/index.mjs
 ```
 
-可选配置：`SALES_MAX_BODY_BYTES`（默认 1048576）和 `SALES_CORS_ORIGIN`（默认 `*`）。服务收到 `SIGINT` 或 `SIGTERM` 时会停止接受连接并关闭数据库。
+可选配置：`SALES_MAX_BODY_BYTES`（默认 20971520）和 `SALES_CORS_ORIGIN`（默认 `*`）。服务收到 `SIGINT` 或 `SIGTERM` 时会停止接受连接并关闭数据库。
+
+前端交付清单的外部系统入口通过 `VITE_INVENTORY_SYSTEM_URL` 和 `VITE_AFTERSALES_SYSTEM_URL` 配置。系统会在跳转时自动附加 `orderId` 和 `customerId`；未配置时按钮保持禁用，避免跳转到错误系统。
 
 ### API
 

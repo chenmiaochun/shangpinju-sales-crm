@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { Customer, SalesOrder } from '../../types'
+import type { Customer, DeliveryTask, SalesOrder } from '../../types'
 import { LifecyclePage } from './LifecyclePage'
 
 const customer: Customer = {
@@ -37,5 +37,19 @@ describe('LifecyclePage', () => {
     fireEvent.click(screen.getByRole('button', { name: '创建工单' }))
     expect(onAddTicket).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'o1', customerId: 'c1', description: '沙发扶手需要安装调整', status: '待受理' }))
   })
-})
 
+  it('shows the delivery customer list by expected month', () => {
+    const deliveries: DeliveryTask[] = [
+      { id: 'd-aug', orderId: 'o1', customerId: 'c1', customerName: '陈女士', address: '揭阳', contactPhone: '13800000000', expectedDeliveryMonth: '2026-08', status: '待排期', owner: '孙售后', createdAt: '2026-08-01', updatedAt: '2026-08-01' },
+      { id: 'd-sep', orderId: 'o2', customerId: 'c2', customerName: '林先生', address: '汕头', contactPhone: '13900000000', expectedDeliveryMonth: '2026-09', status: '已排期', owner: '黄师傅', createdAt: '2026-08-01', updatedAt: '2026-08-01' },
+    ]
+    render(<LifecyclePage {...base} deliveryTasks={deliveries}/>)
+    fireEvent.click(screen.getByRole('tab', { name: '交付安装' }))
+    expect(screen.getByRole('heading', { name: '2026 年 08 月送货客户清单' })).toBeTruthy()
+    expect(screen.getByText('陈女士')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name:/2026 年 09 月/ }))
+    expect(screen.getByRole('heading', { name: '2026 年 09 月送货客户清单' })).toBeTruthy()
+    expect(screen.getByText('林先生')).toBeTruthy()
+    expect(screen.queryByText('陈女士')).toBeNull()
+  })
+})
