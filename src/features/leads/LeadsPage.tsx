@@ -91,7 +91,6 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
       <section className="leads-panel">
         <div className="panel-heading"><Plus size={19} /><div><h2>新增客户</h2><p>建立一条可立即跟进的新线索</p></div></div>
         <form className="lead-form" noValidate onSubmit={submit}>
-          <CustomerLookup query={customerLookup} matches={lookupMatches} onQuery={setCustomerLookup} onOpen={(id) => { window.location.hash = `/customers?customer=${encodeURIComponent(id)}` }}/>
           <div className="form-section-title"><strong>基础信息</strong><span>客户身份与归属</span></div>
           <Field label="姓名" required><input required value={form.name} onChange={(e) => update('name', e.target.value)} /></Field>
           <Field label="电话"><input type="tel" pattern="[+0-9][0-9 -]{5,19}" value={form.phone} onChange={(e) => update('phone', e.target.value)} placeholder="选填" /></Field>
@@ -115,16 +114,19 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
           <div className="form-submit"><span className={notice ? 'submit-feedback' : ''} aria-live="polite">{notice || '仅姓名和负责人为必填项，其他信息可以后续补充'}</span><button className="primary" type="submit"><Plus size={17} />保存并进入客户跟进</button></div>
         </form>
       </section>
-      <section className="leads-panel import-panel">
-        <div className="panel-heading"><Upload size={18} /><div><h2>批量导入</h2><p>校验后写入客户资料</p></div></div>
-        <input ref={fileInput} className="visually-hidden" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(e) => void selectFile(e.target.files?.[0])} />
-        {!fileName ? <button className="drop-zone" type="button" onClick={() => fileInput.current?.click()}><FileUp size={19} /><strong>选择 Excel / CSV 文件</strong><span>上传后自动校验</span><small>支持 XLSX、XLS、UTF-8 CSV</small></button> : <>
-          <div className="file-bar"><span><FileUp size={17} />{fileName}</span><button type="button" onClick={clearPreview} aria-label="移除文件"><X size={17} /></button></div>
-          {fileErrors.map((error) => <p className="file-error" role="alert" key={error}>{error}</p>)}
-          {preview.length > 0 && <div className="preview-summary"><span>共 {preview.length} 行</span><span className="valid">有效 {validRows.length}</span><span className={preview.length === validRows.length ? '' : 'invalid'}>错误 {preview.length - validRows.length}</span></div>}
-          <button type="button" className="primary confirm-import" disabled={!validRows.length || preview.some((row) => row.errors.length > 0)} onClick={confirmImport}>确认导入 {validRows.length ? `${validRows.length} 条` : ''}</button>
-        </>}
-      </section>
+      <aside className="leads-side-tools" aria-label="线索辅助工具">
+        <CustomerLookup query={customerLookup} matches={lookupMatches} onQuery={setCustomerLookup} onOpen={(id) => { window.location.hash = `/customers?customer=${encodeURIComponent(id)}` }}/>
+        <section className="leads-panel import-panel">
+          <div className="panel-heading"><Upload size={18} /><div><h2>批量导入</h2><p>校验后写入客户资料</p></div></div>
+          <input ref={fileInput} className="visually-hidden" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(e) => void selectFile(e.target.files?.[0])} />
+          {!fileName ? <button className="drop-zone" type="button" onClick={() => fileInput.current?.click()}><FileUp size={19} /><strong>选择 Excel / CSV 文件</strong><span>上传后自动校验</span><small>支持 XLSX、XLS、UTF-8 CSV</small></button> : <>
+            <div className="file-bar"><span><FileUp size={17} />{fileName}</span><button type="button" onClick={clearPreview} aria-label="移除文件"><X size={17} /></button></div>
+            {fileErrors.map((error) => <p className="file-error" role="alert" key={error}>{error}</p>)}
+            {preview.length > 0 && <div className="preview-summary"><span>共 {preview.length} 行</span><span className="valid">有效 {validRows.length}</span><span className={preview.length === validRows.length ? '' : 'invalid'}>错误 {preview.length - validRows.length}</span></div>}
+            <button type="button" className="primary confirm-import" disabled={!validRows.length || preview.some((row) => row.errors.length > 0)} onClick={confirmImport}>确认导入 {validRows.length ? `${validRows.length} 条` : ''}</button>
+          </>}
+        </section>
+      </aside>
     </main>
   </section>
 }
