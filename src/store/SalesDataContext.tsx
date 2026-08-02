@@ -105,7 +105,8 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    const refresh = () => { void refreshEmployeeDirectories() }
+    const refresh = () => { void refreshEmployeeDirectories().catch(() => undefined) }
+    refresh()
     window.addEventListener('sales-crm:accounts-changed', refresh)
     return () => window.removeEventListener('sales-crm:accounts-changed', refresh)
   }, [refreshEmployeeDirectories])
@@ -129,7 +130,6 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
         } else {
           await salesApi.putState(state)
         }
-        try { await refreshEmployeeDirectories() } catch { /* Employee assignment remains available after the directory reconnects. */ }
         try { await refreshAdminData() } catch { /* Admin-only data is unavailable to employee roles. */ }
         if (active) setServerStatus('connected')
       } catch {
