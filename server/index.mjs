@@ -14,7 +14,7 @@ const initialAdmin = database.ensureInitialAdmin({ username: process.env.SALES_A
 if (initialAdmin) console.log(`Initial manager created. Username: ${initialAdmin.username}; temporary password: ${generatedPassword}; change it after signing in.`)
 const server = createApiServer({
   database,
-  maxBodyBytes: Number(process.env.SALES_MAX_BODY_BYTES || 1_048_576),
+  maxBodyBytes: Number(process.env.SALES_MAX_BODY_BYTES || 20 * 1_048_576),
   corsOrigin: process.env.SALES_CORS_ORIGIN || 'http://localhost:5173',
   secureCookies: process.env.NODE_ENV === 'production',
   sessionTtlMs: Number(process.env.SALES_SESSION_TTL_MS || 8 * 60 * 60 * 1000),

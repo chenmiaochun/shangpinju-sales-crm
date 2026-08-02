@@ -214,6 +214,11 @@ export interface AfterSalesTicket {
   orderId: string
   customerId: string
   customerName: string
+  source?: '系统订单' | '历史客户'
+  contactPhone?: string
+  address?: string
+  productInfo?: string
+  purchaseAt?: string
   category: '补件' | '维修' | '安装调整' | '质量问题' | '使用咨询' | '其他'
   description: string
   priority: '紧急' | '普通'

@@ -35,7 +35,23 @@ describe('LifecyclePage', () => {
     fireEvent.click(screen.getByRole('button', { name: '新建售后工单' }))
     fireEvent.change(screen.getByLabelText('问题说明'), { target: { value: '沙发扶手需要安装调整' } })
     fireEvent.click(screen.getByRole('button', { name: '创建工单' }))
-    expect(onAddTicket).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'o1', customerId: 'c1', description: '沙发扶手需要安装调整', status: '待受理' }))
+    expect(onAddTicket).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'o1', customerId: 'c1', source: '系统订单', contactPhone: '13800000000', productInfo: '黑胡桃木沙发', description: '沙发扶手需要安装调整', status: '待受理' }))
+  })
+
+  it('creates a detailed ticket for a historical customer without a system order', () => {
+    const onAddTicket = vi.fn()
+    render(<LifecyclePage {...base} onAddTicket={onAddTicket}/>)
+    fireEvent.click(screen.getByRole('tab', { name: '售后服务' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建售后工单' }))
+    fireEvent.click(screen.getByRole('button', { name: '历史老顾客' }))
+    fireEvent.change(screen.getByLabelText('客户姓名 *'), { target: { value: '黄女士' } })
+    fireEvent.change(screen.getByLabelText('联系电话 *'), { target: { value: '13900001111' } })
+    fireEvent.change(screen.getByLabelText('详细地址 *'), { target: { value: '揭阳市榕城区' } })
+    fireEvent.change(screen.getByLabelText('原购产品 *'), { target: { value: '黑胡桃餐桌 1.8 米' } })
+    fireEvent.change(screen.getByLabelText('大致购买时间'), { target: { value: '2021-05-01' } })
+    fireEvent.change(screen.getByLabelText('问题说明'), { target: { value: '桌脚松动，需要上门检修' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建工单' }))
+    expect(onAddTicket).toHaveBeenCalledWith(expect.objectContaining({ source: '历史客户', customerName: '黄女士', contactPhone: '13900001111', address: '揭阳市榕城区', productInfo: '黑胡桃餐桌 1.8 米', purchaseAt: '2021-05-01', description: '桌脚松动，需要上门检修' }))
   })
 
   it('shows the delivery customer list by expected month', () => {
