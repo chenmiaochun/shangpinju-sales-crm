@@ -46,6 +46,19 @@ describe('dashboard drill-down filters', () => {
 })
 
 describe('CustomersPage design collaboration', () => {
+  it('lets the salesperson repeatedly enrich the customer profile', () => {
+    const onStateChange = vi.fn()
+    render(<CustomersPage customers={customers} followUps={followUps} onStateChange={onStateChange} />)
+    fireEvent.click(screen.getByRole('button', { name:'编辑画像' }))
+    fireEvent.change(screen.getByLabelText('意向产品'), { target:{ value:'沙发、床垫、窗帘' } })
+    fireEvent.change(screen.getByLabelText('偏好风格'), { target:{ value:'中古原木' } })
+    fireEvent.change(screen.getByLabelText('主要顾虑'), { target:{ value:'价格、交期、孩子安全' } })
+    fireEvent.change(screen.getByLabelText('补充备注'), { target:{ value:'夫妻共同决策，需要周末一起确认' } })
+    fireEvent.click(screen.getByRole('button', { name:'保存客户画像' }))
+
+    expect(onStateChange.mock.calls[0][0].customers[0]).toMatchObject({ products:['沙发','床垫','窗帘'], style:'中古原木', concerns:['价格','交期','孩子安全'], notes:'夫妻共同决策，需要周末一起确认' })
+  })
+
   it('saves multiple preset and custom next actions in one follow-up', () => {
     const onStateChange = vi.fn()
     render(<CustomersPage customers={customers} followUps={followUps} onStateChange={onStateChange} />)

@@ -8,6 +8,7 @@ import {
   Clock3,
   MessageSquarePlus,
   Phone,
+  Pencil,
   Search,
   SlidersHorizontal,
   UserRound,
@@ -128,6 +129,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
   const [formOpen, setFormOpen] = useState(false)
   const [handoffOpen, setHandoffOpen] = useState(false)
   const [dealOpen, setDealOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
 
   useEffect(() => {
     if (!controlled) try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch { /* no-op */ }
@@ -244,6 +246,12 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
     setFormOpen(false)
   }
 
+  function saveProfile(changes: Partial<Customer>) {
+    if (!selected) return
+    commit((current) => ({ ...current, customers: current.customers.map((customer) => customer.id === selected.id ? { ...customer, ...changes } : customer) }))
+    setProfileOpen(false)
+  }
+
   function saveDeal(input: Omit<DealRegistration, 'customer' | 'recordedBy'>) {
     if (!selected) return
     if (onRegisterDeal) {
@@ -348,7 +356,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
               </section>
 
               <section className="customer-profile">
-                <div className="section-title"><h3>客户画像</h3><span>{formatMoney(selected.expectedAmount)} 预计成交</span></div>
+                <div className="section-title"><h3>客户画像</h3><div className="profile-title-actions"><span>{formatMoney(selected.expectedAmount)} 预计成交</span>{canWorkOnSelected && <button type="button" className="text-button" onClick={() => setProfileOpen(true)}><Pencil size={15}/>编辑画像</button>}</div></div>
                 <dl>
                   <div><dt>意向产品</dt><dd>{selected.products.join('、')}</dd></div>
                   <div><dt>偏好风格</dt><dd>{selected.style}</dd></div>
@@ -396,8 +404,68 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
       {formOpen && selected && <FollowUpDialog customer={selected} designers={designers} onClose={() => setFormOpen(false)} onSubmit={addFollowUp} onDealRequested={() => setDealOpen(true)} />}
       {handoffOpen && selected && <HandoffDialog customer={selected} salespeople={salespeople} onClose={() => setHandoffOpen(false)} onSubmit={createHandoff} />}
       {dealOpen && selected && <DealDialog customer={selected} deliveryStaff={deliveryStaff} onClose={() => setDealOpen(false)} onSubmit={saveDeal} />}
+      {profileOpen && selected && <ProfileEditDialog customer={selected} onClose={() => setProfileOpen(false)} onSubmit={saveProfile} />}
     </section>
   )
+}
+
+function ProfileEditDialog({ customer, onClose, onSubmit }: { customer: Customer; onClose: () => void; onSubmit: (changes: Partial<Customer>) => void }) {
+  const [form, setForm] = useState({
+    phone: customer.phone,
+    intent: customer.intent,
+    expectedAmount: String(customer.expectedAmount || ''),
+    products: customer.products.join('、'),
+    style: customer.style,
+    budget: customer.budget,
+    renovationProgress: customer.renovationProgress,
+    communityName: customer.communityName ?? '',
+    buildingRoom: customer.buildingRoom ?? '',
+    houseLayout: customer.houseLayout ?? '',
+    houseArea: String(customer.houseArea ?? ''),
+    licensePlate: customer.licensePlate ?? '',
+    vehicleBrand: customer.vehicleBrand ?? '',
+    vehicleSeries: customer.vehicleSeries ?? '',
+    vehiclePriceRange: customer.vehiclePriceRange ?? '',
+    concerns: customer.concerns.join('、'),
+    source: customer.source,
+    notes: customer.notes ?? '',
+  })
+  const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }))
+  const optional = (value: string) => value.trim() || undefined
+  const splitList = (value: string) => value.split(/[、,，;；]/).map((item) => item.trim()).filter(Boolean)
+  function submit(event: FormEvent) {
+    event.preventDefault()
+    const expectedAmount = Number(form.expectedAmount || 0)
+    const houseArea = Number(form.houseArea || 0)
+    onSubmit({
+      phone: form.phone.trim(), intent: form.intent, expectedAmount: Number.isFinite(expectedAmount) ? expectedAmount : 0,
+      products: splitList(form.products), style: form.style.trim(), budget: form.budget.trim(), renovationProgress: form.renovationProgress.trim(),
+      communityName: optional(form.communityName), buildingRoom: optional(form.buildingRoom), houseLayout: optional(form.houseLayout), houseArea: houseArea > 0 ? houseArea : undefined,
+      licensePlate: optional(form.licensePlate)?.toUpperCase(), vehicleBrand: optional(form.vehicleBrand), vehicleSeries: optional(form.vehicleSeries), vehiclePriceRange: optional(form.vehiclePriceRange),
+      concerns: splitList(form.concerns), source: form.source.trim(), notes: optional(form.notes),
+    })
+  }
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="followup-dialog profile-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-edit-title"><header><div><p>持续补充客户资料</p><h2 id="profile-edit-title">编辑客户画像 · {customer.name}</h2></div><button type="button" className="icon-button" aria-label="关闭画像编辑" onClick={onClose}><X size={19}/></button></header><form onSubmit={submit}>
+    <label>联系电话<input value={form.phone} onChange={(event) => update('phone', event.target.value)}/></label>
+    <label>客户意向<select value={form.intent} onChange={(event) => update('intent', event.target.value)}><option>高</option><option>中</option><option>低</option></select></label>
+    <label>预计成交金额（元）<input min="0" type="number" value={form.expectedAmount} onChange={(event) => update('expectedAmount', event.target.value)}/></label>
+    <label>客户预算<input value={form.budget} onChange={(event) => update('budget', event.target.value)} placeholder="例如：5-8万"/></label>
+    <label className="profile-wide">意向产品<input value={form.products} onChange={(event) => update('products', event.target.value)} placeholder="多个产品用顿号分隔，例如：沙发、床、餐台"/></label>
+    <label>偏好风格<input value={form.style} onChange={(event) => update('style', event.target.value)} placeholder="例如：现代原木"/></label>
+    <label>装修进度<input value={form.renovationProgress} onChange={(event) => update('renovationProgress', event.target.value)} placeholder="例如：硬装收尾"/></label>
+    <label>小区名称<input value={form.communityName} onChange={(event) => update('communityName', event.target.value)}/></label>
+    <label>楼栋房号<input value={form.buildingRoom} onChange={(event) => update('buildingRoom', event.target.value)}/></label>
+    <label>房屋户型<input value={form.houseLayout} onChange={(event) => update('houseLayout', event.target.value)} placeholder="例如：四房两厅"/></label>
+    <label>房屋面积（㎡）<input min="0" type="number" value={form.houseArea} onChange={(event) => update('houseArea', event.target.value)}/></label>
+    <label>车牌号码<input value={form.licensePlate} onChange={(event) => update('licensePlate', event.target.value)}/></label>
+    <label>车辆品牌<input value={form.vehicleBrand} onChange={(event) => update('vehicleBrand', event.target.value)}/></label>
+    <label>车辆系列<input value={form.vehicleSeries} onChange={(event) => update('vehicleSeries', event.target.value)}/></label>
+    <label>车辆参考价位<input value={form.vehiclePriceRange} onChange={(event) => update('vehiclePriceRange', event.target.value)}/></label>
+    <label className="profile-wide">主要顾虑<input value={form.concerns} onChange={(event) => update('concerns', event.target.value)} placeholder="多个顾虑用顿号分隔，例如：价格、交期、家人意见"/></label>
+    <label>客户来源<input required value={form.source} onChange={(event) => update('source', event.target.value)}/></label>
+    <label className="profile-wide">补充备注<textarea rows={3} value={form.notes} onChange={(event) => update('notes', event.target.value)} placeholder="记录家庭成员、决策人、生活习惯等进一步了解的信息"/></label>
+    <footer><button type="button" className="secondary-button" onClick={onClose}>取消</button><button type="submit" className="primary-button">保存客户画像</button></footer>
+  </form></section></div>
 }
 
 function DealDialog({ customer, deliveryStaff, onClose, onSubmit }: { customer: Customer; deliveryStaff: { id: string; name: string }[]; onClose: () => void; onSubmit: (input: Omit<DealRegistration, 'customer' | 'recordedBy'>) => void }) {
