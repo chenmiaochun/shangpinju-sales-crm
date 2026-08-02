@@ -1,6 +1,7 @@
 import type { Customer, CustomerStage, FollowUp } from '../../types'
 
-export type SopStageId = 'lead' | 'discovery' | 'visit' | 'design' | 'quote' | 'revision' | 'deposit'
+export type SopStageId = 'lead' | 'discovery' | 'visit' | 'revisit' | 'measure' | 'design' | 'quote' | 'revision' | 'deposit'
+export type SopPath = 'retail-fast' | 'retail-followup' | 'custom'
 export type SopItemKind = 'question' | 'action' | 'condition'
 
 export interface SopChecklistItem {
@@ -35,6 +36,7 @@ export interface SopStageResult extends SopStageDefinition {
 }
 
 export interface SopEvaluation {
+  path: SopPath
   currentStageIndex: number
   currentStage: SopStageResult
   nextStage?: SopStageDefinition
@@ -82,17 +84,45 @@ export const SOP_STAGES: SopStageDefinition[] = [
     ],
   },
   {
-    id: 'visit', name: '到店量房', summary: '用真实体验和准确尺寸，为方案建立可靠输入。',
-    questions: ['到店时哪些家人会共同参与？', '现场尺寸、动线和插座位置有哪些限制？', '最希望现场重点体验哪些材质或坐感？'],
-    actions: ['预约到店或上门量房时间', '携带样板并完成尺寸/照片记录', '现场复述需求并确认优先级'],
-    conditions: ['到店或量房已完成', '现场资料完整可用于设计', '客户认可需求复述'],
-    risks: ['只记录墙面尺寸，遗漏踢脚线和通行空间', '量房前未确认物业与进场条件', '体验结束未锁定设计沟通时间'],
-    script: '到店和量尺是两个阶段。到店重点确认体验与需求，量尺重点核对空间限制、尺寸和现场条件。每次结束时都会复述确认，确保设计师拿到一致信息。',
+    id: 'visit', name: '到店体验', summary: '让客户体验产品、材质和坐感，确认真实偏好。',
+    questions: ['到店时哪些家人会共同参与？', '本次最想体验哪些产品和材质？', '哪些尺寸、坐感或颜色是必须满足的？'],
+    actions: ['预约到店时间并发送定位', '安排重点产品试坐试用与材质对比', '记录喜欢、不喜欢和待确认项目'],
+    conditions: ['客户已完成到店体验', '意向产品与偏好进一步明确', '已约定成交、再次到店或量尺中的下一步'],
+    risks: ['只带客户看产品，没有记录真实反馈', '一次展示过多导致客户难以决策', '离店前没有约定明确下一步'],
+    script: '这次到店先集中体验您最关心的产品、坐感和材质。我会把喜欢与不喜欢分别记录，离店前再一起确认下一步是直接下单、再次到店，还是安排量尺。',
     checklist: [
-      item('visit-booked', 'action', '到店或量尺时间已预约', (c, f, t) => Boolean(c.nextFollowUpAt) || f.some((x) => x.channel === '到店' || x.channel === '量尺') || mentions(t, ['预约', '到店', '量房', '量尺'])),
-      item('visit-completed', 'action', '到店体验或上门量尺已完成', (_c, f) => f.some((x) => x.channel === '到店' || x.channel === '量尺')),
-      item('visit-records', 'condition', '尺寸、照片与现场限制已归档'),
-      item('visit-review', 'condition', '客户已确认需求复述与设计时间', (_c, _f, t) => mentions(t, ['确认需求', '设计时间', '方案时间'])),
+      item('visit-booked', 'action', '到店时间已预约', (c, f, t) => Boolean(c.nextFollowUpAt) || f.some((x) => x.channel === '到店') || mentions(t, ['预约到店', '再次到店'])),
+      item('visit-completed', 'action', '到店体验已完成', (_c, f) => f.some((x) => x.channel === '到店')),
+      item('visit-preference', 'question', '产品体验反馈与偏好已记录', (c) => has(c.products)),
+      item('visit-next', 'condition', '离店前已约定下一步', (c, f) => Boolean(c.nextFollowUpAt || f.some((x) => x.nextAt || x.nextAction))),
+    ],
+  },
+  {
+    id: 'revisit', name: '再次到店', summary: '围绕上次未决问题再次体验，推动成品家具成交。',
+    questions: ['上次未确定的是产品、颜色、尺寸还是价格？', '这次还有哪位家人需要共同确认？', '满足哪些条件今天可以下单？'],
+    actions: ['提前准备客户关注的产品和替代方案', '集中解决上次遗留异议', '现场确认产品、价格与送货时间'],
+    conditions: ['关键决策人已参与', '产品与配置已确认', '可以进入报价成交'],
+    risks: ['重复第一次到店内容，没有针对遗留问题', '仍未邀请共同决策人', '再次离店却没有确定决策期限'],
+    script: '这次我们不重复看全部产品，重点把上次没有确定的颜色、尺寸和价格逐项解决。如果这几项都合适，今天就可以把产品和送货安排定下来。',
+    checklist: [
+      item('revisit-gap', 'question', '上次未决问题已列清楚'),
+      item('revisit-decision', 'question', '共同决策人已参与', (_c, _f, t) => mentions(t, ['家人', '爱人', '决策人'])),
+      item('revisit-completed', 'action', '再次到店体验已完成', (_c, f, t) => f.filter((x) => x.channel === '到店').length > 1 || mentions(t, ['再次到店', '二次到店'])),
+      item('revisit-ready', 'condition', '产品配置与成交条件已确认'),
+    ],
+  },
+  {
+    id: 'measure', name: '上门量尺', summary: '单独完成现场测量，为定制设计建立准确输入。',
+    questions: ['物业进场、门禁和测量时间有什么限制？', '墙体、梁柱、插座、踢脚线和通道有哪些约束？', '现场有哪些家具或设备需要保留？'],
+    actions: ['单独预约上门量尺时间', '记录完整尺寸、照片和现场限制', '量尺后复述需求并确定方案时间'],
+    conditions: ['上门量尺已经完成', '现场尺寸和照片资料完整', '资料可以交给设计师使用'],
+    risks: ['把到店体验误当成已经量尺', '遗漏梁柱、插座或进场通道尺寸', '量尺资料没有及时交接设计师'],
+    script: '量尺是独立的上门工作，不等同于到店。我们会把尺寸、梁柱、插座、通道和现场照片完整记录，确认无误后再交给设计师出方案。',
+    checklist: [
+      item('measure-booked', 'action', '上门量尺时间已预约', (c, f, t) => Boolean(c.nextFollowUpAt) || f.some((x) => x.channel === '量尺') || mentions(t, ['预约量尺', '上门量尺'])),
+      item('measure-completed', 'action', '上门量尺已完成', (_c, f) => f.some((x) => x.channel === '量尺')),
+      item('measure-records', 'condition', '尺寸、照片与现场限制已归档'),
+      item('measure-handoff', 'condition', '量尺资料已交接设计师', (_c, _f, t) => mentions(t, ['交接设计', '设计师', '方案时间'])),
     ],
   },
   {
@@ -138,7 +168,7 @@ export const SOP_STAGES: SopStageDefinition[] = [
     ],
   },
   {
-    id: 'deposit', name: '定金交付', summary: '冻结合同版本并交接生产安装，让销售承诺完整落地。',
+    id: 'deposit', name: '成交交付', summary: '确认收款与订单，交接备货、送货和售后。',
     questions: ['合同主体、收货人与现场联系人是谁？', '交付、安装和验收节点如何安排？', '有哪些物业或进场限制需要提前处理？'],
     actions: ['确认合同、定金与最终图纸', '建立生产交付节点并责任到人', '同步安装、验收和售后说明'],
     conditions: ['定金到账且合同版本冻结', '生产交付资料完整', '客户清楚后续节点与联系人'],
@@ -153,20 +183,43 @@ export const SOP_STAGES: SopStageDefinition[] = [
   },
 ]
 
-const stageIndexByCustomerStage: Record<CustomerStage, number> = {
-  新线索: 0, 已初聊: 0, 需求确认: 1, 到店: 2, 量尺: 2, 方案设计: 3,
-  已报价: 4, 方案调整: 5, 已定金: 6, 生产交付: 6, 已成交: 6, 已流失: 0,
+const PATH_STAGE_IDS: Record<SopPath, SopStageId[]> = {
+  'retail-fast': ['visit', 'quote', 'deposit'],
+  'retail-followup': ['lead', 'discovery', 'visit', 'revisit', 'quote', 'deposit'],
+  custom: ['lead', 'discovery', 'visit', 'measure', 'design', 'quote', 'revision', 'deposit'],
+}
+
+export function getSopStages(path: SopPath) {
+  const ids = PATH_STAGE_IDS[path]
+  return ids.map((id) => SOP_STAGES.find((stage) => stage.id === id)!)
+}
+
+export function inferSopPath(customer: Customer): SopPath {
+  if (customer.stage === '量尺' || customer.stage === '方案设计' || customer.stage === '方案调整' || customer.products.some((product) => product.includes('定制'))) return 'custom'
+  return customer.stage === '到店' || customer.stage === '已报价' || customer.stage === '已定金' || customer.stage === '生产交付' || customer.stage === '已成交' ? 'retail-fast' : 'retail-followup'
+}
+
+function targetStageId(customerStage: CustomerStage, path: SopPath): SopStageId {
+  if (customerStage === '已定金' || customerStage === '生产交付' || customerStage === '已成交') return 'deposit'
+  if (customerStage === '已报价') return 'quote'
+  if (customerStage === '方案调整') return path === 'custom' ? 'revision' : 'quote'
+  if (customerStage === '方案设计') return path === 'custom' ? 'design' : 'quote'
+  if (customerStage === '量尺') return path === 'custom' ? 'measure' : 'visit'
+  if (customerStage === '到店') return 'visit'
+  if (customerStage === '需求确认') return path === 'retail-fast' ? 'visit' : 'discovery'
+  return PATH_STAGE_IDS[path][0]
 }
 
 export function getManualStorageKey(customerId: string) {
   return `shangpinju:sales-sop:${customerId}`
 }
 
-export function evaluateSalesSop(customer: Customer, allFollowUps: FollowUp[], manual: ManualConfirmations = {}): SopEvaluation {
+export function evaluateSalesSop(customer: Customer, allFollowUps: FollowUp[], manual: ManualConfirmations = {}, path: SopPath = inferSopPath(customer)): SopEvaluation {
   const followUps = allFollowUps.filter((followUp) => followUp.customerId === customer.id)
   const evidenceText = followUps.flatMap((x) => [x.content, x.result, x.nextAction ?? '']).join(' ')
-  const currentStageIndex = stageIndexByCustomerStage[customer.stage]
-  const stages = SOP_STAGES.map((stage, index): SopStageResult => {
+  const pathStages = getSopStages(path)
+  const currentStageIndex = Math.max(0, pathStages.findIndex((stage) => stage.id === targetStageId(customer.stage, path)))
+  const stages = pathStages.map((stage, index): SopStageResult => {
     const status = index < currentStageIndex ? 'completed' : index === currentStageIndex ? 'current' : 'upcoming'
     const items = stage.checklist.map((check): SopItemResult => {
       const inferred = Boolean(check.evidence?.(customer, followUps, evidenceText))
@@ -179,10 +232,10 @@ export function evaluateSalesSop(customer: Customer, allFollowUps: FollowUp[], m
   const missingItems = currentStage.items.filter((x) => !x.completed)
   const readyForNextStage = missingItems.length === 0
   return {
-    currentStageIndex, currentStage, stages, readyForNextStage, missingItems,
-    nextStage: SOP_STAGES[currentStageIndex + 1],
+    path, currentStageIndex, currentStage, stages, readyForNextStage, missingItems,
+    nextStage: pathStages[currentStageIndex + 1],
     actions: readyForNextStage
-      ? [SOP_STAGES[currentStageIndex + 1] ? `推进至「${SOP_STAGES[currentStageIndex + 1].name}」并约定首个动作` : '完成生产交付交接并持续同步节点']
+      ? [pathStages[currentStageIndex + 1] ? `推进至「${pathStages[currentStageIndex + 1].name}」并约定首个动作` : '完成生产交付交接并持续同步节点']
       : missingItems.map((x) => x.label),
   }
 }
