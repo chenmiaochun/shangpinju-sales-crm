@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, ArrowUpRight, BarChart3, CheckCircle2, Lightbulb, MessageSquareText, Radio, Target } from 'lucide-react'
+import { AlertTriangle, ArrowUpRight, BarChart3, Boxes, CheckCircle2, Lightbulb, Megaphone, MessageSquareText, Radio, Target } from 'lucide-react'
 import type { Customer, FollowUp } from '../../types'
 import { buildSalesInsights, formatCompactMoney, type InsightPeriod, type TrendPoint } from './insights'
 import './insights.css'
@@ -38,6 +38,19 @@ export function SalesInsightsPage({ customers, followUps, now = new Date() }: Sa
           </div>)}</div> : <MiniEmpty text={`近${period}天暂无新增线索`} />}
         </Panel>
       </div>
+
+      <Panel title="产品热度前十" subtitle={`近${period}天按关注、高意向与成交综合排序，为活动和备货提供依据`}>
+        {insight.products.length ? <div className="product-ranking" role="table" aria-label="产品热度前十">
+          <div className="product-rank-head" role="row"><span>排名 / 产品</span><span>客户热度</span><span>关联商机</span><span>活动建议</span><span>备货建议</span></div>
+          {insight.products.map((item, index) => <div className="product-rank-row" role="row" key={item.product}>
+            <div className="product-name"><b>{index + 1}</b><span><strong>{item.product}</strong><small>{item.supplyType ?? '供应方式待核对'}{item.availableStock !== undefined ? ` · 可用库存 ${item.availableStock}` : ''}</small></span></div>
+            <div className="product-heat"><strong>{item.interestedCustomers} 人关注</strong><small>{item.highIntent} 人高意向 · {item.highIntentRate}%{item.deals ? ` · ${item.deals} 人成交` : ''}</small><i><em style={{ width: `${Math.max(item.highIntentRate, 6)}%` }}/></i></div>
+            <div className="product-amount"><strong>¥{formatCompactMoney(item.amount)}</strong><small>关联客户商机</small></div>
+            <span className={`product-advice ${item.activityAdvice === '优先策划活动' ? 'is-priority' : ''}`}><Megaphone size={14}/>{item.activityAdvice}</span>
+            <span className="product-supply"><Boxes size={14}/>{item.supplyAdvice}</span>
+          </div>)}
+        </div> : <MiniEmpty text={`近${period}天暂无产品意向数据`} />}
+      </Panel>
 
       <div className="insights-grid insights-grid-middle">
         <Panel title="阶段停留风险" subtitle="以最近联系时间评估，7 天以上标记风险">

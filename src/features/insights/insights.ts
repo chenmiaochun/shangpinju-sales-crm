@@ -1,4 +1,5 @@
 import type { Customer, FollowUp } from '../../types'
+import { productCatalog } from '../../productCatalog'
 
 export type InsightPeriod = 7 | 30 | 90
 
@@ -7,6 +8,7 @@ export interface SourceQuality { source: string; leads: number; highIntent: numb
 export interface StageRisk { stage: string; customers: number; riskCustomers: number; averageIdleDays: number; amountAtRisk: number }
 export interface ActivityQuality { total: number; activeCustomers: number; coverageRate: number; nextActionRate: number; resultRate: number; averagePerActiveCustomer: number }
 export interface LostReason { reason: string; count: number; amount: number; share: number }
+export interface ProductInsight { product: string; interestedCustomers: number; highIntent: number; highIntentRate: number; amount: number; deals: number; score: number; activityAdvice: string; supplyAdvice: string; supplyType?: string; availableStock?: number }
 export interface SalesInsight {
   period: InsightPeriod
   trend: TrendPoint[]
@@ -14,6 +16,7 @@ export interface SalesInsight {
   stageRisks: StageRisk[]
   activity: ActivityQuality
   lostReasons: LostReason[]
+  products: ProductInsight[]
   suggestions: string[]
 }
 
@@ -26,6 +29,9 @@ const validTime = (value: string) => {
 }
 
 const daysBetween = (later: number, earlier: number) => Math.max(0, Math.floor((later - earlier) / DAY))
+
+const PRODUCT_ALIASES: Record<string, string> = { '沙发':'实木沙发', '餐台':'实木餐桌', '餐桌':'实木餐桌', '茶几':'实木茶几', '床垫':'进口床垫' }
+const catalogProduct = (name: string) => productCatalog.find((item) => item.name === name || item.name === PRODUCT_ALIASES[name])
 
 export function buildSalesInsights(
   customers: Customer[],
@@ -110,6 +116,29 @@ export function buildSalesInsights(
     }
   }).sort((a, b) => b.count - a.count || b.amount - a.amount)
 
+  const productNames = [...new Set(periodCustomers.flatMap((customer) => customer.products).filter(Boolean))]
+  const products = productNames.map((product) => {
+    const interested = periodCustomers.filter((customer) => customer.products.includes(product))
+    const highIntent = interested.filter((customer) => customer.intent === '高').length
+    const deals = interested.filter((customer) => (customer.dealAmount ?? 0) > 0 || customer.stage === '已成交').length
+    const catalog = catalogProduct(product)
+    const desiredStock = Math.ceil(interested.length * .3 + highIntent * .5)
+    const stockGap = catalog && ['现货', '展厅样品'].includes(catalog.supplyType) ? Math.max(0, desiredStock - catalog.availableStock) : 0
+    return {
+      product,
+      interestedCustomers: interested.length,
+      highIntent,
+      highIntentRate: interested.length ? Math.round(highIntent / interested.length * 100) : 0,
+      amount: interested.reduce((sum, customer) => sum + customer.expectedAmount, 0),
+      deals,
+      score: interested.length * 2 + highIntent * 4 + deals * 6,
+      activityAdvice: highIntent >= 3 || (interested.length >= 3 && highIntent / interested.length >= .4) ? '优先策划活动' : interested.length >= 2 ? '适合组合促销' : '持续观察',
+      supplyAdvice: !catalog ? '核对产品与供应方式' : catalog.supplyType === '定制生产' ? '按意向提前排产' : catalog.supplyType === '外采产品' ? '提前锁定采购量' : stockGap > 0 ? `建议补货 ${stockGap} 件` : '现有库存可覆盖',
+      supplyType: catalog?.supplyType,
+      availableStock: catalog?.availableStock,
+    }
+  }).sort((a, b) => b.score - a.score || b.amount - a.amount).slice(0, 10)
+
   const suggestions: string[] = []
   const topRisk = stageRisks.find((item) => item.riskCustomers > 0)
   const topSource = sources[0]
@@ -117,9 +146,10 @@ export function buildSalesInsights(
   if (activity.coverageRate < 80 && activeCustomers.length) suggestions.push(`本周期仅覆盖 ${activity.coverageRate}% 在跟客户，先补齐未触达名单再增加跟进频次。`)
   if (activity.nextActionRate < 80 && periodFollowUps.length) suggestions.push(`仅 ${activity.nextActionRate}% 的跟进同时记录下一步与时间，辅导销售用明确动作结束每次沟通。`)
   if (topSource) suggestions.push(`${topSource.source}贡献本周期最高商机金额，建议复盘其高意向率 ${topSource.highIntentRate}% 并优化同类获客。`)
+  if (products[0]) suggestions.push(`${products[0].product}是本周期综合热度第一，${products[0].activityAdvice}；备货侧建议：${products[0].supplyAdvice}。`)
   if (!suggestions.length && customers.length) suggestions.push('当前跟进覆盖和动作完整度良好，建议继续复盘高意向客户的阶段推进效率。')
 
-  return { period, trend, sources, stageRisks, activity, lostReasons, suggestions }
+  return { period, trend, sources, stageRisks, activity, lostReasons, products, suggestions }
 }
 
 export function formatCompactMoney(amount: number) {
