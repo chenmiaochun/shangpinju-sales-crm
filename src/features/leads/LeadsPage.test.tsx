@@ -3,6 +3,16 @@ import { describe, expect, it, vi } from 'vitest'
 import { LeadsPage } from './LeadsPage'
 
 describe('LeadsPage customer intake', () => {
+  it('keeps vehicle fields together in plate, brand and series order', () => {
+    render(<LeadsPage customers={[]} onAddCustomers={() => {}} />)
+    const plate = screen.getByLabelText('车牌后五位')
+    const brand = screen.getByLabelText('车辆品牌')
+    const series = screen.getByLabelText('车辆系列')
+    expect(plate.compareDocumentPosition(brand) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(brand.compareDocumentPosition(series) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByText('按车牌、品牌、车系顺序登记')).toBeTruthy()
+  })
+
   it('captures quote, discount and business file metadata', () => {
     const onAddCustomers = vi.fn()
     const { container } = render(<LeadsPage customers={[]} onAddCustomers={onAddCustomers} />)
