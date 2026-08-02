@@ -36,6 +36,12 @@ export interface Customer {
   renovationProgress: string
   concerns: string[]
   cityArea?: string
+  communityName?: string
+  communityDistrict?: string
+  buildingRoom?: string
+  houseLayout?: string
+  houseArea?: number
+  houseValueRange?: string
   visitPeriod?: string
   vehicleBrand?: string
   vehicleSeries?: string

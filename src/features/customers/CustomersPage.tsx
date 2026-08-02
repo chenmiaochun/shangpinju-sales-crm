@@ -326,6 +326,8 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
                   <div><dt>偏好风格</dt><dd>{selected.style}</dd></div>
                   <div><dt>客户预算</dt><dd>{selected.budget}</dd></div>
                   <div><dt>装修进度</dt><dd>{selected.renovationProgress}</dd></div>
+                  <div><dt>小区资料</dt><dd>{selected.communityName ? `${selected.communityName}${selected.communityDistrict ? ` · ${selected.communityDistrict}` : ''}${selected.buildingRoom ? ` · ${selected.buildingRoom}` : ''}` : '未登记'}</dd></div>
+                  <div><dt>房屋户型</dt><dd>{selected.houseLayout ? `${selected.houseLayout}${selected.houseArea ? ` · ${selected.houseArea}㎡` : ''}${selected.houseValueRange ? ` · 参考 ${selected.houseValueRange}` : ''}` : '未登记'}</dd></div>
                   <div><dt>车牌号码</dt><dd>{selected.licensePlate || '未登记'}</dd></div>
                   <div><dt>车辆信息</dt><dd>{selected.vehicleBrand ? `${selected.vehicleBrand}${selected.vehicleSeries ? ` · ${selected.vehicleSeries}` : ''}${selected.vehiclePriceRange ? ` · 参考 ${selected.vehiclePriceRange}` : ''}` : '未登记'}</dd></div>
                   <div><dt>主要顾虑</dt><dd className="concern-list">{selected.concerns.map((item) => <span key={item}>{item}</span>)}</dd></div>
