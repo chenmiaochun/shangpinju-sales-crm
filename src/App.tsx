@@ -114,7 +114,6 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
           <div className="topbar-actions">
             <button type="button" title="消息提醒" aria-label="消息提醒" aria-expanded={topbarPanel === 'notifications'} onClick={() => setTopbarPanel((current) => current === 'notifications' ? null : 'notifications')}><Bell size={19} />{!notificationsRead && notifications.length > 0 && <i>{notifications.length}</i>}</button>
             <button type="button" title="系统设置" aria-label="系统设置" aria-expanded={topbarPanel === 'settings'} onClick={() => setTopbarPanel((current) => current === 'settings' ? null : 'settings')}><Settings size={19} /></button>
-            <button type="button" title="退出登录" aria-label="退出登录" onClick={() => void auth.logout()}><LogOut size={19} /></button>
           </div>
           {topbarPanel === 'notifications' && <TopbarPanel title="消息提醒" onClose={() => setTopbarPanel(null)} footer={notifications.length > 0 && !notificationsRead ? <button className="panel-text-action" onClick={() => setNotificationsRead(true)}><CheckCheck size={15}/>全部标记已读</button> : undefined}>
             {notifications.length ? <div className="notification-list">{notifications.map((item) => <NavLink key={item.id} to={item.to} onClick={() => setTopbarPanel(null)}><span className={!notificationsRead ? 'unread-dot' : ''}/><div><strong>{item.title}</strong><small>{item.detail}</small></div><ChevronRight size={15}/></NavLink>)}</div> : <div className="topbar-empty"><CheckCheck size={23}/><strong>暂无新提醒</strong><span>当前跟进安排正常</span></div>}

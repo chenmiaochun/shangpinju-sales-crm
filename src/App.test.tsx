@@ -27,6 +27,7 @@ describe('App routes', () => {
 
   it('opens the sidebar account menu with working account actions', () => {
     renderAt('/dashboard')
+    expect(screen.queryByRole('button', { name: '退出登录' })).toBeNull()
     const trigger = screen.getByRole('button', { name: '打开账号菜单' })
     fireEvent.click(trigger)
 
@@ -36,6 +37,7 @@ describe('App routes', () => {
     expect(within(menu).getByRole('menuitem', { name: '成员与权限' })).toBeTruthy()
     expect(within(menu).getByRole('menuitem', { name: '数据管理' })).toBeTruthy()
     expect(within(menu).getByRole('menuitem', { name: '退出登录' })).toBeTruthy()
+    expect(screen.getAllByRole('menuitem', { name: '退出登录' })).toHaveLength(1)
   })
 
   it('renders the customer follow-up workspace', () => {
