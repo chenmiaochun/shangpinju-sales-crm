@@ -3,7 +3,7 @@ import type { InventoryDocument, ProductCatalogItem } from '../../types'
 import { applyInventoryDocument, initializeWarehouseStocks } from './inventory-operations'
 
 const product: ProductCatalogItem = { id:'p1', sku:'P-1', name:'餐桌', specifications:['标准'], unitPrice:100, supplyType:'现货', availableStock:10, reservedStock:0 }
-const doc = (changes: Partial<InventoryDocument>): InventoryDocument => ({ id:'d1', documentNo:'RK001', type:'到货入库', status:'待执行', productId:'p1', sku:'P-1', productName:'餐桌', quantity:2, toWarehouseId:'warehouse-main', operator:'仓管', createdAt:'2026-08-06', ...changes })
+const doc = (changes: Partial<InventoryDocument>): InventoryDocument => ({ id:'d1', documentNo:'RK001', type:'到货入库', status:'已过账', productId:'p1', sku:'P-1', productName:'餐桌', quantity:2, toWarehouseId:'warehouse-main', operator:'仓管', createdAt:'2026-08-06', ...changes })
 
 describe('inventory operations', () => {
   it('receives goods into total and warehouse stock', () => {
@@ -11,6 +11,18 @@ describe('inventory operations', () => {
     expect(result.products[0].availableStock).toBe(12)
     expect(result.warehouseStocks[0].quantity).toBe(12)
     expect(result.movements[0]).toMatchObject({ type:'采购入库', quantity:2 })
+  })
+
+  it('does not change stock while a document is a draft', () => {
+    const result = applyInventoryDocument([product], initializeWarehouseStocks([product], []), doc({ status:'草稿' }))
+    expect(result.products[0].availableStock).toBe(10)
+    expect(result.movements).toHaveLength(0)
+  })
+
+  it('only receives quantities that passed inspection', () => {
+    const result = applyInventoryDocument([product], initializeWarehouseStocks([product], []), doc({ quantity:5, acceptedQuantity:3, rejectedQuantity:2, qualityStatus:'部分合格' }))
+    expect(result.products[0].availableStock).toBe(13)
+    expect(result.warehouseStocks[0].quantity).toBe(13)
   })
 
   it('transfers between warehouses without changing total stock', () => {
@@ -22,5 +34,18 @@ describe('inventory operations', () => {
 
   it('rejects an outbound document when warehouse stock is insufficient', () => {
     expect(() => applyInventoryDocument([product], [], doc({ type:'销售出库', quantity:11, fromWarehouseId:'warehouse-main', toWarehouseId:undefined }))).toThrow('库存不足')
+  })
+
+  it('rejects posting the same posted document twice', () => {
+    const posted = doc({ status:'已过账' })
+    expect(() => applyInventoryDocument([product], initializeWarehouseStocks([product], []), posted, posted)).toThrow('不可修改')
+  })
+
+  it('cancels a posted receipt by reversing its stock effect', () => {
+    const posted = doc({ status:'已过账', acceptedQuantity:2 })
+    const result = applyInventoryDocument([{...product,availableStock:12}], [{warehouseId:'warehouse-main',productId:'p1',quantity:12,reservedQuantity:0}], {...posted,status:'已取消',cancellationReason:'录入错误'}, posted)
+    expect(result.products[0].availableStock).toBe(10)
+    expect(result.warehouseStocks[0].quantity).toBe(10)
+    expect(result.document.status).toBe('已取消')
   })
 })

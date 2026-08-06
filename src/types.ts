@@ -180,7 +180,8 @@ export interface WarehouseStock {
 }
 
 export type InventoryDocumentType = '到货入库' | '销售出库' | '客户退货' | '仓库调拨' | '盘点调整' | '破损报废'
-export type InventoryDocumentStatus = '待执行' | '已完成' | '已取消'
+export type InventoryDocumentStatus = '草稿' | '待审批' | '已批准' | '已过账' | '已取消' | '待执行' | '已完成'
+export type InventoryQualityStatus = '免检' | '待验收' | '验收合格' | '部分合格' | '验收不合格'
 
 export interface InventoryDocument {
   id: string
@@ -194,9 +195,22 @@ export interface InventoryDocument {
   fromWarehouseId?: string
   toWarehouseId?: string
   relatedOrderNo?: string
+  originalDocumentId?: string
+  reversalDocumentId?: string
+  qualityStatus?: InventoryQualityStatus
+  acceptedQuantity?: number
+  rejectedQuantity?: number
   note?: string
   operator: string
   createdAt: string
+  submittedBy?: string
+  approvedBy?: string
+  postedBy?: string
+  postingAt?: string
+  cancelledBy?: string
+  cancelledAt?: string
+  cancellationReason?: string
+  documentVersion?: number
   completedAt?: string
 }
 

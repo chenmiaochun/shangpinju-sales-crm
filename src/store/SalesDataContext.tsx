@@ -287,8 +287,12 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
   const addInventoryDocument = useCallback((document: InventoryDocument) => {
     try {
       const current = stateRef.current
-      const result = applyInventoryDocument(current.products, current.warehouseStocks, document)
-      const next = { ...current, products:result.products, warehouseStocks:result.warehouseStocks, inventoryMovements:[...result.movements, ...current.inventoryMovements], inventoryDocuments:[result.document, ...current.inventoryDocuments] }
+      const previous = current.inventoryDocuments.find((item) => item.id === document.id)
+      const result = applyInventoryDocument(current.products, current.warehouseStocks, document, previous)
+      const inventoryDocuments = previous
+        ? current.inventoryDocuments.map((item) => item.id === document.id ? result.document : item)
+        : [result.document, ...current.inventoryDocuments]
+      const next = { ...current, products:result.products, warehouseStocks:result.warehouseStocks, inventoryMovements:[...result.movements, ...current.inventoryMovements], inventoryDocuments }
       stateRef.current = next
       setState(next)
       return { ok:true }
