@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { BarChart3, Bell, Bot, ChartNoAxesCombined, CheckCheck, ChevronDown, ChevronRight, ClipboardList, ContactRound, Database, GraduationCap, LayoutGrid, ListChecks, LogOut, MessageSquareText, PackageCheck, Search, Settings, UserCog, UserPlus, X } from 'lucide-react'
+import { BarChart3, Bell, Bot, Boxes, ChartNoAxesCombined, CheckCheck, ChevronDown, ChevronRight, ClipboardList, ContactRound, Database, GraduationCap, LayoutGrid, ListChecks, LogOut, MessageSquareText, PackageCheck, Search, Settings, UserCog, UserPlus, X } from 'lucide-react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AIQualityPage } from './features/ai'
 import { CustomersPage } from './features/customers'
@@ -9,6 +9,7 @@ import { CoachingCenterPage } from './features/coaching'
 import { SalesInsightsPage } from './features/insights'
 import { LeadsPage } from './features/leads'
 import { LifecyclePage } from './features/lifecycle'
+import { InventoryPage } from './features/inventory'
 import { TaskCenterPage } from './features/tasks'
 import { SalesSopPage } from './features/sop'
 import { DataAdminPage, type ConnectionStatus } from './features/data-admin'
@@ -21,6 +22,7 @@ const navigation = [
   { to: '/dashboard', label: '经营分析', icon: BarChart3, permission: 'store.analytics' },
   { to: '/customers', label: '客户跟进', icon: ContactRound, permission: 'customers.own' },
   { to: '/lifecycle', label: '成交履约', icon: PackageCheck, permission: 'customers.own' },
+  { to: '/inventory', label: '商品进销存', icon: Boxes, permission: 'inventory.manage' },
   { to: '/tasks', label: '任务中心', icon: ClipboardList, permission: 'tasks.own' },
   { to: '/leads', label: '线索数据', icon: UserPlus, permission: 'customers.own' },
   { to: '/quality', label: 'AI 质检', icon: Bot, permission: 'store.analytics' },
@@ -36,7 +38,7 @@ type NavItem = typeof navigation[number]
 const canUseItem = (can: (permission: AccessPermission) => boolean, item: NavItem) => item.to === '/customers' ? can('customers.own') || can('customers.design') : can(item.permission as AccessPermission)
 
 function MorePage({ items }: { items: NavItem[] }) {
-  return <main className="more-page"><header><p>尚品居销售工作台</p><h1>全部功能</h1></header><div className="module-grid">{items.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to}><Icon size={23} /><span>{label}</span></NavLink>)}</div></main>
+  return <main className="more-page"><header><p>尚品居经营工作台</p><h1>全部功能</h1></header><div className="module-grid">{items.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to}><Icon size={23} /><span>{label}</span></NavLink>)}</div></main>
 }
 
 function Allowed({ permission, children }: { permission: AccessPermission; children: ReactNode }) {
@@ -79,7 +81,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
   }, [activeMember.id, activeMember.name, activeMember.role, sales.deliveryTasks, sales.designTasks, visibleCustomers, visibleIds])
   const mergeVisibleState = (next: { customers: typeof sales.customers; followUps: typeof sales.followUps }) => {
     const updates = new Map(next.customers.map((item) => [item.id, item]))
-    sales.replaceState({ customers: sales.customers.map((item) => updates.get(item.id) ?? item), followUps: [...next.followUps, ...sales.followUps.filter((item) => !visibleIds.has(item.customerId))], designTasks: sales.designTasks, orders: sales.orders, deliveryTasks: sales.deliveryTasks, afterSalesTickets: sales.afterSalesTickets, supplyDemands: sales.supplyDemands })
+    sales.replaceState({ customers: sales.customers.map((item) => updates.get(item.id) ?? item), followUps: [...next.followUps, ...sales.followUps.filter((item) => !visibleIds.has(item.customerId))], designTasks: sales.designTasks, orders: sales.orders, deliveryTasks: sales.deliveryTasks, afterSalesTickets: sales.afterSalesTickets, supplyDemands: sales.supplyDemands, products:sales.products, inventoryMovements:sales.inventoryMovements })
   }
   const wechat = sales.integrationSettings.wechat ?? {}
   const connectionStatus: ConnectionStatus = wechat.status === 'connected' ? 'connected' : wechat.corpId && wechat.agentId ? 'pending' : 'unconfigured'
@@ -87,7 +89,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
-        <div className="brand"><span className="brand-mark">尚</span><div><strong>尚品居</strong><small>销售工作台</small></div></div>
+        <div className="brand"><span className="brand-mark">尚</span><div><strong>尚品居</strong><small>经营工作台</small></div></div>
         <nav aria-label="主导航">
           {visibleNavigation.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} className={({ isActive }) => isActive ? 'is-active' : ''}>
@@ -130,8 +132,9 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
         <div className="app-content">
           <Routes>
             <Route path="/dashboard" element={<Allowed permission="store.analytics"><ManagerDashboard customers={sales.customers} followUps={sales.followUps} /></Allowed>} />
-            <Route path="/customers" element={<CustomerAllowed><CustomersPage customers={visibleCustomers} followUps={visibleFollowUps} designers={sales.designers} salespeople={sales.salespeople} deliveryStaff={sales.deliveryStaff} activeMember={activeMember} onStateChange={mergeVisibleState} onRegisterDeal={sales.registerDeal} onAddDesignTask={(task) => { sales.addDesignTask(task); sales.updateCustomer(task.customerId, { designerId: task.designerId, designer: task.designerName }) }} /></CustomerAllowed>} />
-            <Route path="/lifecycle" element={<CustomerAllowed><LifecyclePage customers={visibleCustomers} orders={sales.orders.filter((item) => visibleIds.has(item.customerId))} deliveryTasks={sales.deliveryTasks.filter((item) => visibleIds.has(item.customerId))} afterSalesTickets={sales.afterSalesTickets.filter((item) => visibleIds.has(item.customerId))} activeUser={activeMember.name} onAddOrder={sales.addOrder} onUpdateOrder={sales.updateOrder} onAddPayment={sales.addPayment} onAddDelivery={sales.addDeliveryTask} onUpdateDelivery={sales.updateDeliveryTask} onAddTicket={sales.addAfterSalesTicket} onUpdateTicket={sales.updateAfterSalesTicket} /></CustomerAllowed>} />
+            <Route path="/customers" element={<CustomerAllowed><CustomersPage customers={visibleCustomers} followUps={visibleFollowUps} designers={sales.designers} salespeople={sales.salespeople} deliveryStaff={sales.deliveryStaff} products={sales.products} activeMember={activeMember} onStateChange={mergeVisibleState} onRegisterDeal={sales.registerDeal} onAddDesignTask={(task) => { sales.addDesignTask(task); sales.updateCustomer(task.customerId, { designerId: task.designerId, designer: task.designerName }) }} /></CustomerAllowed>} />
+            <Route path="/lifecycle" element={<CustomerAllowed><LifecyclePage customers={visibleCustomers} orders={sales.orders.filter((item) => visibleIds.has(item.customerId))} deliveryTasks={sales.deliveryTasks.filter((item) => visibleIds.has(item.customerId))} products={sales.products} afterSalesTickets={sales.afterSalesTickets.filter((item) => visibleIds.has(item.customerId))} activeUser={activeMember.name} onAddOrder={sales.addOrder} onUpdateOrder={sales.updateOrder} onAddPayment={sales.addPayment} onAddDelivery={sales.addDeliveryTask} onUpdateDelivery={sales.updateDeliveryTask} onAddTicket={sales.addAfterSalesTicket} onUpdateTicket={sales.updateAfterSalesTicket} /></CustomerAllowed>} />
+            <Route path="/inventory" element={<Allowed permission="inventory.manage"><InventoryPage products={sales.products} demands={sales.supplyDemands} movements={sales.inventoryMovements} warehouses={sales.warehouses} warehouseStocks={sales.warehouseStocks} inventoryDocuments={sales.inventoryDocuments} replenishmentRequests={sales.replenishmentRequests} operator={activeMember.name} capabilities={{ manageCatalog: access.can('purchasing.manage'), purchase: access.can('purchasing.manage'), receive: access.can('inventory.receive'), issue:access.can('inventory.issue'), transfer:access.can('inventory.transfer'), audit: access.can('inventory.audit'), viewCost: access.can('cost.view'), requestReplenishment:access.can('replenishment.request'), approveReplenishment:access.can('replenishment.approve') }} onAddProduct={sales.addProduct} onAdjust={sales.adjustInventory} onUpdateDemand={sales.updateSupplyDemand} onInventoryDocument={sales.addInventoryDocument} onReplenishmentRequest={sales.addReplenishmentRequest} onReviewReplenishment={sales.reviewReplenishmentRequest}/></Allowed>} />
             <Route path="/tasks" element={<Allowed permission="tasks.own"><TaskCenterPage customers={visibleCustomers} followUps={visibleFollowUps} designTasks={sales.designTasks} activeMember={activeMember} onCompleteTask={sales.addFollowUp} onUpdateDesignTask={sales.updateDesignTask} /></Allowed>} />
             <Route path="/leads" element={<Allowed permission="customers.own"><LeadsPage customers={visibleCustomers} onAddCustomers={(customers) => sales.addCustomers(customers.map((customer) => activeMember.role === 'operations' ? { ...customer, sourceService: activeMember.name } : customer))} /></Allowed>} />
             <Route path="/quality" element={<Allowed permission="store.analytics"><AIQualityPage customers={sales.customers} followUps={sales.followUps} /></Allowed>} />
@@ -140,7 +143,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
             <Route path="/coaching" element={<Allowed permission="coaching"><CoachingCenterPage customers={sales.customers} followUps={sales.followUps} /></Allowed>} />
             <Route path="/insights" element={<Allowed permission="store.analytics"><SalesInsightsPage customers={sales.customers} followUps={sales.followUps} /></Allowed>} />
             <Route path="/team" element={<Allowed permission="members.manage"><TeamAccessPage /></Allowed>} />
-            <Route path="/data-admin" element={<Allowed permission="data.manage"><DataAdminPage customers={sales.customers} followUps={sales.followUps} orders={sales.orders} deliveryTasks={sales.deliveryTasks} afterSalesTickets={sales.afterSalesTickets} supplyDemands={sales.supplyDemands} auditEvents={sales.auditEvents.map((item) => ({ id: String(item.id), action: `${item.action} ${item.resource}`, at: item.createdAt, detail: JSON.stringify(item.details) }))} connectionStatus={connectionStatus} onRestoreBackup={(backup) => sales.replaceState({ customers: backup.customers, followUps: backup.followUps, designTasks: sales.designTasks, orders: backup.orders ?? [], deliveryTasks: backup.deliveryTasks ?? [], afterSalesTickets: backup.afterSalesTickets ?? [], supplyDemands: backup.supplyDemands ?? [] })} integrationSettings={{ corpId: String(wechat.corpId ?? ''), agentId: String(wechat.agentId ?? ''), secretConfigured: Boolean(wechat.secretConfigured || wechat.secret) }} onSaveIntegration={async (settings) => sales.saveIntegrations({ ...sales.integrationSettings, wechat: { ...wechat, corpId: settings.corpId, agentId: settings.agentId, ...(settings.secret ? { secret: settings.secret } : {}), secretConfigured: Boolean(settings.secret || wechat.secretConfigured || wechat.secret), status: 'pending' } })} /></Allowed>} />
+            <Route path="/data-admin" element={<Allowed permission="data.manage"><DataAdminPage customers={sales.customers} followUps={sales.followUps} orders={sales.orders} deliveryTasks={sales.deliveryTasks} afterSalesTickets={sales.afterSalesTickets} supplyDemands={sales.supplyDemands} products={sales.products} inventoryMovements={sales.inventoryMovements} warehouses={sales.warehouses} warehouseStocks={sales.warehouseStocks} inventoryDocuments={sales.inventoryDocuments} replenishmentRequests={sales.replenishmentRequests} auditEvents={sales.auditEvents.map((item) => ({ id: String(item.id), action: `${item.action} ${item.resource}`, at: item.createdAt, detail: JSON.stringify(item.details) }))} connectionStatus={connectionStatus} onRestoreBackup={(backup) => sales.replaceState({ customers: backup.customers, followUps: backup.followUps, designTasks: sales.designTasks, orders: backup.orders ?? [], deliveryTasks: backup.deliveryTasks ?? [], afterSalesTickets: backup.afterSalesTickets ?? [], supplyDemands: backup.supplyDemands ?? [], products: backup.products, inventoryMovements: backup.inventoryMovements, warehouses:backup.warehouses, warehouseStocks:backup.warehouseStocks, inventoryDocuments:backup.inventoryDocuments, replenishmentRequests:backup.replenishmentRequests })} integrationSettings={{ corpId: String(wechat.corpId ?? ''), agentId: String(wechat.agentId ?? ''), secretConfigured: Boolean(wechat.secretConfigured || wechat.secret) }} onSaveIntegration={async (settings) => sales.saveIntegrations({ ...sales.integrationSettings, wechat: { ...wechat, corpId: settings.corpId, agentId: settings.agentId, ...(settings.secret ? { secret: settings.secret } : {}), secretConfigured: Boolean(settings.secret || wechat.secretConfigured || wechat.secret), status: 'pending' } })} /></Allowed>} />
             <Route path="/more" element={<MorePage items={visibleNavigation} />} />
             <Route path="*" element={<Navigate to={getDefaultRoute(activeMember)} replace />} />
           </Routes>

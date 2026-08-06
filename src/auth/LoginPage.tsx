@@ -30,7 +30,7 @@ export function LoginPage() {
   }
 
   return <main className="login-page">
-    <section className="login-brand"><div className="login-brand-mark">尚</div><p>尚品居原创家具</p><h1>销售工作台</h1><span>让每一次客户跟进都有记录、有提醒、有结果。</span></section>
+    <section className="login-brand"><div className="login-brand-mark">尚</div><p>尚品居原创家具</p><h1>经营工作台</h1><span>客户、销售、库存、交付一体化管理。</span></section>
     <section className="login-panel" aria-labelledby="login-title">
       <form onSubmit={submit}>
         <header><small>安全登录</small><h2 id="login-title">欢迎回来</h2><p>使用店长分配的账号登录系统</p></header>

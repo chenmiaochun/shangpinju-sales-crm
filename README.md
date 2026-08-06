@@ -1,5 +1,15 @@
 # 销售软件
 
+## Windows 桌面安装包
+
+桌面版加载已发布的外网系统，网页更新后员工无需重新安装。构建命令：
+
+```powershell
+pnpm desktop:dist
+```
+
+安装包输出到 `artifacts/desktop`。桌面版需要联网；当前静态演示模式的数据仍保存在每台电脑的浏览器环境中，多人共享数据需要部署服务端数据库。
+
 ## SQLite 数据服务
 
 要求 Node.js 24（使用内置 `node:http` 和 `node:sqlite`，无额外依赖）。

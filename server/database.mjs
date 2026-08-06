@@ -3,9 +3,9 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypt
 
 const parseJson = (value) => JSON.parse(value)
 const tokenDigest = token => createHash('sha256').update(token).digest('hex')
-const validPermissions = new Set(['store.analytics', 'coaching', 'data.manage', 'members.manage', 'customers.own', 'customers.design', 'tasks.own', 'conversation.analysis', 'sop', 'revenue.summary'])
+const validPermissions = new Set(['store.analytics', 'coaching', 'data.manage', 'members.manage', 'customers.own', 'customers.design', 'tasks.own', 'conversation.analysis', 'sop', 'revenue.summary', 'inventory.manage', 'inventory.receive', 'inventory.issue', 'inventory.transfer', 'inventory.audit', 'replenishment.request', 'replenishment.approve', 'purchasing.manage', 'finance.reconcile', 'cashier.payments', 'cost.view'])
 const normalizePermissions = permissions => permissions == null ? null : [...new Set(permissions)].filter(permission => validPermissions.has(permission))
-const validRoles = ['manager', 'sales', 'designer', 'operations', 'aftersales']
+const validRoles = ['manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier']
 const normalizeRoles = (roles, fallback) => {
   const selected = Array.isArray(roles) && roles.length ? roles : [fallback]
   return [...new Set([fallback, ...selected])].filter(role => validRoles.includes(role) && (role !== 'manager' || fallback === 'manager'))
@@ -41,7 +41,7 @@ export class SalesDatabase {
           username TEXT NOT NULL COLLATE NOCASE UNIQUE,
           password_hash TEXT NOT NULL,
           name TEXT NOT NULL,
-          role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales')),
+          role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier')),
           active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
           must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0, 1)),
           created_at TEXT NOT NULL,
@@ -90,7 +90,7 @@ export class SalesDatabase {
         username TEXT NOT NULL COLLATE NOCASE UNIQUE,
         password_hash TEXT NOT NULL,
         name TEXT NOT NULL,
-        role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales')),
+        role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier')),
         active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
         must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0, 1)),
         created_at TEXT NOT NULL,
@@ -111,6 +111,46 @@ export class SalesDatabase {
     if (!accountColumns.includes('can_design')) this.db.exec('ALTER TABLE auth_accounts ADD COLUMN can_design INTEGER NOT NULL DEFAULT 0 CHECK(can_design IN (0, 1))')
     if (!accountColumns.includes('custom_permissions')) this.db.exec('ALTER TABLE auth_accounts ADD COLUMN custom_permissions TEXT')
     if (!accountColumns.includes('roles')) this.db.exec('ALTER TABLE auth_accounts ADD COLUMN roles TEXT')
+    const currentAccountSchema = this.db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'auth_accounts'").get()?.sql || ''
+    if (!currentAccountSchema.includes("'purchasing'")) {
+      this.db.exec(`
+        PRAGMA foreign_keys = OFF;
+        BEGIN IMMEDIATE;
+        ALTER TABLE auth_sessions RENAME TO auth_sessions_role_legacy;
+        ALTER TABLE auth_accounts RENAME TO auth_accounts_role_legacy;
+        CREATE TABLE auth_accounts (
+          id TEXT PRIMARY KEY,
+          username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+          password_hash TEXT NOT NULL,
+          name TEXT NOT NULL,
+          role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier')),
+          active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
+          must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0, 1)),
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          phone TEXT,
+          can_design INTEGER NOT NULL DEFAULT 0 CHECK(can_design IN (0, 1)),
+          custom_permissions TEXT,
+          roles TEXT
+        );
+        CREATE TABLE auth_sessions (
+          token_hash TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL REFERENCES auth_accounts(id) ON DELETE CASCADE,
+          expires_at TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          last_seen_at TEXT NOT NULL
+        );
+        INSERT INTO auth_accounts(id, username, password_hash, name, role, active, must_change_password, created_at, updated_at, phone, can_design, custom_permissions, roles)
+          SELECT id, username, password_hash, name, role, active, must_change_password, created_at, updated_at, phone, can_design, custom_permissions, roles FROM auth_accounts_role_legacy;
+        INSERT INTO auth_sessions SELECT * FROM auth_sessions_role_legacy;
+        DROP TABLE auth_sessions_role_legacy;
+        DROP TABLE auth_accounts_role_legacy;
+        COMMIT;
+        PRAGMA foreign_keys = ON;
+        CREATE INDEX IF NOT EXISTS auth_sessions_account_idx ON auth_sessions(account_id);
+        CREATE INDEX IF NOT EXISTS auth_sessions_expiry_idx ON auth_sessions(expires_at);
+      `)
+    }
     this.statements = {
       getState: this.db.prepare('SELECT value, updated_at FROM app_state WHERE id = 1'),
       putState: this.db.prepare(`INSERT INTO app_state(id, value, updated_at) VALUES(1, ?, ?)
@@ -195,7 +235,7 @@ export class SalesDatabase {
     return this.publicAccount(this.statements.accountById.get(id))
   }
   createAccount({ username, password, name, role, roles, phone = '', canDesign = false, permissions, active = true, mustChangePassword = true }) {
-    if (!['manager', 'sales', 'designer', 'operations', 'aftersales'].includes(role)) throw new Error('Invalid account role')
+    if (!validRoles.includes(role)) throw new Error('Invalid account role')
     if (!username?.trim() || !name?.trim() || !(/^\d{6}$/.test(String(password || '')) || String(password || '').length >= 10)) throw new Error('Invalid account details')
     const at = this.now(), id = `account-${randomBytes(8).toString('hex')}`
     const normalizedRoles = normalizeRoles(roles, role)
@@ -209,7 +249,7 @@ export class SalesDatabase {
   }
   listAccounts() { return this.statements.listAccounts.all().map(row => this.publicAccount(row)) }
   updateAccount(id, { username, name, role, roles, phone = '', canDesign = false, permissions }) {
-    if (!['manager', 'sales', 'designer', 'operations', 'aftersales'].includes(role) || !username?.trim() || !name?.trim()) throw new Error('Invalid account details')
+    if (!validRoles.includes(role) || !username?.trim() || !name?.trim()) throw new Error('Invalid account details')
     const at = this.now()
     const normalizedRoles = normalizeRoles(roles, role)
     if (canDesign && !normalizedRoles.includes('designer')) normalizedRoles.push('designer')

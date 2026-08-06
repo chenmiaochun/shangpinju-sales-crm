@@ -26,6 +26,8 @@ describe('TeamAccessPage', () => {
     expect(screen.getByText('店长固定拥有全部权限')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: '本人客户' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '售后 0' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '采购 0' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '仓管 0' })).toBeInTheDocument()
   })
 
   it('can disable an account', async () => {
@@ -40,6 +42,8 @@ describe('TeamAccessPage', () => {
     expect(screen.getByRole('combobox', { name:/主岗位/ })).toHaveValue('sales')
     expect(screen.getByRole('checkbox', { name:'设计师' })).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name:'售后' })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name:'财务' })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name:'出纳' })).toBeInTheDocument()
     expect(screen.getByText(/权限与主岗位合并/)).toBeInTheDocument()
   })
 

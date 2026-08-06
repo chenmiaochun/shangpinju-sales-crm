@@ -23,7 +23,7 @@ export function RoleProvider({ identity, role = 'sales', children }: RoleProvide
     role: resolved.role,
     can: (permission) => hasIdentityPermission(resolved, permission),
     canAccessCustomer: (customer) => canAccessCustomer(resolved, customer),
-  }), [resolved.id, resolved.name, resolved.role, resolved.canDesign, resolved.permissions?.join('|')])
+  }), [resolved.id, resolved.name, resolved.role, resolved.roles?.join('|'), resolved.canDesign, resolved.permissions?.join('|')])
 
   return <RoleAccessContext.Provider value={value}>{children}</RoleAccessContext.Provider>
 }

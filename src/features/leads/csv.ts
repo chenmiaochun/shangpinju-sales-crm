@@ -1,8 +1,19 @@
 import type { Customer } from '../../types'
 
-export const CSV_HEADERS = ['姓名', '电话', '来源', '负责人', '意向', '预计金额', '产品', '风格', '预算', '装修进度', '关注点', '下次跟进'] as const
-export const OPTIONAL_CSV_HEADERS = ['客户编号', '微信名', '城市', '到店日期', '客户状态', '备注', '车辆品牌'] as const
-const REQUIRED_CSV_HEADERS = CSV_HEADERS.filter((header) => header !== '电话')
+export const CSV_HEADERS = [
+  '姓名', '电话', '所在城市', '负责人',
+  '车牌号码', '车辆品牌', '车辆系列',
+  '小区名称', '楼栋/房号', '户型', '建筑面积', '房产参考价值',
+  '预算范围', '意向产品', '客户来源', '客户状态', '装修进度', '下次跟进',
+  '初步报价金额', '报价说明', '优惠类型', '优惠详情', '备注',
+] as const
+
+// Continue accepting spreadsheets exported by older versions of the system.
+export const OPTIONAL_CSV_HEADERS = [
+  '客户编号', '微信名', '城市', '到店日期', '来源', '意向', '预计金额',
+  '产品', '风格', '预算', '关注点',
+] as const
+const REQUIRED_CSV_HEADERS = ['姓名', '负责人'] as const
 
 export type CsvRecord = Record<(typeof CSV_HEADERS)[number], string> & Partial<Record<(typeof OPTIONAL_CSV_HEADERS)[number], string>>
 export interface CsvPreviewRow { line: number; values: CsvRecord; errors: string[] }
@@ -45,16 +56,19 @@ export function previewCustomerCsv(text: string): { rows: CsvPreviewRow[]; fileE
   const missing = REQUIRED_CSV_HEADERS.filter((header) => !headers.includes(header))
   if (missing.length) return { rows: [], fileErrors: [`缺少字段：${missing.join('、')}`] }
 
+  const allHeaders = [...CSV_HEADERS, ...OPTIONAL_CSV_HEADERS]
   const rows = parsed.slice(1).filter((row) => row.some((value) => value.trim())).map((row, index) => {
-    const values = Object.fromEntries([...CSV_HEADERS, ...OPTIONAL_CSV_HEADERS].map((header) => [header, headers.includes(header) ? row[headers.indexOf(header)]?.trim() ?? '' : ''])) as CsvRecord
+    const values = Object.fromEntries(allHeaders.map((header) => [header, headers.includes(header) ? row[headers.indexOf(header)]?.trim() ?? '' : ''])) as CsvRecord
     const errors: string[] = []
     if (!values.姓名) errors.push('姓名必填')
-    if (values.电话 && !/^[+\d][\d\s-]{5,19}$/.test(values.电话)) errors.push('电话格式不正确')
+    if (values.电话 && !/^[+\d][\d\s-]{5,19}$/.test(values.电话)) errors.push(`电话“${values.电话}”格式不正确，请填写 6-20 位数字，可包含 +、空格或短横线`)
     if (!values.负责人) errors.push('负责人必填')
-    if (values.意向 && !['高', '中', '低'].includes(values.意向)) errors.push('意向须为高、中或低')
-    const amount = parseAmount(values.预计金额)
-    if (values.预计金额 !== '' && (!Number.isFinite(amount) || amount < 0)) errors.push('预计金额须为非负数字')
-    if (values.下次跟进 && Number.isNaN(Date.parse(values.下次跟进))) errors.push('下次跟进日期无效')
+    if (values.意向 && !['高', '中', '低'].includes(values.意向)) errors.push(`意向“${values.意向}”无效，请改为高、中或低`)
+    const amountText = preferred(values.初步报价金额, values.预计金额)
+    const amount = parseAmount(amountText)
+    if (amountText !== '' && (!Number.isFinite(amount) || amount < 0)) errors.push(`初步报价金额“${amountText}”无效，请填写大于或等于 0 的数字`)
+    if (values.建筑面积 && (!Number.isFinite(Number(values.建筑面积)) || Number(values.建筑面积) <= 0)) errors.push(`建筑面积“${values.建筑面积}”无效，请填写大于 0 的数字`)
+    if (values.下次跟进 && Number.isNaN(Date.parse(values.下次跟进))) errors.push(`下次跟进“${values.下次跟进}”日期无效，请按 2026-08-10 格式填写`)
     return { line: index + 2, values, errors }
   })
   return { rows, fileErrors: rows.length ? [] : ['文件中没有客户数据'] }
@@ -65,40 +79,73 @@ export function csvRowToCustomer(row: CsvPreviewRow, now = new Date()): Customer
   const importedDate = values.到店日期?.replace(/\//g, '-')
   const importedAt = importedDate && !Number.isNaN(Date.parse(importedDate)) ? new Date(`${importedDate}T12:00:00`) : now
   const statusStage: Partial<Record<string, Customer['stage']>> = { 已成交: '已成交', 已流失: '已流失', 持续跟进: '需求确认', 首次到店: '到店' }
+  const customerStatus = values.客户状态 || ''
+  const quote = parseAmount(preferred(values.初步报价金额, values.预计金额)) || 0
   const supplemental = [values.客户编号 && `客户编号：${values.客户编号}`, values.微信名 && `微信名：${values.微信名}`, values.备注].filter(Boolean).join('；')
   return {
     id: `lead-${now.getTime()}-${row.line}-${Math.random().toString(36).slice(2, 7)}`,
     name: values.姓名,
     phone: values.电话,
-    source: values.来源,
+    source: preferred(values.客户来源, values.来源),
     salesperson: values.负责人,
-    stage: statusStage[values.客户状态 ?? ''] ?? '新线索',
-    intent: (values.意向 || '中') as Customer['intent'],
-    expectedAmount: parseAmount(values.预计金额) || 0,
-    products: splitList(values.产品),
-    style: values.风格,
-    budget: values.预算,
+    stage: statusStage[customerStatus] ?? '新线索',
+    intent: (values.意向 || (customerStatus === '已成交' ? '高' : '中')) as Customer['intent'],
+    expectedAmount: quote,
+    products: splitList(preferred(values.意向产品, values.产品)),
+    style: values.风格 || '',
+    budget: preferred(values.预算范围, values.预算),
     renovationProgress: values.装修进度,
-    concerns: splitList(values.关注点),
-    cityArea: values.城市,
-    vehicleBrand: values.车辆品牌,
+    concerns: splitList(values.关注点 || ''),
+    cityArea: preferred(values.所在城市, values.城市),
+    communityName: values.小区名称 || undefined,
+    buildingRoom: values['楼栋/房号'] || undefined,
+    houseLayout: values.户型 || undefined,
+    houseArea: Number(values.建筑面积) || undefined,
+    houseValueRange: values.房产参考价值 || undefined,
+    vehicleBrand: values.车辆品牌 || undefined,
+    vehicleSeries: values.车辆系列 || undefined,
+    licensePlate: values.车牌号码?.toUpperCase() || undefined,
     notes: supplemental || undefined,
+    initialQuote: quote || undefined,
+    quoteDescription: values.报价说明 || undefined,
+    discountType: values.优惠类型 || undefined,
+    discountDetails: values.优惠详情 || undefined,
     lastContactAt: importedAt.toISOString(),
     nextFollowUpAt: values.下次跟进 ? new Date(values.下次跟进).toISOString() : undefined,
     createdAt: importedAt.toISOString().slice(0, 10),
   }
 }
 
+function preferred(primary: string | undefined, legacy: string | undefined): string { return primary || legacy || '' }
 function splitList(value: string): string[] { return value.split(/[|,，、；;]/).map((item) => item.trim()).filter(Boolean) }
 function parseAmount(value: string): number { return Number(value.replace(/[¥￥,，\s]/g, '')) }
 
 export function customerCsv(customers: Customer[]): string {
   return serializeCsv([
     [...CSV_HEADERS],
-    ...customers.map((item) => [item.name, item.phone, item.source, item.salesperson, item.intent, item.expectedAmount, item.products.join('|'), item.style, item.budget, item.renovationProgress, item.concerns.join('|'), item.nextFollowUpAt ?? '']),
+    ...customers.map((item) => [
+      item.name, item.phone, item.cityArea, item.salesperson,
+      item.licensePlate, item.vehicleBrand, item.vehicleSeries,
+      item.communityName, item.buildingRoom, item.houseLayout, item.houseArea, item.houseValueRange,
+      item.budget, item.products.join('|'), item.source,
+      stageToStatus(item.stage), item.renovationProgress, item.nextFollowUpAt ?? '',
+      item.initialQuote ?? item.expectedAmount, item.quoteDescription, item.discountType, item.discountDetails, item.notes,
+    ]),
   ])
 }
 
-export function templateCsv(): string {
-  return serializeCsv([[...CSV_HEADERS], ['张女士', '13800138000', '小红书', '林晓', '高', '80000', '沙发|餐边柜', '现代原木', '8-10万', '硬装收尾', '价格|交期', '2026-08-01 10:00']])
+export function templateRows(): unknown[][] {
+  return [
+    [...CSV_HEADERS],
+    ['张女士', '13800138000', '揭阳', '林晓', '粤V12345', '宝马', 'X5', '保利锦城', '8栋 1202', '三房两厅', 108, '约 124-146 万元', '8-15 万', '沙发|餐边柜', '小红书', '首次到店', '硬装收尾', '2026-08-10', 80000, '客厅家具组合', '节日活动', '整单 95 折', '周末方便联系'],
+  ]
+}
+
+export function templateCsv(): string { return serializeCsv(templateRows()) }
+
+function stageToStatus(stage: Customer['stage']): string {
+  if (stage === '已成交') return '已成交'
+  if (stage === '已流失') return '已流失'
+  if (stage === '到店') return '首次到店'
+  return '持续跟进'
 }

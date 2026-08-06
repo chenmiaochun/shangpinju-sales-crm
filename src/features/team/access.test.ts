@@ -11,7 +11,7 @@ describe('team role access', () => {
   })
 
   it('limits salespeople to their personal workflow', () => {
-    expect(getRolePermissions('sales')).toEqual(['customers.own', 'tasks.own', 'conversation.analysis', 'sop'])
+    expect(getRolePermissions('sales')).toEqual(['customers.own', 'tasks.own', 'conversation.analysis', 'sop', 'replenishment.request'])
     expect(canAccessCustomer({ id: 's1', name: '小刘', role: 'sales' }, { salespersonId: 's1' })).toBe(true)
     expect(canAccessCustomer({ id: 's1', name: '小刘', role: 'sales' }, { salesperson: '小王' })).toBe(false)
     expect(canAccessCustomer({ id: 's1', name: '小刘', role: 'sales' }, { pendingSalespersonId: 's1' })).toBe(true)
@@ -52,7 +52,7 @@ describe('team role access', () => {
 
   it('keeps every employee role out of manager-only capabilities', () => {
     const managerOnly = ['coaching', 'data.manage', 'members.manage'] as const
-    const employeeRoles = ['sales', 'designer', 'operations', 'aftersales'] as const
+    const employeeRoles = ['sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier'] as const
     for (const role of employeeRoles) {
       for (const permission of managerOnly) expect(hasPermission(role, permission)).toBe(false)
     }
@@ -62,8 +62,20 @@ describe('team role access', () => {
     const custom = { id: 'ops-2', name: '江惠柔', role: 'operations' as const, permissions: ['conversation.analysis' as const] }
     expect(hasIdentityPermission(custom, 'conversation.analysis')).toBe(true)
     expect(hasIdentityPermission(custom, 'store.analytics')).toBe(false)
-    expect(hasIdentityPermission(custom, 'customers.own')).toBe(true)
+    expect(hasIdentityPermission(custom, 'customers.own')).toBe(false)
     expect(hasIdentityPermission(custom, 'tasks.own')).toBe(true)
-    expect(getIdentityPermissions(custom)).toEqual(['customers.own', 'tasks.own', 'conversation.analysis'])
+    expect(getIdentityPermissions(custom)).toEqual(['tasks.own', 'conversation.analysis'])
+  })
+
+  it('separates purchasing, warehouse, finance and cashier responsibilities', () => {
+    expect(hasPermission('purchasing', 'purchasing.manage')).toBe(true)
+    expect(hasPermission('purchasing', 'inventory.receive')).toBe(false)
+    expect(hasPermission('warehouse', 'inventory.receive')).toBe(true)
+    expect(hasPermission('warehouse', 'finance.reconcile')).toBe(false)
+    expect(hasPermission('finance', 'finance.reconcile')).toBe(true)
+    expect(hasPermission('finance', 'cashier.payments')).toBe(false)
+    expect(hasPermission('cashier', 'cashier.payments')).toBe(true)
+    expect(hasPermission('cashier', 'cost.view')).toBe(false)
+    expect(getDefaultRoute({ id:'w1', name:'仓管', role:'warehouse' })).toBe('/inventory')
   })
 })

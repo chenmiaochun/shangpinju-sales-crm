@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, CircleDollarSign, ClipboardPlus, ExternalLink, PackageCheck, Truck, Wrench, X } from 'lucide-react'
-import type { AfterSalesTicket, Customer, DeliveryTask, PaymentRecord, SalesOrder } from '../../types'
+import type { AfterSalesTicket, Customer, DeliveryTask, PaymentRecord, ProductCatalogItem, SalesOrder } from '../../types'
 import './lifecycle.css'
 import './lifecycle-delivery.css'
 import './lifecycle-after-sales.css'
+import './lifecycle-handover.css'
+import { HandoverDialog } from './HandoverDialog'
 
 type Tab = '订单与业绩' | '交付安装' | '售后服务'
 
@@ -11,6 +13,7 @@ interface Props {
   customers: Customer[]
   orders: SalesOrder[]
   deliveryTasks: DeliveryTask[]
+  products: ProductCatalogItem[]
   afterSalesTickets: AfterSalesTicket[]
   activeUser: string
   onAddOrder: (item: SalesOrder) => void
@@ -33,7 +36,8 @@ function externalOrderUrl(base: string, task: DeliveryTask) { if (!base) return 
 
 export function LifecyclePage(props: Props) {
   const [tab, setTab] = useState<Tab>('订单与业绩')
-  const [dialog, setDialog] = useState<'order' | 'payment' | 'delivery' | 'ticket' | null>(null)
+  const [dialog, setDialog] = useState<'order' | 'payment' | 'delivery' | 'handover' | 'ticket' | null>(null)
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState('')
   const [selectedOrderId, setSelectedOrderId] = useState(props.orders[0]?.id ?? '')
   const [selectedDeliveryMonth, setSelectedDeliveryMonth] = useState('')
   const selectedOrder = props.orders.find((item) => item.id === selectedOrderId) ?? props.orders[0]
@@ -67,6 +71,8 @@ export function LifecyclePage(props: Props) {
     </section>}
     {tab === '交付安装' && <section className="lifecycle-panel"><div className="panel-title"><div><h2>送货安装排期</h2><span>先按月份查看售后工作量，再进入客户订单处理库存与送货详情。</span></div>{selectedOrder && <button onClick={() => setDialog('delivery')}>新增交付任务</button>}</div>{deliveryMonths.length > 0 && <section className="delivery-months" aria-label="月度预计送货订单">{deliveryMonths.map(([month, count]) => <button type="button" aria-pressed={activeDeliveryMonth === month} className={activeDeliveryMonth === month ? 'active' : ''} key={month} onClick={() => setSelectedDeliveryMonth(month)}><Truck/><span>{monthLabel(month)}</span><strong>{count}</strong><small>客户 / 订单</small></button>)}</section>}{monthlyDeliveryTasks.length > 0 && <section className="monthly-delivery-list"><header><div><h3>{monthLabel(activeDeliveryMonth)}送货客户清单</h3><span>共 {monthlyDeliveryTasks.length} 个交付任务</span></div><small>外部系统入口需在部署环境配置</small></header><div className="monthly-delivery-table"><div className="monthly-delivery-row monthly-delivery-head"><span>客户 / 订单</span><span>产品</span><span>送货计划</span><span>负责人</span><span>状态</span><span>详情</span></div>{monthlyDeliveryTasks.map((task) => { const order = props.orders.find((item) => item.id === task.orderId); const inventoryUrl = externalOrderUrl(INVENTORY_SYSTEM_URL, task); const aftersalesUrl = externalOrderUrl(AFTERSALES_SYSTEM_URL, task); return <div className="monthly-delivery-row" key={task.id}><span><b>{task.customerName}</b><small>{task.contactPhone || '电话未登记'} · {order?.orderNo ?? task.orderId}</small></span><span>{order?.products.join('、') || '产品待确认'}</span><span>{task.scheduledAt?.replace('T', ' ') || `${deliveryMonth(task)} · 日期待确认`}</span><span>{task.owner || '待指派'}</span><span><i>{task.status}</i></span><span className="delivery-links"><a href={`#/customers?customer=${encodeURIComponent(task.customerId)}`}>客户</a>{inventoryUrl ? <a href={inventoryUrl} target="_blank" rel="noreferrer">库存<ExternalLink/></a> : <button type="button" disabled title="尚未配置库存系统地址">库存</button>}{aftersalesUrl ? <a href={aftersalesUrl} target="_blank" rel="noreferrer">售后<ExternalLink/></a> : <button type="button" disabled title="尚未配置售后系统地址">售后</button>}</span></div>})}</div></section>}{!props.deliveryTasks.length && <Empty icon={<Truck/>} title="暂无交付任务" detail="选择成交订单后建立送货与安装排期。"/>}</section>}
     {tab === '售后服务' && <section className="lifecycle-panel"><div className="panel-title"><div><h2>售后工单</h2><span>系统订单自动带出客户资料，历史老顾客可单独补录售后档案。</span></div><button onClick={() => setDialog('ticket')}>新建售后工单</button></div><div className="ticket-list">{props.afterSalesTickets.map((ticket) => <article key={ticket.id}><span className={ticket.priority === '紧急' ? 'urgent' : ''}>{ticket.priority}</span><div><h3>{ticket.customerName} · {ticket.category}<i>{ticket.source ?? '系统订单'}</i></h3><p>{ticket.description}</p>{(ticket.productInfo || ticket.contactPhone) && <p className="ticket-customer-meta">{ticket.productInfo || '产品未登记'} · {ticket.contactPhone || '电话未登记'}{ticket.address ? ` · ${ticket.address}` : ''}</p>}<small>负责人 {ticket.owner} · {ticket.dueAt ? `要求 ${ticket.dueAt} 前完成` : '未设置期限'}</small></div><strong>{ticket.status}</strong>{ticket.status !== '已完成' && <button onClick={() => props.onUpdateTicket(ticket.id, { status: ticket.status === '待受理' ? '处理中' : ticket.status === '处理中' ? '待客户确认' : '已完成' })}>推进</button>}</article>)}</div>{!props.afterSalesTickets.length && <Empty icon={<Wrench/>} title="暂无售后工单" detail="交付后的补件、维修、安装调整都从这里登记。"/>}</section>}
+    {tab === '交付安装' && props.deliveryTasks.length > 0 && <section className="handover-board"><header><div><h2>配送交接</h2><span>记录装车、客户留用、退回、留样和异常，所有商品有去向后才能完成。</span></div></header><div>{props.deliveryTasks.map((task) => <article key={task.id}><span><b>{task.customerName}</b><small>{props.orders.find((item) => item.id === task.orderId)?.orderNo ?? task.orderId}</small></span><span><i>{task.handoverItems?.length ?? 0}</i> 件装车明细</span><span>{task.settlementStatus ?? '尚未交接'}</span><button type="button" onClick={() => { setSelectedDeliveryId(task.id); setDialog('handover') }}>{task.handoverItems?.length ? '继续处理' : '开始交接'}</button></article>)}</div></section>}
+    {dialog === 'handover' && (() => { const task = props.deliveryTasks.find((item) => item.id === selectedDeliveryId); const order = props.orders.find((item) => item.id === task?.orderId); return task && order ? <HandoverDialog task={task} order={order} products={props.products} onClose={() => setDialog(null)} onSubmit={(changes) => { props.onUpdateDelivery(task.id, changes); setDialog(null) }}/> : null })()}
     {dialog === 'order' && <OrderDialog customers={props.customers} activeUser={props.activeUser} onClose={() => setDialog(null)} onSubmit={(order) => { props.onAddOrder(order); setSelectedOrderId(order.id); setDialog(null) }}/>} 
     {dialog === 'payment' && selectedOrder && <PaymentDialog order={selectedOrder} activeUser={props.activeUser} onClose={() => setDialog(null)} onSubmit={(payment) => { props.onAddPayment(selectedOrder.id, payment); setDialog(null) }}/>} 
     {dialog === 'delivery' && selectedOrder && <DeliveryDialog order={selectedOrder} activeUser={props.activeUser} customer={props.customers.find((item) => item.id === selectedOrder.customerId)} onClose={() => setDialog(null)} onSubmit={(task) => { props.onAddDelivery(task); setDialog(null) }}/>} 

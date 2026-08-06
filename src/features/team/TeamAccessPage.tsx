@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { AlertTriangle, CircleCheck, KeyRound, LoaderCircle, Pencil, RotateCw, Save, ShieldCheck, Trash2, UserPlus, Users, X } from 'lucide-react'
 import { salesApi, type CreateAccountInput, type RemoteAccount, type UpdateAccountInput } from '../../api/salesApi'
-import { ALL_PERMISSIONS, PERMISSION_LABELS, REQUIRED_EMPLOYEE_PERMISSIONS, ROLE_LABELS, getIdentityPermissions, getIdentityRoles, getRolesPermissions, hasIdentityRole, type AccessPermission, type TeamRole } from './access'
+import { PERMISSION_LABELS, REQUIRED_EMPLOYEE_PERMISSIONS, ROLE_LABELS, getIdentityPermissions, getIdentityRoles, getRolesPermissions, hasIdentityRole, type AccessPermission, type TeamRole } from './access'
 import type { TeamMember } from './members'
 import './team.css'
 
-const TEAM_ROLES: TeamRole[] = ['manager', 'sales', 'designer', 'operations', 'aftersales']
+const TEAM_ROLES: TeamRole[] = ['manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier']
+const PERMISSION_GROUPS: { label: string; permissions: AccessPermission[] }[] = [
+  { label: '客户与销售', permissions: ['customers.own', 'customers.design', 'tasks.own', 'conversation.analysis', 'sop'] },
+  { label: '商品进销存', permissions: ['inventory.manage', 'replenishment.request', 'replenishment.approve', 'purchasing.manage', 'inventory.receive', 'inventory.issue', 'inventory.transfer', 'inventory.audit'] },
+  { label: '财务与资金', permissions: ['revenue.summary', 'cost.view', 'finance.reconcile', 'cashier.payments'] },
+  { label: '经营与系统', permissions: ['store.analytics', 'coaching', 'data.manage', 'members.manage'] },
+]
 
 export interface TeamAccessPageProps {
   members?: TeamMember[]
@@ -111,7 +117,7 @@ function PermissionEditor({ accounts, selectedId, onSelect, onSaved, onError }: 
     } catch (cause) { onError(errorMessage(cause)) }
     finally { setSaving(false) }
   }
-  return <section className="team-panel matrix-panel"><header><div><h2>员工权限设置</h2><p>店长可按员工勾选功能，保存后对应账号生效</p></div></header><div className="permission-person"><label>选择员工<select value={selectedId} onChange={(event) => onSelect(event.target.value)}><option value="">请选择员工</option>{accounts.map((item) => <option key={item.id} value={item.id}>{item.name} · {ROLE_LABELS[item.role]}{item.canDesign ? ' + 设计师' : ''}</option>)}</select></label>{account && <span>{locked ? '店长固定拥有全部权限' : `${permissions.length} 项权限`}</span>}</div><div className="permission-checks">{ALL_PERMISSIONS.map((permission) => { const required = REQUIRED_EMPLOYEE_PERMISSIONS.includes(permission); const checked = locked || permissions.includes(permission); return <label className={checked ? 'checked' : ''} key={permission}><input type="checkbox" checked={checked} disabled={locked || required} onChange={() => toggle(permission)}/><span>{PERMISSION_LABELS[permission]}{required && !locked ? <small>基础权限</small> : null}</span></label> })}</div><div className="permission-save"><p>所有员工均可录入线索并跟进本人负责的客户；岗位不同，负责的客户阶段不同。</p><button type="button" disabled={!account || locked || saving} onClick={() => void save()}><Save size={15}/>{saving ? '保存中' : '保存权限'}</button></div></section>
+  return <section className="team-panel matrix-panel"><header><div><h2>员工权限设置</h2><p>岗位提供默认权限，也可按员工调整实际职责</p></div></header><div className="permission-person"><label>选择员工<select value={selectedId} onChange={(event) => onSelect(event.target.value)}><option value="">请选择员工</option>{accounts.map((item) => <option key={item.id} value={item.id}>{item.name} · {getIdentityRoles(item).map((role) => ROLE_LABELS[role]).join(' + ')}</option>)}</select></label>{account && <span>{locked ? '店长固定拥有全部权限' : `${permissions.length} 项权限`}</span>}</div><div className="permission-checks">{PERMISSION_GROUPS.map((group) => <section className="permission-group" key={group.label}><h3>{group.label}</h3>{group.permissions.map((permission) => { const required = REQUIRED_EMPLOYEE_PERMISSIONS.includes(permission); const checked = locked || permissions.includes(permission); return <label className={checked ? 'checked' : ''} key={permission}><input type="checkbox" checked={checked} disabled={locked || required} onChange={() => toggle(permission)}/><span>{PERMISSION_LABELS[permission]}{required && !locked ? <small>基础权限</small> : null}</span></label> })}</section>)}</div><div className="permission-save"><p>员工可以兼任多个岗位；采购、审批、收付款和库存操作分别授权，避免职责重复。</p><button type="button" disabled={!account || locked || saving} onClick={() => void save()}><Save size={15}/>{saving ? '保存中' : '保存权限'}</button></div></section>
 }
 
 function AccountDialog({ mode, account, onClose, onSave, onError }: { mode: 'add' | 'edit'; account?: RemoteAccount; onClose: () => void; onSave: (account: RemoteAccount) => void; onError: (message: string) => void }) {

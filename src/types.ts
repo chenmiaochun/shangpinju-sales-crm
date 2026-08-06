@@ -117,9 +117,9 @@ export interface DesignTask {
   updatedAt: string
 }
 
-export type OrderStatus = '待确认' | '已签约' | '生产中' | '待送货' | '安装中' | '已验收' | '已关闭'
+export type OrderStatus = '待确认' | '已签约' | '备货中' | '生产中' | '部分齐货' | '已齐货' | '待送货' | '安装中' | '已验收' | '已关闭'
 export type SupplyType = '现货' | '展厅样品' | '外采产品' | '定制生产'
-export type SupplyDemandStatus = '待处理' | '已锁定' | '采购中' | '生产中' | '已到货' | '已取消'
+export type SupplyDemandStatus = '待处理' | '已锁定' | '采购中' | '生产中' | '部分到货' | '已到货' | '已取消'
 
 export interface OrderItem {
   id: string
@@ -141,6 +141,80 @@ export interface ProductCatalogItem {
   unitPrice: number
   supplyType: SupplyType
   availableStock: number
+  reservedStock?: number
+  category?: string
+  categoryLevel1?: string
+  categoryLevel2?: string
+  categoryLevel3?: string
+  costPrice?: number
+  safetyStock?: number
+  supplier?: string
+}
+
+export interface InventoryMovement {
+  id: string
+  productId: string
+  sku: string
+  productName: string
+  type: '采购入库' | '销售出库' | '库存调整' | '退货入库' | '报损出库' | '调拨出库' | '调拨入库'
+  quantity: number
+  beforeStock: number
+  afterStock: number
+  note?: string
+  operator: string
+  createdAt: string
+}
+
+export interface Warehouse {
+  id: string
+  name: string
+  type: '总仓' | '展厅仓' | '临时仓'
+  active: boolean
+}
+
+export interface WarehouseStock {
+  warehouseId: string
+  productId: string
+  quantity: number
+  reservedQuantity: number
+}
+
+export type InventoryDocumentType = '到货入库' | '销售出库' | '客户退货' | '仓库调拨' | '盘点调整' | '破损报废'
+export type InventoryDocumentStatus = '待执行' | '已完成' | '已取消'
+
+export interface InventoryDocument {
+  id: string
+  documentNo: string
+  type: InventoryDocumentType
+  status: InventoryDocumentStatus
+  productId: string
+  sku: string
+  productName: string
+  quantity: number
+  fromWarehouseId?: string
+  toWarehouseId?: string
+  relatedOrderNo?: string
+  note?: string
+  operator: string
+  createdAt: string
+  completedAt?: string
+}
+
+export interface ReplenishmentRequest {
+  id: string
+  requestNo: string
+  productId: string
+  sku: string
+  productName: string
+  quantity: number
+  neededAt?: string
+  reason: string
+  requester: string
+  status: '待审批' | '已批准' | '已驳回' | '已转采购'
+  reviewer?: string
+  reviewNote?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface SupplyDemand {
@@ -156,11 +230,20 @@ export interface SupplyDemand {
   supplyType: SupplyType
   demandType: '库存锁定' | '样品锁定' | '采购需求' | '生产需求'
   status: SupplyDemandStatus
+  supplier?: string
+  unitCost?: number
+  orderedAt?: string
   expectedAt?: string
+  receivedQuantity?: number
+  rejectedQuantity?: number
+  inspectionNote?: string
+  receivedAt?: string
+  payableStatus?: '未对账' | '待付款' | '部分付款' | '已付款'
   createdAt: string
   updatedAt: string
 }
 export type DeliveryStatus = '待排期' | '已排期' | '配送中' | '安装中' | '待验收' | '已完成'
+export type DeliveryItemResult = '待确认' | '客户留下' | '退回仓库' | '客户留样' | '破损异常'
 export type AfterSalesStatus = '待受理' | '处理中' | '待客户确认' | '已完成'
 
 export interface PaymentRecord {
@@ -212,9 +295,25 @@ export interface DeliveryTask {
   ownerId?: string
   installer?: string
   acceptanceNote?: string
+  handoverItems?: DeliveryHandoverItem[]
+  settlementAmount?: number
+  settlementStatus?: '无需结算' | '待补款' | '待退款' | '已结算'
+  returnInspection?: '无需退回' | '待退回验收' | '已验收入库'
   completedAt?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface DeliveryHandoverItem {
+  id: string
+  productId?: string
+  productName: string
+  specification?: string
+  quantity: number
+  unitPrice: number
+  source: '原订单' | '备选商品'
+  result: DeliveryItemResult
+  resultNote?: string
 }
 
 export interface AfterSalesTicket {

@@ -1,8 +1,32 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import * as XLSX from 'xlsx'
 import { LeadsPage } from './LeadsPage'
 
 describe('LeadsPage customer intake', () => {
+  it('shows the Excel row, customer and correction for every invalid import', async () => {
+    const { container } = render(<LeadsPage customers={[]} onAddCustomers={vi.fn()} />)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+      ['姓名', '负责人', '意向'],
+      ['有效客户', '陈婉珊', '高'],
+      ['傅记', '陈婉珊', '中高'],
+      ['', '陈婉珊', '低'],
+    ]), '客户')
+    const bytes = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+    const input = container.querySelector<HTMLInputElement>('.import-panel input[type="file"]')!
+    fireEvent.change(input, { target: { files: [new File([bytes], '客户.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })] } })
+
+    expect(await screen.findByText('2 行需要修改')).toBeTruthy()
+    expect(screen.getByText('第 3 行')).toBeTruthy()
+    expect(screen.getByText('傅记')).toBeTruthy()
+    expect(screen.getByText('意向“中高”无效，请改为高、中或低')).toBeTruthy()
+    expect(screen.getByText('第 4 行')).toBeTruthy()
+    expect(screen.getByText('未填写姓名')).toBeTruthy()
+    expect(screen.getByText('姓名必填')).toBeTruthy()
+    expect(screen.getByText('修改 Excel 后重新选择文件')).toBeTruthy()
+  })
+
   it('keeps vehicle fields together in plate, brand and series order', () => {
     render(<LeadsPage customers={[]} onAddCustomers={() => {}} />)
     const plate = screen.getByLabelText('车牌后五位')

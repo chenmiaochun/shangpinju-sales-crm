@@ -87,10 +87,12 @@ test('keeps the selected primary role ahead of auxiliary roles', async () => {
   assert.deepEqual(created.body.account.roles, ['operations', 'sales', 'designer'])
 })
 
-test('manager can register operations and aftersales employees', async () => {
-  for (const role of ['operations', 'aftersales']) {
-    const created = await json('/api/accounts', { method: 'POST', body: JSON.stringify({ username: `${role}-user`, password: `${role}-password-123`, name: role, role }) })
+test('manager can register frontline and back-office employees', async () => {
+  for (const role of ['operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier']) {
+    const permissions = role === 'warehouse' ? ['inventory.manage', 'inventory.receive', 'inventory.issue'] : undefined
+    const created = await json('/api/accounts', { method: 'POST', body: JSON.stringify({ username: `${role}-user`, password: `${role}-password-123`, name: role, role, permissions }) })
     assert.equal(created.status, 201); assert.equal(created.body.account.role, role)
+    if (permissions) assert.deepEqual(created.body.account.permissions, permissions)
   }
 })
 

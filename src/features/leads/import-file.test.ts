@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
 import { previewCustomerCsv } from './csv'
-import { customerImportFileToCsv } from './import-file'
+import { customerImportFileToCsv, customerTemplateXlsx } from './import-file'
 
 describe('customer import files', () => {
   it('reads the first worksheet from an Excel file', async () => {
@@ -16,5 +16,15 @@ describe('customer import files', () => {
     expect(result.fileErrors).toEqual([])
     expect(result.rows).toHaveLength(1)
     expect(result.rows[0].errors).toEqual([])
+  })
+
+  it('creates an Excel template with the current intake columns and text phone values', async () => {
+    const bytes = customerTemplateXlsx()
+    const workbook = XLSX.read(bytes, { type: 'array' })
+    const sheet = workbook.Sheets['客户导入模板']
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: false })
+    expect(rows[0]).toEqual(expect.arrayContaining(['所在城市', '车牌号码', '小区名称', '意向产品', '初步报价金额', '优惠详情']))
+    expect(rows[1][1]).toBe('13800138000')
+    expect(previewCustomerCsv(XLSX.utils.sheet_to_csv(sheet)).rows[0].errors).toEqual([])
   })
 })

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 import { customers as seedCustomers, followUps as seedFollowUps } from '../../data'
 import { productCatalog } from '../../productCatalog'
-import type { Customer, CustomerFile, CustomerStage, DesignTask, DesignTaskType, FollowUp, OrderItem } from '../../types'
+import type { Customer, CustomerFile, CustomerStage, DesignTask, DesignTaskType, FollowUp, OrderItem, ProductCatalogItem } from '../../types'
 import type { TeamMember } from '../team'
 import { buildNextAction, NextActionPicker } from '../followups/NextActionPicker'
 import './customers.css'
@@ -78,6 +78,7 @@ export interface CustomersPageProps {
   designers?: { id: string; name: string }[]
   salespeople?: { id: string; name: string }[]
   deliveryStaff?: { id: string; name: string }[]
+  products?: ProductCatalogItem[]
   activeMember?: TeamMember
   onAddDesignTask?: (task: DesignTask) => void
   onRegisterDeal?: (input: DealRegistration) => void
@@ -119,7 +120,7 @@ function isOverdue(value?: string) {
   return Boolean(value && new Date(value).getTime() < Date.now())
 }
 
-export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-designer', name: '林设计师' }], salespeople = [{ id: 'demo-sales', name: '林晓' }], deliveryStaff = [{ id: 'demo-aftersales', name: '售后配送组' }], activeMember = { id: 'manager', name: '店长', role: 'manager', active: true }, onStateChange, onAddDesignTask, onRegisterDeal }: CustomersPageProps = {}) {
+export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-designer', name: '林设计师' }], salespeople = [{ id: 'demo-sales', name: '林晓' }], deliveryStaff = [{ id: 'demo-aftersales', name: '售后配送组' }], products = productCatalog, activeMember = { id: 'manager', name: '店长', role: 'manager', active: true }, onStateChange, onAddDesignTask, onRegisterDeal }: CustomersPageProps = {}) {
   const initialFilters = useMemo(readCustomerFilters, [])
   const [routeFilters, setRouteFilters] = useState(initialFilters)
   const [localState, setLocalState] = useState<CustomerWorkspaceState>(readState)
@@ -412,7 +413,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
       </div>
       {formOpen && selected && <FollowUpDialog customer={selected} designers={designers} purpose={followUpPurpose} initialAction={currentNextAction} onClose={() => setFormOpen(false)} onSubmit={addFollowUp} onDealRequested={() => setDealOpen(true)} />}
       {handoffOpen && selected && <HandoffDialog customer={selected} salespeople={salespeople} onClose={() => setHandoffOpen(false)} onSubmit={createHandoff} />}
-      {dealOpen && selected && <DealDialog customer={selected} deliveryStaff={deliveryStaff} onClose={() => setDealOpen(false)} onSubmit={saveDeal} />}
+      {dealOpen && selected && <DealDialog customer={selected} products={products} deliveryStaff={deliveryStaff} onClose={() => setDealOpen(false)} onSubmit={saveDeal} />}
       {profileOpen && selected && <ProfileEditDialog customer={selected} onClose={() => setProfileOpen(false)} onSubmit={saveProfile} />}
     </section>
   )
@@ -486,7 +487,7 @@ function ProfileEditDialog({ customer, onClose, onSubmit }: { customer: Customer
   </form></section></div>
 }
 
-function DealDialog({ customer, deliveryStaff, onClose, onSubmit }: { customer: Customer; deliveryStaff: { id: string; name: string }[]; onClose: () => void; onSubmit: (input: Omit<DealRegistration, 'customer' | 'recordedBy'>) => void }) {
+function DealDialog({ customer, products, deliveryStaff, onClose, onSubmit }: { customer: Customer; products: ProductCatalogItem[]; deliveryStaff: { id: string; name: string }[]; onClose: () => void; onSubmit: (input: Omit<DealRegistration, 'customer' | 'recordedBy'>) => void }) {
   const [dealAmount, setDealAmount] = useState(String(customer.dealAmount ?? (customer.expectedAmount || '')))
   const [paidAmount, setPaidAmount] = useState(String(customer.paidAmount ?? ''))
   const [dealDate, setDealDate] = useState(customer.dealDate ?? new Date().toISOString().slice(0, 10))
@@ -499,11 +500,11 @@ function DealDialog({ customer, deliveryStaff, onClose, onSubmit }: { customer: 
   const [marketingNote, setMarketingNote] = useState(customer.marketingNote ?? '')
   const initialProducts = customer.dealProducts ?? customer.products
   const emptyItem = (index = 0): OrderItem => ({ id: `item-${Date.now()}-${index}`, productName: '', specification: '', quantity: 1, unitPrice: 0, supplyType: '定制生产' })
-  const fromCatalog = (productName: string, index: number): OrderItem => { const product = productCatalog.find((entry) => entry.name === productName); return product ? { id: `item-${Date.now()}-${index}`, productId: product.id, sku: product.sku, productName: product.name, specification: product.specifications[0], quantity: 1, unitPrice: product.unitPrice, supplyType: product.supplyType, availableStock: product.availableStock } : emptyItem(index) }
+  const fromCatalog = (productName: string, index: number): OrderItem => { const product = products.find((entry) => entry.name === productName); return product ? { id: `item-${Date.now()}-${index}`, productId: product.id, sku: product.sku, productName: product.name, specification: product.specifications[0], quantity: 1, unitPrice: product.unitPrice, supplyType: product.supplyType, availableStock: Math.max(0, product.availableStock - (product.reservedStock ?? 0)) } : emptyItem(index) }
   const [items, setItems] = useState<OrderItem[]>(initialProducts.length ? initialProducts.map(fromCatalog) : [emptyItem()])
   const updateItem = (id: string, changes: Partial<OrderItem>) => setItems((current) => current.map((item) => item.id === id ? { ...item, ...changes } : item))
   useEffect(() => { const total = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0); if (total > 0) setDealAmount(String(total)) }, [items])
-  const chooseProduct = (itemId: string, productId: string) => { const product = productCatalog.find((entry) => entry.id === productId); if (product) updateItem(itemId, { productId: product.id, sku: product.sku, productName: product.name, specification: product.specifications[0], unitPrice: product.unitPrice, supplyType: product.supplyType, availableStock: product.availableStock }) }
+  const chooseProduct = (itemId: string, productId: string) => { const product = products.find((entry) => entry.id === productId); if (product) updateItem(itemId, { productId: product.id, sku: product.sku, productName: product.name, specification: product.specifications[0], unitPrice: product.unitPrice, supplyType: product.supplyType, availableStock: Math.max(0, product.availableStock - (product.reservedStock ?? 0)) }) }
   function submit(event: FormEvent) {
     event.preventDefault()
     const amount = Number(dealAmount)
@@ -522,7 +523,7 @@ function DealDialog({ customer, deliveryStaff, onClose, onSubmit }: { customer: 
     <label>已收款（元）<input min="0" type="number" value={paidAmount} onChange={(event) => setPaidAmount(event.target.value)}/></label>
     <label>成交日期 *<input required type="date" value={dealDate} onChange={(event) => setDealDate(event.target.value)}/></label>
     <div className="form-divider deal-wide"><span>产品与备货方式</span></div>
-    <div className="deal-items deal-wide">{items.map((item, index) => { const product = productCatalog.find((entry) => entry.id === item.productId); return <div className="deal-item" key={item.id}><select aria-label={`产品名称 ${index + 1}`} required value={item.productId ?? ''} onChange={(event) => chooseProduct(item.id, event.target.value)}><option value="">选择产品</option>{productCatalog.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.sku}</option>)}</select><select aria-label={`规格 ${index + 1}`} required value={item.specification ?? ''} onChange={(event) => updateItem(item.id, { specification: event.target.value })}><option value="">选择规格</option>{product?.specifications.map((specification) => <option key={specification}>{specification}</option>)}</select><input aria-label={`数量 ${index + 1}`} required min="1" type="number" value={item.quantity} onChange={(event) => updateItem(item.id, { quantity: Number(event.target.value) })}/><div className="product-snapshot"><strong>{formatMoney(item.unitPrice)}</strong><span>{item.supplyType}{item.supplyType === '现货' || item.supplyType === '展厅样品' ? ` · 可用 ${item.availableStock ?? 0}` : ''}</span></div>{items.length > 1 && <button type="button" className="icon-button" aria-label={`删除产品 ${index + 1}`} onClick={() => setItems((current) => current.filter((entry) => entry.id !== item.id))}><Trash2 size={16}/></button>}</div> })}</div>
+    <div className="deal-items deal-wide">{items.map((item, index) => { const product = products.find((entry) => entry.id === item.productId); return <div className="deal-item" key={item.id}><select aria-label={`产品名称 ${index + 1}`} required value={item.productId ?? ''} onChange={(event) => chooseProduct(item.id, event.target.value)}><option value="">选择产品</option>{products.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.sku}</option>)}</select><select aria-label={`规格 ${index + 1}`} required value={item.specification ?? ''} onChange={(event) => updateItem(item.id, { specification: event.target.value })}><option value="">选择规格</option>{product?.specifications.map((specification) => <option key={specification}>{specification}</option>)}</select><input aria-label={`数量 ${index + 1}`} required min="1" type="number" value={item.quantity} onChange={(event) => updateItem(item.id, { quantity: Number(event.target.value) })}/><div className="product-snapshot"><strong>{formatMoney(item.unitPrice)}</strong><span>{item.supplyType}{item.supplyType === '现货' || item.supplyType === '展厅样品' ? ` · 可用 ${item.availableStock ?? 0}` : ''}</span></div>{items.length > 1 && <button type="button" className="icon-button" aria-label={`删除产品 ${index + 1}`} onClick={() => setItems((current) => current.filter((entry) => entry.id !== item.id))}><Trash2 size={16}/></button>}</div> })}</div>
     <button type="button" className="secondary-button add-deal-item deal-wide" onClick={() => setItems((current) => [...current, emptyItem(current.length)])}>新增产品</button>
     <div className="form-divider deal-wide"><span>交付安排</span></div>
     <label className="deal-wide">送货安排方式<select aria-label="送货安排方式" value={deliveryPlan} onChange={(event) => { const plan = event.target.value as 'within-month' | 'undecided'; setDeliveryPlan(plan); if (plan === 'undecided') { setDeliveryOwnerId(''); setDeliveryDate('') } }}><option value="within-month">客户要求一个月内送货</option><option value="undecided">暂不确定送货，设置提醒</option></select></label>

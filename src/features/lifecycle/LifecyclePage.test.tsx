@@ -14,7 +14,7 @@ const order: SalesOrder = {
 }
 
 const base = {
-  customers: [customer], orders: [order], deliveryTasks: [], afterSalesTickets: [], activeUser: '妙纯',
+  customers: [customer], orders: [order], deliveryTasks: [], products: [], afterSalesTickets: [], activeUser: '妙纯',
   onAddOrder: vi.fn(), onUpdateOrder: vi.fn(), onAddPayment: vi.fn(), onAddDelivery: vi.fn(), onUpdateDelivery: vi.fn(), onAddTicket: vi.fn(), onUpdateTicket: vi.fn(),
 }
 
@@ -62,10 +62,22 @@ describe('LifecyclePage', () => {
     render(<LifecyclePage {...base} deliveryTasks={deliveries}/>)
     fireEvent.click(screen.getByRole('tab', { name: '交付安装' }))
     expect(screen.getByRole('heading', { name: '2026 年 08 月送货客户清单' })).toBeTruthy()
-    expect(screen.getByText('陈女士')).toBeTruthy()
+    expect(screen.getAllByText('陈女士')).toHaveLength(2)
     fireEvent.click(screen.getByRole('button', { name:/2026 年 09 月/ }))
     expect(screen.getByRole('heading', { name: '2026 年 09 月送货客户清单' })).toBeTruthy()
-    expect(screen.getByText('林先生')).toBeTruthy()
-    expect(screen.queryByText('陈女士')).toBeNull()
+    expect(screen.getAllByText('林先生')).toHaveLength(2)
+    expect(screen.getAllByText('陈女士')).toHaveLength(1)
+  })
+
+  it('records every loaded product result before completing delivery handover', () => {
+    const onUpdateDelivery = vi.fn()
+    const delivery: DeliveryTask = { id: 'd1', orderId: 'o1', customerId: 'c1', customerName: '陈女士', address: '揭阳', contactPhone: '13800000000', expectedDeliveryMonth: '2026-08', status: '已排期', owner: '孙售后', createdAt: '2026-08-01', updatedAt: '2026-08-01' }
+    render(<LifecyclePage {...base} deliveryTasks={[delivery]} onUpdateDelivery={onUpdateDelivery}/>)
+    fireEvent.click(screen.getByRole('tab', { name: '交付安装' }))
+    fireEvent.click(screen.getByRole('button', { name: '开始交接' }))
+    expect((screen.getByRole('button', { name: '还有 1 项未确认' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText('黑胡桃木沙发现场结果'), { target: { value: '客户留下' } })
+    fireEvent.click(screen.getByRole('button', { name: '完成交接' }))
+    expect(onUpdateDelivery).toHaveBeenCalledWith('d1', expect.objectContaining({ status: '已完成', settlementStatus: '无需结算', handoverItems: [expect.objectContaining({ productName: '黑胡桃木沙发', result: '客户留下' })] }))
   })
 })

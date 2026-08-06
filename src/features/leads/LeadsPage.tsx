@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState, type DragEvent, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { ArrowRight, Check, ChevronDown, Download, File as FileIcon, FileDown, FileImage, FileUp, Images, Plus, Search, Trash2, Upload, X } from 'lucide-react'
 import type { Customer, CustomerFile, CustomerRemarkImage } from '../../types'
-import { csvRowToCustomer, customerCsv, previewCustomerCsv, templateCsv, type CsvPreviewRow } from './csv'
-import { customerImportFileToCsv } from './import-file'
+import { csvRowToCustomer, customerCsv, previewCustomerCsv, type CsvPreviewRow } from './csv'
+import { customerImportFileToCsv, customerTemplateXlsx } from './import-file'
 import { findVehiclePrice, VEHICLE_BRANDS, vehicleSeriesFor } from './vehicle-catalog'
 import { CITY_REFERENCE_PRICE, communitiesForCity, estimateHouseValue, GENERAL_HOUSING_LAYOUTS } from './housing-catalog'
 import './leads.css'
@@ -40,6 +40,7 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
   const remarkImageInput = useRef<HTMLInputElement>(null)
   const businessFileInput = useRef<HTMLInputElement>(null)
   const validRows = preview.filter((row) => row.errors.length === 0)
+  const invalidRows = preview.filter((row) => row.errors.length > 0)
   const lookupMatches = useMemo(() => {
     const keyword = normalizeLookup(customerLookup)
     if (!keyword) return []
@@ -93,7 +94,7 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
     <header className="leads-header">
       <div><p>客户经营</p><h1>线索数据中心</h1><span>统一录入、校验和导出客户资料</span></div>
       <div className="leads-actions">
-        <button type="button" className="secondary" onClick={() => download('客户导入模板.csv', templateCsv())}><FileDown size={17} />下载模板</button>
+        <button type="button" className="secondary" onClick={() => download('客户导入模板.xlsx', customerTemplateXlsx(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}><FileDown size={17} />下载模板</button>
         <button type="button" className="secondary" onClick={() => download('客户数据.csv', customerCsv(customers))}><Download size={17} />导出客户</button>
       </div>
     </header>
@@ -142,6 +143,13 @@ export function LeadsPage({ customers, onAddCustomers }: LeadsPageProps) {
             <div className="file-bar"><span><FileUp size={17} />{fileName}</span><button type="button" onClick={clearPreview} aria-label="移除文件"><X size={17} /></button></div>
             {fileErrors.map((error) => <p className="file-error" role="alert" key={error}>{error}</p>)}
             {preview.length > 0 && <div className="preview-summary"><span>共 {preview.length} 行</span><span className="valid">有效 {validRows.length}</span><span className={preview.length === validRows.length ? '' : 'invalid'}>错误 {preview.length - validRows.length}</span></div>}
+            {invalidRows.length > 0 && <section className="import-errors" aria-label="导入错误详情" role="alert">
+              <header><strong>{invalidRows.length} 行需要修改</strong><span>修改 Excel 后重新选择文件</span></header>
+              <ul>{invalidRows.map((row) => <li key={row.line}>
+                <div><b>第 {row.line} 行</b><span>{row.values.姓名 || '未填写姓名'}</span></div>
+                {row.errors.map((error) => <p key={error}>{error}</p>)}
+              </li>)}</ul>
+            </section>}
             <button type="button" className="primary confirm-import" disabled={!validRows.length || preview.some((row) => row.errors.length > 0)} onClick={confirmImport}>确认导入 {validRows.length ? `${validRows.length} 条` : ''}</button>
           </>}
         </section>
@@ -170,6 +178,6 @@ function normalizeLookup(value?: string) { return String(value ?? '').toLowerCas
 function readDataUrl(file: File) { return new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file) }) }
 function loadImage(source: string) { return new Promise<HTMLImageElement>((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = reject; image.src = source }) }
 function formatFileSize(size: number) { return size < 1024 * 1024 ? `${Math.max(1, Math.round(size / 1024))} KB` : `${(size / 1024 / 1024).toFixed(1)} MB` }
-function download(name: string, content: string) { const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' })); const anchor = document.createElement('a'); anchor.href = url; anchor.download = name; anchor.click(); URL.revokeObjectURL(url) }
+function download(name: string, content: BlobPart, type = 'text/csv;charset=utf-8') { const url = URL.createObjectURL(new Blob([content], { type })); const anchor = document.createElement('a'); anchor.href = url; anchor.download = name; anchor.click(); URL.revokeObjectURL(url) }
 
 export default LeadsPage

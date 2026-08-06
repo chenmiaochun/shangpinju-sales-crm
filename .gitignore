@@ -6,6 +6,7 @@ dist/
 vite.config.js
 vite.config.d.ts
 artifacts/
+vendor/
 software-screenshot.png
 server/data/
 *.sqlite

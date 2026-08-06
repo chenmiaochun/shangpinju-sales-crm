@@ -1,5 +1,5 @@
-import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, FollowUp, SalesOrder, SupplyDemand } from '../types'
-import type { AccessPermission } from '../features/team/access'
+import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, FollowUp, InventoryDocument, InventoryMovement, ProductCatalogItem, ReplenishmentRequest, SalesOrder, SupplyDemand, Warehouse, WarehouseStock } from '../types'
+import type { AccessPermission, TeamRole } from '../features/team/access'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3001').replace(/\/$/, '') + '/api'
 const STATIC_DEMO = import.meta.env.VITE_STATIC_DEMO === 'true'
@@ -14,9 +14,15 @@ export interface RemoteSalesState {
   deliveryTasks: DeliveryTask[]
   afterSalesTickets: AfterSalesTicket[]
   supplyDemands: SupplyDemand[]
+  products: ProductCatalogItem[]
+  inventoryMovements: InventoryMovement[]
+  warehouses: Warehouse[]
+  warehouseStocks: WarehouseStock[]
+  inventoryDocuments: InventoryDocument[]
+  replenishmentRequests: ReplenishmentRequest[]
 }
 export interface RemoteAuditEvent { id: number; action: string; resource: string; details: Record<string, unknown>; createdAt: string }
-export type AccountRole = 'manager' | 'sales' | 'designer' | 'operations' | 'aftersales'
+export type AccountRole = TeamRole
 export interface RemoteAccount {
   id: string
   username: string
