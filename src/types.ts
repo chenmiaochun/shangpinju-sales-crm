@@ -11,6 +11,7 @@ export interface FollowUp {
   nextAt?: string
   salesperson: string
   salespersonId?: string
+  attachments?: CustomerFile[]
 }
 
 export interface Customer {
