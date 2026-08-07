@@ -220,10 +220,6 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
   const openFollowUp = (purpose: 'default' | 'execute' | 'schedule' = 'default') => { setFollowUpPurpose(purpose); setFormOpen(true) }
 
   function updateStage(stage: CustomerStage) {
-    if (stage === '已成交') {
-      setDealOpen(true)
-      return
-    }
     commit((current) => ({
       ...current,
       customers: current.customers.map((customer) => customer.id === selectedId
@@ -383,7 +379,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
               </section>
 
               {selected.stage === '已成交' && <section className="deal-card">
-                <div className="section-title"><h3><HandCoins size={17}/>成交与持续经营</h3>{canWorkOnSelected && <button className="text-button" onClick={() => setDealOpen(true)}>编辑成交</button>}</div>
+                <div className="section-title"><h3><HandCoins size={17}/>成交与持续经营</h3>{canWorkOnSelected && <a className="text-button" href="#/orders">前往选品订单</a>}</div>
                 <div className="deal-summary">
                   <div><span>成交金额</span><strong>{formatMoney(selected.dealAmount ?? selected.expectedAmount)}</strong></div>
                   <div><span>已收款</span><strong>{formatMoney(selected.paidAmount ?? 0)}</strong></div>
@@ -413,8 +409,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
       </div>
       {formOpen && selected && <FollowUpDialog customer={selected} designers={designers} purpose={followUpPurpose} initialAction={currentNextAction} onClose={() => setFormOpen(false)} onSubmit={addFollowUp} onDealRequested={() => setDealOpen(true)} />}
       {handoffOpen && selected && <HandoffDialog customer={selected} salespeople={salespeople} onClose={() => setHandoffOpen(false)} onSubmit={createHandoff} />}
-      {dealOpen && selected && <DealDialog customer={selected} products={products} deliveryStaff={deliveryStaff} onClose={() => setDealOpen(false)} onSubmit={saveDeal} />}
-      {profileOpen && selected && <ProfileEditDialog customer={selected} onClose={() => setProfileOpen(false)} onSubmit={saveProfile} />}
+{profileOpen && selected && <ProfileEditDialog customer={selected} onClose={() => setProfileOpen(false)} onSubmit={saveProfile} />}
     </section>
   )
 }
@@ -584,9 +579,9 @@ function FollowUpDialog({ customer, designers, purpose = 'default', initialActio
   function submit(event: FormEvent) {
     event.preventDefault()
     const designer = designers.find((item) => item.id === designerId)
-    const nextAction = buildNextAction(nextActions, customAction)
-    onSubmit({ channel, at: new Date(at).toISOString(), content: mergeFollowUpText(contentChoices, content), result: mergeFollowUpText(resultChoices, result), nextAction: nextAction || undefined, nextAt: nextAt ? new Date(nextAt).toISOString() : undefined, attachments: referenceFiles }, needsDesign && designer ? { designerId, designerName: designer.name, type: designType, requirement: requirement.trim(), dueAt: new Date(dueAt).toISOString(), priority: designPriority, referenceFiles } : undefined)
-    if (dealConfirmed) window.setTimeout(() => onDealRequested?.(), 0)
+    const nextAction = dealConfirmed ? '进入选品订单工作台创建正式订单' : buildNextAction(nextActions, customAction)
+    const mergedResult = mergeFollowUpText(resultChoices, result)
+    onSubmit({ channel, at: new Date(at).toISOString(), content: mergeFollowUpText(contentChoices, content), result: dealConfirmed ? [mergedResult, '客户确认购买意向'].filter(Boolean).join('；') : mergedResult, nextAction: nextAction || undefined, nextAt: nextAt ? new Date(nextAt).toISOString() : undefined, attachments: referenceFiles }, needsDesign && designer ? { designerId, designerName: designer.name, type: designType, requirement: requirement.trim(), dueAt: new Date(dueAt).toISOString(), priority: designPriority, referenceFiles } : undefined)
   }
 
   return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -598,7 +593,7 @@ function FollowUpDialog({ customer, designers, purpose = 'default', initialActio
         <FollowUpChoiceField label="沟通内容" options={followUpContentOptions} selected={contentChoices} supplement={content} onSelectedChange={setContentChoices} onSupplementChange={setContent} placeholder="如有特殊需求，可在这里补充" />
         <FollowUpChoiceField label="本次结果" options={followUpResultOptions} selected={resultChoices} supplement={result} onSelectedChange={setResultChoices} onSupplementChange={setResult} placeholder="如有特殊结果，可在这里补充" />
         <div className="reference-upload followup-attachments"><input ref={referenceInput} className="visually-hidden" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.cad,.zip" onChange={(event) => { const files = Array.from(event.target.files ?? []).map((file) => ({ id: `followup-file-${Date.now()}-${file.name}`, name: file.name, type: file.type || '文件', size: file.size })); setReferenceFiles((current) => [...current, ...files]); event.target.value = '' }} /><button type="button" onClick={() => referenceInput.current?.click()}><FileUp size={16} />上传本次资料</button><span>报价单、微信截图、方案、图纸，可多选</span>{referenceFiles.map((file) => <div key={file.id}><span>{file.name}</span><button type="button" aria-label={`删除 ${file.name}`} onClick={() => setReferenceFiles((current) => current.filter((item) => item.id !== file.id))}><Trash2 size={14} /></button></div>)}</div>
-        <div className="design-assist-toggle"><label><input type="checkbox" checked={dealConfirmed} onChange={(event) => { setDealConfirmed(event.target.checked); if (event.target.checked) { setNextActions([]); setCustomAction(''); setNextAt('') } }} /><span>客户本次已确认成交</span></label><small>保存跟进后继续登记产品、金额和备货方式</small></div>
+        <div className="design-assist-toggle"><label><input type="checkbox" checked={dealConfirmed} onChange={(event) => { setDealConfirmed(event.target.checked); if (event.target.checked) { setNextActions([]); setCustomAction(''); setNextAt('') } }} /><span>客户已确认购买意向</span></label><small>保存后生成“创建正式订单”待办，不在跟进中填写订单</small></div>
         <div className="form-divider"><span>下一步任务</span></div>
         <NextActionPicker selected={nextActions} customAction={customAction} onSelectedChange={setNextActions} onCustomActionChange={setCustomAction} />
         <label>计划时间<input type="datetime-local" value={nextAt} onChange={(event) => setNextAt(event.target.value)} /></label>

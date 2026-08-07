@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { BarChart3, Bell, Bot, Boxes, ChartNoAxesCombined, CheckCheck, ChevronDown, ChevronRight, ClipboardList, ContactRound, Database, GraduationCap, LayoutGrid, ListChecks, LogOut, MessageSquareText, PackageCheck, Search, Settings, UserCog, UserPlus, X } from 'lucide-react'
+import { BarChart3, Bell, Bot, Boxes, ChartNoAxesCombined, CheckCheck, ChevronDown, ChevronRight, ClipboardList, ContactRound, Database, GraduationCap, LayoutGrid, ListChecks, LogOut, MessageSquareText, PackageCheck, Search, Settings, ShoppingCart, UserCog, UserPlus, X } from 'lucide-react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AIQualityPage } from './features/ai'
 import { CustomersPage } from './features/customers'
@@ -9,6 +9,7 @@ import { CoachingCenterPage } from './features/coaching'
 import { SalesInsightsPage } from './features/insights'
 import { LeadsPage } from './features/leads'
 import { LifecyclePage } from './features/lifecycle'
+import { OrderWorkspacePage } from './features/orders'
 import { InventoryPage } from './features/inventory'
 import { TaskCenterPage } from './features/tasks'
 import { SalesSopPage } from './features/sop'
@@ -21,7 +22,8 @@ import { useAuth } from './auth/AuthContext'
 const navigation = [
   { to: '/dashboard', label: '经营分析', icon: BarChart3, permission: 'store.analytics' },
   { to: '/customers', label: '客户跟进', icon: ContactRound, permission: 'customers.own' },
-  { to: '/lifecycle', label: '成交履约', icon: PackageCheck, permission: 'customers.own' },
+  { to: '/orders', label: '选品订单', icon: ShoppingCart, permission: 'customers.own' },
+  { to: '/lifecycle', label: '交付售后', icon: PackageCheck, permission: 'customers.own' },
   { to: '/inventory', label: '商品进销存', icon: Boxes, permission: 'inventory.manage' },
   { to: '/tasks', label: '任务中心', icon: ClipboardList, permission: 'tasks.own' },
   { to: '/leads', label: '线索数据', icon: UserPlus, permission: 'customers.own' },
@@ -133,6 +135,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
           <Routes>
             <Route path="/dashboard" element={<Allowed permission="store.analytics"><ManagerDashboard customers={sales.customers} followUps={sales.followUps} /></Allowed>} />
             <Route path="/customers" element={<CustomerAllowed><CustomersPage customers={visibleCustomers} followUps={visibleFollowUps} designers={sales.designers} salespeople={sales.salespeople} deliveryStaff={sales.deliveryStaff} products={sales.products} activeMember={activeMember} onStateChange={mergeVisibleState} onRegisterDeal={sales.registerDeal} onAddDesignTask={(task) => { sales.addDesignTask(task); sales.updateCustomer(task.customerId, { designerId: task.designerId, designer: task.designerName }) }} /></CustomerAllowed>} />
+            <Route path="/orders" element={<CustomerAllowed><OrderWorkspacePage customers={visibleCustomers} products={sales.products} orders={sales.orders.filter((item)=>visibleIds.has(item.customerId))} activeUser={activeMember.name} onAddOrder={sales.addOrder} onUpdateOrder={sales.updateOrder} onActivate={sales.activateOrder}/></CustomerAllowed>} />
             <Route path="/lifecycle" element={<CustomerAllowed><LifecyclePage customers={visibleCustomers} orders={sales.orders.filter((item) => visibleIds.has(item.customerId))} deliveryTasks={sales.deliveryTasks.filter((item) => visibleIds.has(item.customerId))} products={sales.products} afterSalesTickets={sales.afterSalesTickets.filter((item) => visibleIds.has(item.customerId))} activeUser={activeMember.name} onAddOrder={sales.addOrder} onUpdateOrder={sales.updateOrder} onAddPayment={sales.addPayment} onAddDelivery={sales.addDeliveryTask} onUpdateDelivery={sales.updateDeliveryTask} onAddTicket={sales.addAfterSalesTicket} onUpdateTicket={sales.updateAfterSalesTicket} /></CustomerAllowed>} />
             <Route path="/inventory" element={<Allowed permission="inventory.manage"><InventoryPage products={sales.products} demands={sales.supplyDemands} movements={sales.inventoryMovements} warehouses={sales.warehouses} warehouseStocks={sales.warehouseStocks} inventoryDocuments={sales.inventoryDocuments} replenishmentRequests={sales.replenishmentRequests} operator={activeMember.name} capabilities={{ manageCatalog: access.can('purchasing.manage'), purchase: access.can('purchasing.manage'), receive: access.can('inventory.receive'), issue:access.can('inventory.issue'), transfer:access.can('inventory.transfer'), audit: access.can('inventory.audit'), viewCost: access.can('cost.view'), requestReplenishment:access.can('replenishment.request'), approveReplenishment:access.can('replenishment.approve') }} onAddProduct={sales.addProduct} onAdjust={sales.adjustInventory} onUpdateDemand={sales.updateSupplyDemand} onInventoryDocument={sales.addInventoryDocument} onReplenishmentRequest={sales.addReplenishmentRequest} onReviewReplenishment={sales.reviewReplenishmentRequest}/></Allowed>} />
             <Route path="/tasks" element={<Allowed permission="tasks.own"><TaskCenterPage customers={visibleCustomers} followUps={visibleFollowUps} designTasks={sales.designTasks} activeMember={activeMember} onCompleteTask={sales.addFollowUp} onUpdateDesignTask={sales.updateDesignTask} /></Allowed>} />

@@ -118,7 +118,7 @@ export interface DesignTask {
   updatedAt: string
 }
 
-export type OrderStatus = '待确认' | '已签约' | '备货中' | '生产中' | '部分齐货' | '已齐货' | '待送货' | '安装中' | '已验收' | '已关闭'
+export type OrderStatus = '草稿' | '待客户确认' | '待审核' | '已生效' | '待确认' | '已签约' | '备货中' | '生产中' | '部分齐货' | '已齐货' | '待送货' | '安装中' | '已验收' | '已关闭'
 export type SupplyType = '现货' | '展厅样品' | '外采产品' | '定制生产'
 export type SupplyDemandStatus = '待处理' | '已锁定' | '采购中' | '生产中' | '部分到货' | '已到货' | '已取消'
 
@@ -305,6 +305,10 @@ export interface SalesOrder {
   payments: PaymentRecord[]
   performanceRate: number
   note?: string
+  customerConfirmedAt?: string
+  reviewedBy?: string
+  reviewedAt?: string
+  activatedAt?: string
   createdAt: string
   updatedAt: string
 }

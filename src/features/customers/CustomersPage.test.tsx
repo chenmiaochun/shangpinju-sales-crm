@@ -104,28 +104,10 @@ describe('CustomersPage design collaboration', () => {
     expect(onStateChange.mock.calls[0][0].followUps[0]).toMatchObject({ content:'了解产品需求；确认客户预算；偏好胡桃木色', result:'客户意向明确；已发送资料' })
   })
 
-  it('registers a structured order from the customer follow-up workspace', () => {
-    const onRegisterDeal = vi.fn()
-    render(<CustomersPage customers={customers} followUps={followUps} onStateChange={vi.fn()} onRegisterDeal={onRegisterDeal} />)
-    fireEvent.change(screen.getByLabelText('当前阶段'), { target: { value: '已成交' } })
-    fireEvent.change(screen.getByLabelText('成交金额（元）*'), { target: { value: '128000' } })
-    fireEvent.change(screen.getByLabelText('已收款（元）'), { target: { value: '20000' } })
-    fireEvent.change(screen.getByLabelText('产品名称 1'), { target: { value: 'spj-sofa-01' } })
-    fireEvent.change(screen.getByLabelText('规格 1'), { target: { value: '三人位 / 胡桃色' } })
-    fireEvent.change(screen.getByLabelText('送货安排方式'), { target: { value: 'within-month' } })
-    fireEvent.change(screen.getByLabelText('预计交付日期 *'), { target: { value: '2026-08-20' } })
-    fireEvent.change(screen.getByLabelText('@ 售后 / 送货负责人 *'), { target: { value: 'demo-aftersales' } })
-    fireEvent.click(screen.getByRole('button', { name: '确认成交并生成订单' }))
-    expect(onRegisterDeal).toHaveBeenCalledWith(expect.objectContaining({ deposit: 20000, deliveryOwner: '售后配送组', items: expect.arrayContaining([expect.objectContaining({ productName: '实木沙发', specification: '三人位 / 胡桃色', quantity: 1, unitPrice: 19800, supplyType: '定制生产' })]) }))
-  })
-
-  it('uses an expected month and automatic reminder when delivery is undecided', () => {
-    const onRegisterDeal = vi.fn()
-    render(<CustomersPage customers={customers} followUps={followUps} onStateChange={vi.fn()} onRegisterDeal={onRegisterDeal} />)
-    fireEvent.change(screen.getByLabelText('当前阶段'), { target: { value: '已成交' } })
-    fireEvent.change(screen.getByLabelText('预计送货月份 *', { exact: false }), { target: { value: '2026-09' } })
-    fireEvent.click(screen.getByRole('button', { name: '确认成交并生成订单' }))
-    expect(onRegisterDeal).toHaveBeenCalledWith(expect.objectContaining({ expectedDeliveryMonth: '2026-09', deliveryReminderAt: '2026-08-22', deliveryOwner: undefined, expectedDeliveryAt: undefined }))
+  it('keeps formal order entry out of customer follow-up', () => {
+    const onStateChange=vi.fn();render(<CustomersPage customers={customers} followUps={followUps} onStateChange={onStateChange}/>)
+    fireEvent.change(screen.getByLabelText('当前阶段'),{target:{value:'已成交'}})
+    expect(screen.queryByLabelText('成交金额（元）*')).toBeNull()
   })
 
   it('creates a designer task while saving a follow-up', () => {
