@@ -2,3 +2,4 @@
 
 /* 交付从每个客户行发起，避免顶部建立无客户归属的任务。 */
 .lifecycle-panel .panel-title > button { display: none; }
+.pending-delivery-orders{margin:18px 20px;border:1px solid #dce4df;background:#fff}.pending-delivery-orders>header{padding:14px 16px;border-bottom:1px solid #e5eae7}.pending-delivery-orders h2{margin:0;font-size:15px}.pending-delivery-orders header span{color:#748078;font-size:12px}.pending-delivery-orders article{display:grid;grid-template-columns:minmax(220px,1fr) minmax(160px,.5fr) auto;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid #edf0ee}.pending-delivery-orders article:last-child{border-bottom:0}.pending-delivery-orders article span{display:grid;gap:3px}.pending-delivery-orders article small{color:#77817b;font-size:11px}.pending-delivery-orders article button{min-height:34px;padding:0 12px;border:1px solid #296149;background:#fff;color:#24563f;font-weight:700;cursor:pointer}

@@ -26,8 +26,12 @@ describe('InventoryPage', () => {
     fireEvent.click(screen.getByRole('button', { name:'开始生产' }))
     fireEvent.change(screen.getByLabelText('供应商 / 工厂'), { target:{ value:'揭阳合作工厂' } })
     fireEvent.change(screen.getByLabelText('采购单价'), { target:{ value:'6800' } })
+    fireEvent.change(screen.getByLabelText('图纸版本'), { target:{ value:'V2 客户确认版' } })
+    fireEvent.change(screen.getByLabelText('木材材质'), { target:{ value:'北美黑胡桃木' } })
+    fireEvent.change(screen.getByLabelText('颜色/表面工艺'), { target:{ value:'原木色木蜡油' } })
+    fireEvent.change(screen.getByLabelText('成品尺寸'), { target:{ value:'2200×950×800mm' } })
     fireEvent.click(screen.getByRole('button', { name:'确认下厂' }))
-    expect(onUpdateDemand).toHaveBeenCalledWith('d1', expect.objectContaining({ status:'生产中', supplier:'揭阳合作工厂', unitCost:6800, payableStatus:'未对账' }))
+    expect(onUpdateDemand).toHaveBeenCalledWith('d1', expect.objectContaining({ status:'生产中', supplier:'揭阳合作工厂', unitCost:6800, payableStatus:'未对账', drawingVersion:'V2 客户确认版', woodMaterial:'北美黑胡桃木', productionProgress:'已下厂' }))
   })
 
   it('records qualified and rejected quantities during receiving inspection', () => {

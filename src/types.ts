@@ -150,6 +150,13 @@ export interface ProductCatalogItem {
   costPrice?: number
   safetyStock?: number
   supplier?: string
+  woodMaterial?: string
+  woodGrade?: string
+  finish?: string
+  color?: string
+  dimensions?: string
+  customizable?: boolean
+  qualityStandard?: string
 }
 
 export interface InventoryMovement {
@@ -254,6 +261,13 @@ export interface SupplyDemand {
   inspectionNote?: string
   receivedAt?: string
   payableStatus?: '未对账' | '待付款' | '部分付款' | '已付款'
+  drawingVersion?: string
+  drawingConfirmedAt?: string
+  woodMaterial?: string
+  color?: string
+  dimensions?: string
+  craftRequirement?: string
+  productionProgress?: '资料待确认' | '已下厂' | '生产中' | '待质检' | '已发货' | '已到货'
   createdAt: string
   updatedAt: string
 }

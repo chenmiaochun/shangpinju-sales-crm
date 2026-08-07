@@ -19,6 +19,14 @@ const base = {
 }
 
 describe('LifecyclePage', () => {
+  it('starts delivery from the matching customer order instead of a global action', () => {
+    const onAddDelivery = vi.fn()
+    render(<LifecyclePage {...base} onAddDelivery={onAddDelivery}/>)
+    fireEvent.click(screen.getByRole('tab', { name: '交付安装' }))
+    expect(screen.queryByRole('button', { name:'新增交付任务' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name:'安排交付' }))
+    expect(screen.getByRole('dialog', { name:'新增交付任务 · 陈女士' })).toBeTruthy()
+  })
   it('registers a payment against the selected order', () => {
     const onAddPayment = vi.fn()
     render(<LifecyclePage {...base} onAddPayment={onAddPayment}/>)
