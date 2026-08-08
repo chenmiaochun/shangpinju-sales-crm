@@ -1,0 +1,134 @@
+.order-entry-panel {
+  margin: 16px 0;
+  padding: 15px 16px 16px;
+  border: 1px solid #dce3df;
+  background: #fff;
+}
+
+.order-entry-panel .selection-bar {
+  display: grid;
+  grid-template-columns: minmax(270px, 340px) minmax(360px, 1fr);
+  align-items: end;
+  gap: 16px;
+  margin: 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e7ece9;
+}
+
+.order-entry-panel .selection-bar label {
+  display: grid;
+  gap: 7px;
+  color: #4f5d55;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.order-entry-panel .selection-bar select,
+.order-entry-panel .selection-bar input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #d8dfda;
+  background: #fff;
+  color: #1e2b24;
+  font: inherit;
+}
+
+.order-entry-panel .product-search {
+  position: static;
+}
+
+.order-entry-panel .product-search > div {
+  position: relative;
+}
+
+.order-entry-panel .product-search svg {
+  position: absolute;
+  z-index: 1;
+  top: 11px;
+  bottom: auto;
+  left: 12px;
+  width: 18px;
+  color: #66766c;
+}
+
+.order-entry-panel .product-search input {
+  padding-left: 40px;
+}
+
+.order-entry-panel .order-customer-summary {
+  display: grid;
+  grid-template-columns: 125px 150px minmax(260px, 1fr) 190px;
+  align-items: end;
+  gap: 16px;
+  margin: 0;
+  padding: 14px 0 0;
+  border: 0;
+}
+
+.order-entry-panel .order-customer-summary > span,
+.order-entry-panel .order-customer-summary label {
+  display: grid;
+  gap: 6px;
+  color: #77817b;
+  font-size: 11px;
+}
+
+.order-entry-panel .order-customer-summary b {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  color: #223129;
+  font-size: 14px;
+}
+
+.order-entry-panel .order-customer-summary input {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #dce2de;
+  color: #223129;
+  font: inherit;
+}
+
+@media (max-width: 1100px) {
+  .order-entry-panel .order-customer-summary {
+    grid-template-columns: 110px 130px minmax(220px, 1fr) 170px;
+  }
+
+  .selection-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, .72fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .order-entry-panel .selection-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .order-entry-panel .order-customer-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .order-entry-panel .order-customer-summary label {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .order-workspace {
+    padding: 16px;
+  }
+
+  .order-entry-panel {
+    padding: 12px;
+  }
+
+  .order-entry-panel .order-customer-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .order-entry-panel .order-customer-summary label {
+    grid-column: auto;
+  }
+}
