@@ -343,6 +343,7 @@ export interface DeliveryTask {
   status: DeliveryStatus
   owner: string
   ownerId?: string
+  orderItemIds?: string[]
   installer?: string
   acceptanceNote?: string
   handoverItems?: DeliveryHandoverItem[]

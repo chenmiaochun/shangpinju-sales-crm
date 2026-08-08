@@ -1,23 +1,25 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import { BarChart3, Bell, Bot, Boxes, ChartNoAxesCombined, CheckCheck, ChevronDown, ChevronRight, ClipboardList, ContactRound, Database, GraduationCap, LayoutGrid, ListChecks, LogOut, MessageSquareText, PackageCheck, Search, Settings, ShoppingCart, UserCog, UserPlus, X } from 'lucide-react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { AIQualityPage } from './features/ai'
-import { CustomersPage } from './features/customers'
-import { ManagerDashboard } from './features/dashboard'
-import { ConversationAnalyzerPage } from './features/conversation'
-import { CoachingCenterPage } from './features/coaching'
-import { SalesInsightsPage } from './features/insights'
-import { LeadsPage } from './features/leads'
-import { LifecyclePage } from './features/lifecycle'
-import { OrderWorkspacePage } from './features/orders'
-import { InventoryPage } from './features/inventory'
-import { TaskCenterPage } from './features/tasks'
-import { SalesSopPage } from './features/sop'
-import { DataAdminPage, type ConnectionStatus } from './features/data-admin'
+import type { ConnectionStatus } from './features/data-admin'
 import { RoleProvider, ROLE_LABELS, TeamAccessPage, canAccessCustomer, getDefaultRoute, getIdentityRoles, hasIdentityRole, useRoleAccess, type AccessPermission, type TeamMember } from './features/team'
 import { SalesDataProvider, useSalesData } from './store/SalesDataContext'
 import { LoginPage } from './auth/LoginPage'
 import { useAuth } from './auth/AuthContext'
+
+const AIQualityPage=lazy(()=>import('./features/ai').then((module)=>({default:module.AIQualityPage})))
+const CustomersPage=lazy(()=>import('./features/customers').then((module)=>({default:module.CustomersPage})))
+const ManagerDashboard=lazy(()=>import('./features/dashboard').then((module)=>({default:module.ManagerDashboard})))
+const ConversationAnalyzerPage=lazy(()=>import('./features/conversation').then((module)=>({default:module.ConversationAnalyzerPage})))
+const CoachingCenterPage=lazy(()=>import('./features/coaching').then((module)=>({default:module.CoachingCenterPage})))
+const SalesInsightsPage=lazy(()=>import('./features/insights').then((module)=>({default:module.SalesInsightsPage})))
+const LeadsPage=lazy(()=>import('./features/leads').then((module)=>({default:module.LeadsPage})))
+const LifecyclePage=lazy(()=>import('./features/lifecycle').then((module)=>({default:module.LifecyclePage})))
+const OrderWorkspacePage=lazy(()=>import('./features/orders').then((module)=>({default:module.OrderWorkspacePage})))
+const InventoryPage=lazy(()=>import('./features/inventory').then((module)=>({default:module.InventoryPage})))
+const TaskCenterPage=lazy(()=>import('./features/tasks').then((module)=>({default:module.TaskCenterPage})))
+const SalesSopPage=lazy(()=>import('./features/sop').then((module)=>({default:module.SalesSopPage})))
+const DataAdminPage=lazy(()=>import('./features/data-admin').then((module)=>({default:module.DataAdminPage})))
 
 const navigation = [
   { to: '/leads', label: '线索数据', icon: UserPlus, permission: 'customers.own' },
@@ -60,6 +62,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
   const [topbarPanel, setTopbarPanel] = useState<'notifications' | 'settings' | null>(null)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [notificationsRead, setNotificationsRead] = useState(false)
+  const [globalQuery, setGlobalQuery] = useState('')
   const visibleNavigation = navigation.filter((item) => canUseItem(access.can, item))
   const visibleCustomers = useMemo(() => {
     const aftersales = hasIdentityRole(activeMember, 'aftersales')
@@ -68,6 +71,14 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
   }, [activeMember, sales.customers, sales.deliveryTasks])
   const visibleIds = useMemo(() => new Set(visibleCustomers.map((item) => item.id)), [visibleCustomers])
   const visibleFollowUps = sales.followUps.filter((item) => visibleIds.has(item.customerId))
+  const globalResults = useMemo(() => {
+    const query = globalQuery.trim().toLowerCase()
+    if (!query) return []
+    const customers = visibleCustomers.filter((item) => `${item.name}${item.phone}${item.licensePlate ?? ''}${item.communityName ?? ''}`.toLowerCase().includes(query)).slice(0, 5).map((item) => ({ id:`customer-${item.id}`, title:item.name, detail:`客户 · ${item.phone || '电话未登记'}`, to:`/customers?customer=${encodeURIComponent(item.id)}` }))
+    const orders = sales.orders.filter((item) => visibleIds.has(item.customerId) && `${item.orderNo}${item.customerName}${item.products.join('')}`.toLowerCase().includes(query)).slice(0, 5).map((item) => ({ id:`order-${item.id}`, title:item.orderNo, detail:`订单 · ${item.customerName} · ${item.status}`, to:'/lifecycle' }))
+    const products = sales.products.filter((item) => `${item.name}${item.sku}${item.category ?? ''}`.toLowerCase().includes(query)).slice(0, 5).map((item) => ({ id:`product-${item.id}`, title:item.name, detail:`商品 · ${item.sku} · ${item.supplyType}`, to:'/inventory' }))
+    return [...customers, ...orders, ...products].slice(0, 10)
+  }, [globalQuery, sales.orders, sales.products, visibleCustomers, visibleIds])
   const notifications = useMemo(() => {
     const now = new Date()
     const overdue = visibleCustomers.filter((customer) => customer.nextFollowUpAt && new Date(customer.nextFollowUpAt) < now && customer.stage !== '已成交' && customer.stage !== '已流失').length
@@ -114,7 +125,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
 
       <section className="app-main">
         <header className="app-topbar">
-          <div className="topbar-search"><Search size={17} /><span>搜索客户、手机号或产品</span></div>
+          <div className="topbar-search"><Search size={17} /><input aria-label="全局搜索" value={globalQuery} onChange={(event)=>setGlobalQuery(event.target.value)} placeholder="搜索客户、手机号、车牌、订单或产品"/>{globalQuery && <div className="global-search-results">{globalResults.length ? globalResults.map((item)=><NavLink key={item.id} to={item.to} onClick={()=>setGlobalQuery('')}><strong>{item.title}</strong><small>{item.detail}</small></NavLink>) : <span>没有找到匹配数据</span>}</div>}</div>
           <div className="topbar-actions">
             <button type="button" title="消息提醒" aria-label="消息提醒" aria-expanded={topbarPanel === 'notifications'} onClick={() => setTopbarPanel((current) => current === 'notifications' ? null : 'notifications')}><Bell size={19} />{!notificationsRead && notifications.length > 0 && <i>{notifications.length}</i>}</button>
             <button type="button" title="系统设置" aria-label="系统设置" aria-expanded={topbarPanel === 'settings'} onClick={() => setTopbarPanel((current) => current === 'settings' ? null : 'settings')}><Settings size={19} /></button>
@@ -132,11 +143,11 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
           </TopbarPanel>}
         </header>
         <div className="app-content">
-          <Routes>
+          <Suspense fallback={<main className="route-loading">正在打开页面...</main>}><Routes>
             <Route path="/dashboard" element={<Allowed permission="store.analytics"><ManagerDashboard customers={sales.customers} followUps={sales.followUps} /></Allowed>} />
             <Route path="/customers" element={<CustomerAllowed><CustomersPage customers={visibleCustomers} followUps={visibleFollowUps} designers={sales.designers} salespeople={sales.salespeople} deliveryStaff={sales.deliveryStaff} products={sales.products} activeMember={activeMember} onStateChange={mergeVisibleState} onRegisterDeal={sales.registerDeal} onAddDesignTask={(task) => { sales.addDesignTask(task); sales.updateCustomer(task.customerId, { designerId: task.designerId, designer: task.designerName }) }} /></CustomerAllowed>} />
             <Route path="/orders" element={<CustomerAllowed><OrderWorkspacePage customers={visibleCustomers} products={sales.products} orders={sales.orders.filter((item)=>visibleIds.has(item.customerId))} activeUser={activeMember.name} onAddOrder={sales.addOrder} onUpdateOrder={sales.updateOrder} onActivate={sales.activateOrder} onAddPayment={sales.addPayment}/></CustomerAllowed>} />
-            <Route path="/lifecycle" element={<CustomerAllowed><LifecyclePage customers={visibleCustomers} orders={sales.orders.filter((item) => visibleIds.has(item.customerId))} deliveryTasks={sales.deliveryTasks.filter((item) => visibleIds.has(item.customerId))} products={sales.products} afterSalesTickets={sales.afterSalesTickets.filter((item) => visibleIds.has(item.customerId))} activeUser={activeMember.name} onUpdateOrder={sales.updateOrder} onAddPayment={sales.addPayment} onAddDelivery={sales.addDeliveryTask} onUpdateDelivery={sales.updateDeliveryTask} onAddTicket={sales.addAfterSalesTicket} onUpdateTicket={sales.updateAfterSalesTicket} /></CustomerAllowed>} />
+            <Route path="/lifecycle" element={<CustomerAllowed><LifecyclePage customers={visibleCustomers} orders={sales.orders.filter((item) => visibleIds.has(item.customerId))} deliveryTasks={sales.deliveryTasks.filter((item) => visibleIds.has(item.customerId))} supplyDemands={sales.supplyDemands.filter((item)=>visibleIds.has(item.customerId))} products={sales.products} afterSalesTickets={sales.afterSalesTickets.filter((item) => visibleIds.has(item.customerId))} activeUser={activeMember.name} onUpdateOrder={sales.updateOrder} onAddPayment={sales.addPayment} onAddDelivery={sales.addDeliveryTask} onUpdateDelivery={sales.updateDeliveryTask} onAddTicket={sales.addAfterSalesTicket} onUpdateTicket={sales.updateAfterSalesTicket} /></CustomerAllowed>} />
             <Route path="/inventory" element={<Allowed permission="inventory.manage"><InventoryPage products={sales.products} demands={sales.supplyDemands} movements={sales.inventoryMovements} warehouses={sales.warehouses} warehouseStocks={sales.warehouseStocks} inventoryDocuments={sales.inventoryDocuments} replenishmentRequests={sales.replenishmentRequests} operator={activeMember.name} capabilities={{ manageCatalog: access.can('purchasing.manage'), purchase: access.can('purchasing.manage'), receive: access.can('inventory.receive'), issue:access.can('inventory.issue'), transfer:access.can('inventory.transfer'), audit: access.can('inventory.audit'), viewCost: access.can('cost.view'), requestReplenishment:access.can('replenishment.request'), approveReplenishment:access.can('replenishment.approve') }} onAddProduct={sales.addProduct} onAdjust={sales.adjustInventory} onUpdateDemand={sales.updateSupplyDemand} onInventoryDocument={sales.addInventoryDocument} onReplenishmentRequest={sales.addReplenishmentRequest} onReviewReplenishment={sales.reviewReplenishmentRequest}/></Allowed>} />
             <Route path="/tasks" element={<Allowed permission="tasks.own"><TaskCenterPage customers={visibleCustomers} followUps={visibleFollowUps} designTasks={sales.designTasks} activeMember={activeMember} onCompleteTask={sales.addFollowUp} onUpdateDesignTask={sales.updateDesignTask} /></Allowed>} />
             <Route path="/leads" element={<Allowed permission="customers.own"><LeadsPage customers={visibleCustomers} onAddCustomers={(customers) => sales.addCustomers(customers.map((customer) => activeMember.role === 'operations' ? { ...customer, sourceService: activeMember.name } : customer))} /></Allowed>} />
@@ -149,7 +160,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
             <Route path="/data-admin" element={<Allowed permission="data.manage"><DataAdminPage customers={sales.customers} followUps={sales.followUps} orders={sales.orders} deliveryTasks={sales.deliveryTasks} afterSalesTickets={sales.afterSalesTickets} supplyDemands={sales.supplyDemands} products={sales.products} inventoryMovements={sales.inventoryMovements} warehouses={sales.warehouses} warehouseStocks={sales.warehouseStocks} inventoryDocuments={sales.inventoryDocuments} replenishmentRequests={sales.replenishmentRequests} auditEvents={sales.auditEvents.map((item) => ({ id: String(item.id), action: `${item.action} ${item.resource}`, at: item.createdAt, detail: JSON.stringify(item.details) }))} connectionStatus={connectionStatus} onRestoreBackup={(backup) => sales.replaceState({ customers: backup.customers, followUps: backup.followUps, designTasks: sales.designTasks, orders: backup.orders ?? [], deliveryTasks: backup.deliveryTasks ?? [], afterSalesTickets: backup.afterSalesTickets ?? [], supplyDemands: backup.supplyDemands ?? [], products: backup.products, inventoryMovements: backup.inventoryMovements, warehouses:backup.warehouses, warehouseStocks:backup.warehouseStocks, inventoryDocuments:backup.inventoryDocuments, replenishmentRequests:backup.replenishmentRequests })} integrationSettings={{ corpId: String(wechat.corpId ?? ''), agentId: String(wechat.agentId ?? ''), secretConfigured: Boolean(wechat.secretConfigured || wechat.secret) }} onSaveIntegration={async (settings) => sales.saveIntegrations({ ...sales.integrationSettings, wechat: { ...wechat, corpId: settings.corpId, agentId: settings.agentId, ...(settings.secret ? { secret: settings.secret } : {}), secretConfigured: Boolean(settings.secret || wechat.secretConfigured || wechat.secret), status: 'pending' } })} /></Allowed>} />
             <Route path="/more" element={<MorePage items={visibleNavigation} />} />
             <Route path="*" element={<Navigate to={getDefaultRoute(activeMember)} replace />} />
-          </Routes>
+          </Routes></Suspense>
         </div>
       </section>
 

@@ -6,7 +6,8 @@ const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'curren
 const id = () => `handover-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
 export function HandoverDialog({ task, order, products, onClose, onSubmit }: { task: DeliveryTask; order: SalesOrder; products: ProductCatalogItem[]; onClose: () => void; onSubmit: (changes: Partial<DeliveryTask>) => void }) {
-  const originalItems: DeliveryHandoverItem[] = order.items?.map((item) => ({ id: `handover-${item.id}`, productId: item.productId, productName: item.productName, specification: item.specification, quantity: item.quantity, unitPrice: item.unitPrice, source: '原订单', result: '待确认' })) ?? order.products.map((name, index) => ({ id: `handover-${index}`, productName: name, quantity: 1, unitPrice: 0, source: '原订单', result: '待确认' }))
+  const selectedOrderItems = order.items?.filter((item) => !task.orderItemIds?.length || task.orderItemIds.includes(item.id))
+  const originalItems: DeliveryHandoverItem[] = selectedOrderItems?.map((item) => ({ id: `handover-${item.id}`, productId: item.productId, productName: item.productName, specification: item.specification, quantity: item.quantity, unitPrice: item.unitPrice, source: '原订单', result: '待确认' })) ?? order.products.map((name, index) => ({ id: `handover-${index}`, productName: name, quantity: 1, unitPrice: 0, source: '原订单', result: '待确认' }))
   const [items, setItems] = useState<DeliveryHandoverItem[]>(task.handoverItems?.length ? task.handoverItems : originalItems)
   const [productId, setProductId] = useState(products[0]?.id ?? '')
   const [acceptanceNote, setAcceptanceNote] = useState(task.acceptanceNote ?? '')

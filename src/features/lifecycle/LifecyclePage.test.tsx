@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { Customer, DeliveryTask, SalesOrder } from '../../types'
 import { LifecyclePage } from './LifecyclePage'
@@ -26,6 +26,16 @@ describe('LifecyclePage', () => {
     expect(screen.queryByRole('button', { name:'新增交付任务' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name:'安排交付' }))
     expect(screen.getByRole('dialog', { name:'新增交付任务 · 陈女士' })).toBeTruthy()
+  })
+  it('allows a partial order to deliver only ready products', () => {
+    const partialOrder: SalesOrder = { ...order, id:'o-partial', orderNo:'SPJ-PART', status:'部分齐货', products:['餐桌','餐椅'], items:[{id:'ready-item',productName:'餐桌',quantity:1,unitPrice:9800,supplyType:'现货'},{id:'waiting-item',productName:'餐椅',quantity:4,unitPrice:1600,supplyType:'外采产品'}] }
+    const demands = [{id:'d-ready',orderId:'o-partial',orderNo:'SPJ-PART',customerId:'c1',customerName:'陈女士',orderItemId:'ready-item',productName:'餐桌',quantity:1,supplyType:'现货',demandType:'库存锁定',status:'已锁定',createdAt:'2026-08-08',updatedAt:'2026-08-08'},{id:'d-wait',orderId:'o-partial',orderNo:'SPJ-PART',customerId:'c1',customerName:'陈女士',orderItemId:'waiting-item',productName:'餐椅',quantity:4,supplyType:'外采产品',demandType:'采购需求',status:'采购中',createdAt:'2026-08-08',updatedAt:'2026-08-08'}] as const
+    render(<LifecyclePage {...base} orders={[partialOrder]} supplyDemands={[...demands]}/>)
+    fireEvent.click(screen.getByRole('tab', { name: '交付安装' }))
+    fireEvent.click(screen.getByRole('button', { name:'安排分批交付' }))
+    const dialog=screen.getByRole('dialog',{name:'新增交付任务 · 陈女士'})
+    expect(within(dialog).getByText(/餐桌/)).toBeTruthy()
+    expect(within(dialog).queryByText(/餐椅/)).toBeNull()
   })
   it('registers a payment against the selected order', () => {
     const onAddPayment = vi.fn()

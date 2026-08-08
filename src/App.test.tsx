@@ -10,9 +10,9 @@ function renderAt(path: string) {
 }
 
 describe('App routes', () => {
-  it('renders the manager dashboard', () => {
+  it('renders the manager dashboard', async () => {
     renderAt('/dashboard')
-    expect(screen.getByRole('heading', { name: '经营总览' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '经营总览' })).toBeTruthy()
   })
 
   it('opens notifications and system settings from the top bar', () => {
@@ -40,28 +40,34 @@ describe('App routes', () => {
     expect(screen.getAllByRole('menuitem', { name: '退出登录' })).toHaveLength(1)
   })
 
-  it('renders the customer follow-up workspace', () => {
+  it('runs the global search and shows empty feedback', () => {
+    renderAt('/dashboard')
+    fireEvent.change(screen.getByRole('textbox', { name:'全局搜索' }), { target:{ value:'不存在的测试内容' } })
+    expect(screen.getByText('没有找到匹配数据')).toBeTruthy()
+  })
+
+  it('renders the customer follow-up workspace', async () => {
     renderAt('/customers')
-    expect(screen.getByRole('heading', { name: '客户与跟进' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '客户与跟进' })).toBeTruthy()
   })
 
-  it('renders AI quality review', () => {
+  it('renders AI quality review', async () => {
     renderAt('/quality')
-    expect(screen.getByRole('heading', { name: '客户跟进质量与成交机会' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '客户跟进质量与成交机会' })).toBeTruthy()
   })
 
-  it('renders order delivery and after-sales lifecycle', () => {
+  it('renders order delivery and after-sales lifecycle', async () => {
     renderAt('/lifecycle')
-    expect(screen.getByRole('heading', { name: '订单、交付与售后' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '订单、交付与售后' })).toBeTruthy()
   })
 
   it.each([
     ['/tasks', '跟进任务中心'],
     ['/leads', '线索数据中心'],
     ['/insights', '从数据找到下一步增长'],
-  ])('renders the phase two route %s', (path, heading) => {
+  ])('renders the phase two route %s', async (path, heading) => {
     renderAt(path)
-    expect(screen.getByRole('heading', { name: heading })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: heading })).toBeTruthy()
   })
 
   it.each([
@@ -69,16 +75,16 @@ describe('App routes', () => {
     ['/sop', '家具销售 SOP'],
     ['/coaching', '让每次复盘都有数据依据'],
     ['/more', '全部功能'],
-  ])('renders the phase three route %s', (path, heading) => {
+  ])('renders the phase three route %s', async (path, heading) => {
     renderAt(path)
-    expect(screen.getByRole('heading', { name: heading })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: heading })).toBeTruthy()
   })
 
   it.each([
     ['/team', '成员账号管理'],
     ['/data-admin', '数据管理与接入中心'],
-  ])('renders the phase four route %s', (path, heading) => {
+  ])('renders the phase four route %s', async (path, heading) => {
     renderAt(path)
-    expect(screen.getByRole('heading', { name: heading })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: heading })).toBeTruthy()
   })
 })
