@@ -33,7 +33,7 @@ describe('team role access', () => {
     expect(hasPermission('operations', 'data.manage')).toBe(false)
     expect(hasPermission('operations', 'sop')).toBe(true)
     expect(canViewRevenueSummary('operations')).toBe(false)
-    expect(getDefaultRoute({ id: 'ops-1', name: '赵运营', role: 'operations' })).toBe('/customers')
+    expect(getDefaultRoute({ id: 'ops-1', name: '赵运营', role: 'operations' })).toBe('/leads')
     expect(hasPermission('aftersales', 'tasks.own')).toBe(true)
     expect(canAccessCustomer({ id: 'ops-1', name: '赵运营', role: 'operations' }, { sourceService: '赵运营' })).toBe(true)
     expect(canAccessCustomer({ id: 'ops-1', name: '赵运营', role: 'operations' }, { sourceService: '其他运营' })).toBe(false)
@@ -47,7 +47,7 @@ describe('team role access', () => {
     expect(hasIdentityPermission(dualRole, 'store.analytics')).toBe(false)
     expect(hasIdentityPermission(dualRole, 'members.manage')).toBe(false)
     expect(canAccessCustomer(dualRole, { salespersonId: 'someone-else', designerId: 'sd-1' })).toBe(true)
-    expect(getDefaultRoute(dualRole)).toBe('/customers')
+    expect(getDefaultRoute(dualRole)).toBe('/leads')
   })
 
   it('keeps every employee role out of manager-only capabilities', () => {

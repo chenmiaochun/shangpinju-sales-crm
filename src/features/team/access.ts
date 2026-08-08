@@ -130,8 +130,9 @@ export function getIdentityPermissions(identity: RoleIdentity): AccessPermission
 }
 
 export function getDefaultRoute(identity: RoleIdentity): string {
+  if (hasIdentityPermission(identity, 'customers.own')) return '/leads'
   if (hasIdentityPermission(identity, 'store.analytics')) return '/dashboard'
-  if (hasIdentityPermission(identity, 'customers.own') || hasIdentityPermission(identity, 'customers.design')) return '/customers'
+  if (hasIdentityPermission(identity, 'customers.design')) return '/customers'
   if (hasIdentityPermission(identity, 'inventory.manage')) return '/inventory'
   if (hasIdentityPermission(identity, 'tasks.own')) return '/tasks'
   return '/more'

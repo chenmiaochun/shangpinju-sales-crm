@@ -20,13 +20,13 @@ import { LoginPage } from './auth/LoginPage'
 import { useAuth } from './auth/AuthContext'
 
 const navigation = [
+  { to: '/leads', label: '线索数据', icon: UserPlus, permission: 'customers.own' },
   { to: '/dashboard', label: '经营分析', icon: BarChart3, permission: 'store.analytics' },
   { to: '/customers', label: '客户跟进', icon: ContactRound, permission: 'customers.own' },
   { to: '/orders', label: '选品订单', icon: ShoppingCart, permission: 'customers.own' },
   { to: '/lifecycle', label: '交付售后', icon: PackageCheck, permission: 'customers.own' },
   { to: '/inventory', label: '商品进销存', icon: Boxes, permission: 'inventory.manage' },
   { to: '/tasks', label: '任务中心', icon: ClipboardList, permission: 'tasks.own' },
-  { to: '/leads', label: '线索数据', icon: UserPlus, permission: 'customers.own' },
   { to: '/quality', label: 'AI 质检', icon: Bot, permission: 'store.analytics' },
   { to: '/conversation', label: '沟通分析', icon: MessageSquareText, permission: 'conversation.analysis' },
   { to: '/sop', label: '销售 SOP', icon: ListChecks, permission: 'sop' },
@@ -87,7 +87,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
   }
   const wechat = sales.integrationSettings.wechat ?? {}
   const connectionStatus: ConnectionStatus = wechat.status === 'connected' ? 'connected' : wechat.corpId && wechat.agentId ? 'pending' : 'unconfigured'
-  const mobileItems = [navigation[0], navigation[1], navigation[2], navigation[5]].filter((item) => visibleNavigation.includes(item))
+  const mobileItems = ['/leads', '/customers', '/orders', '/tasks'].map((path) => navigation.find((item) => item.to === path)!).filter((item) => visibleNavigation.includes(item))
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
