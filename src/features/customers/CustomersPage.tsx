@@ -358,7 +358,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
               <section className={`next-task ${isOverdue(selected.nextFollowUpAt) ? 'task-overdue' : ''}`}>
                 <div className="section-icon"><CalendarClock size={19} /></div>
                 <div><span>下一步任务</span><strong>{currentNextAction || '尚未安排具体行动'}</strong><small>{selected.nextFollowUpAt ? `${formatDate(selected.nextFollowUpAt)} · ${selected.salesperson}` : currentNextAction ? '动作已有，尚未安排执行时间' : '新增跟进时可同步安排'}</small></div>
-                <div className="next-task-actions">{selected.nextFollowUpAt && <span className="task-status">{isOverdue(selected.nextFollowUpAt) ? '已逾期' : '待执行'}</span>}{canWorkOnSelected && <button type="button" onClick={() => openFollowUp(selected.nextFollowUpAt ? 'execute' : 'schedule')}><PlayCircle size={15}/>{selected.nextFollowUpAt ? '执行并记录' : currentNextAction ? '安排时间' : '安排下一步'}</button>}<a href={`#/tasks?customer=${encodeURIComponent(selected.id)}`}><ListTodo size={14}/>任务中心</a></div>
+                <div className="next-task-actions">{selected.nextFollowUpAt && <span className="task-status">{isOverdue(selected.nextFollowUpAt) ? '已逾期' : '待执行'}</span>}{currentNextAction?.includes('选品订单') ? <a className="primary-button" href={`#/orders?customer=${encodeURIComponent(selected.id)}`}><PlayCircle size={15}/>去选品开单</a> : canWorkOnSelected && <button type="button" onClick={() => openFollowUp(selected.nextFollowUpAt ? 'execute' : 'schedule')}><PlayCircle size={15}/>{selected.nextFollowUpAt ? '执行并记录' : currentNextAction ? '安排时间' : '安排下一步'}</button>}<a href={`#/tasks?customer=${encodeURIComponent(selected.id)}`}><ListTodo size={14}/>任务中心</a></div>
               </section>
 
               <section className="customer-profile">

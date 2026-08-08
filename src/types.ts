@@ -132,6 +132,12 @@ export interface OrderItem {
   unitPrice: number
   supplyType: SupplyType
   availableStock?: number
+  material?: string
+  color?: string
+  dimensions?: string
+  customRequirement?: string
+  discountAmount?: number
+  attachments?: CustomerFile[]
 }
 
 export interface ProductCatalogItem {
@@ -284,6 +290,9 @@ export interface PaymentRecord {
   method: '微信' | '支付宝' | '银行转账' | '现金' | '其他'
   recordedBy: string
   note?: string
+  receiptNo?: string
+  attachments?: CustomerFile[]
+  status?: '待财务确认' | '已确认' | '已驳回'
 }
 
 export interface SalesOrder {
@@ -305,6 +314,14 @@ export interface SalesOrder {
   payments: PaymentRecord[]
   performanceRate: number
   note?: string
+  contactPhone?: string
+  deliveryAddress?: string
+  quotationFiles?: CustomerFile[]
+  requiredDeposit?: number
+  discountAmount?: number
+  discountReason?: string
+  customerConfirmationNote?: string
+  exceptionApproved?: boolean
   customerConfirmedAt?: string
   reviewedBy?: string
   reviewedAt?: string

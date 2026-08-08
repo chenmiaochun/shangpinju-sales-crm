@@ -10,12 +10,12 @@ const customer: Customer = {
 
 const order: SalesOrder = {
   id: 'o1', orderNo: 'SPJ0001', customerId: 'c1', customerName: '陈女士', salesperson: '妙纯', collaborators: [], products: ['黑胡桃木沙发'],
-  contractAmount: 120000, signedAt: '2026-08-01', status: '已签约', payments: [], performanceRate: 100, createdAt: '2026-08-01', updatedAt: '2026-08-01',
+  contractAmount: 120000, signedAt: '2026-08-01', status: '已齐货', payments: [], performanceRate: 100, createdAt: '2026-08-01', updatedAt: '2026-08-01',
 }
 
 const base = {
   customers: [customer], orders: [order], deliveryTasks: [], products: [], afterSalesTickets: [], activeUser: '妙纯',
-  onAddOrder: vi.fn(), onUpdateOrder: vi.fn(), onAddPayment: vi.fn(), onAddDelivery: vi.fn(), onUpdateDelivery: vi.fn(), onAddTicket: vi.fn(), onUpdateTicket: vi.fn(),
+  onUpdateOrder: vi.fn(), onAddPayment: vi.fn(), onAddDelivery: vi.fn(), onUpdateDelivery: vi.fn(), onAddTicket: vi.fn(), onUpdateTicket: vi.fn(),
 }
 
 describe('LifecyclePage', () => {
