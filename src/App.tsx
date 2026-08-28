@@ -173,15 +173,15 @@ const navigation = [
     permission: "customers.own",
   },
   {
-    to: "/inventory",
-    label: "商品管理",
-    icon: Boxes,
-    permission: "inventory.manage",
-  },
-  {
     to: "/product-master",
     label: "产品主数据",
     icon: LayoutGrid,
+    permission: "inventory.manage",
+  },
+  {
+    to: "/inventory",
+    label: "商品进销存",
+    icon: Boxes,
     permission: "inventory.manage",
   },
   {
