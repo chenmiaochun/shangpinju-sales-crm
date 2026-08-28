@@ -1,24 +1,298 @@
-import { useState } from 'react'
-import { Plus, X } from 'lucide-react'
-import type { DeliveryHandoverItem, DeliveryTask, ProductCatalogItem, SalesOrder } from '../../types'
+import { useState } from "react";
+import { Plus, Printer, X } from "lucide-react";
+import type {
+  DeliveryHandoverItem,
+  DeliveryTask,
+  ProductCatalogItem,
+  SalesOrder,
+} from "../../types";
+import { SignaturePad } from "../orders/OrderPreviewModal";
 
-const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', maximumFractionDigits: 0 }).format(value)
-const id = () => `handover-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+const money = (value: number) =>
+  new Intl.NumberFormat("zh-CN", {
+    style: "currency",
+    currency: "CNY",
+    maximumFractionDigits: 0,
+  }).format(value);
+const id = () =>
+  `handover-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-export function HandoverDialog({ task, order, products, onClose, onSubmit }: { task: DeliveryTask; order: SalesOrder; products: ProductCatalogItem[]; onClose: () => void; onSubmit: (changes: Partial<DeliveryTask>) => void }) {
-  const selectedOrderItems = order.items?.filter((item) => !task.orderItemIds?.length || task.orderItemIds.includes(item.id))
-  const originalItems: DeliveryHandoverItem[] = selectedOrderItems?.map((item) => ({ id: `handover-${item.id}`, productId: item.productId, productName: item.productName, specification: item.specification, quantity: item.quantity, unitPrice: item.unitPrice, source: '原订单', result: '待确认' })) ?? order.products.map((name, index) => ({ id: `handover-${index}`, productName: name, quantity: 1, unitPrice: 0, source: '原订单', result: '待确认' }))
-  const [items, setItems] = useState<DeliveryHandoverItem[]>(task.handoverItems?.length ? task.handoverItems : originalItems)
-  const [productId, setProductId] = useState(products[0]?.id ?? '')
-  const [acceptanceNote, setAcceptanceNote] = useState(task.acceptanceNote ?? '')
-  const updateItem = (itemId: string, changes: Partial<DeliveryHandoverItem>) => setItems((current) => current.map((item) => item.id === itemId ? { ...item, ...changes } : item))
-  const addAlternative = () => { const product = products.find((item) => item.id === productId); if (!product) return; setItems((current) => [...current, { id: id(), productId: product.id, productName: product.name, specification: product.specifications[0], quantity: 1, unitPrice: product.unitPrice, source: '备选商品', result: '待确认' }]) }
-  const pending = items.filter((item) => item.result === '待确认').length
-  const returns = items.some((item) => item.result === '退回仓库' || item.result === '破损异常')
-  const trials = items.some((item) => item.result === '客户留样')
-  const settlementAmount = items.reduce((sum, item) => item.source === '备选商品' && item.result === '客户留下' ? sum + item.unitPrice * item.quantity : item.source === '原订单' && item.result === '退回仓库' ? sum - item.unitPrice * item.quantity : sum, 0)
-  const inspectionReady = task.returnInspection === '待退回验收' && !trials
-  const changes = (complete: boolean): Partial<DeliveryTask> => ({ handoverItems: items, acceptanceNote, settlementAmount, settlementStatus: settlementAmount > 0 ? '待补款' : settlementAmount < 0 ? '待退款' : '无需结算', returnInspection: returns ? inspectionReady && complete ? '已验收入库' : '待退回验收' : '无需退回', status: complete ? trials || (returns && !inspectionReady) ? '待验收' : '已完成' : '配送中' })
+export function HandoverDialog({
+  task,
+  order,
+  products,
+  onClose,
+  onSubmit,
+}: {
+  task: DeliveryTask;
+  order: SalesOrder;
+  products: ProductCatalogItem[];
+  onClose: () => void;
+  onSubmit: (changes: Partial<DeliveryTask>) => void;
+}) {
+  const selectedOrderItems = order.items?.filter(
+    (item) => !task.orderItemIds?.length || task.orderItemIds.includes(item.id),
+  );
+  const originalItems: DeliveryHandoverItem[] =
+    selectedOrderItems?.map((item) => ({
+      id: `handover-${item.id}`,
+      productId: item.productId,
+      productName: item.productName,
+      specification: item.specification,
+      quantity: task.itemQuantities?.[item.id] ?? item.quantity,
+      unitPrice: item.unitPrice,
+      source: "原订单",
+      result: "待确认",
+    })) ??
+    order.products.map((name, index) => ({
+      id: `handover-${index}`,
+      productName: name,
+      quantity: 1,
+      unitPrice: 0,
+      source: "原订单",
+      result: "待确认",
+    }));
+  const [items, setItems] = useState<DeliveryHandoverItem[]>(
+    task.handoverItems?.length ? task.handoverItems : originalItems,
+  );
+  const [productId, setProductId] = useState(products[0]?.id ?? "");
+  const [acceptanceNote, setAcceptanceNote] = useState(
+    task.acceptanceNote ?? "",
+  );
+  const [signature, setSignature] = useState(
+    task.customerSignatureDataUrl ?? "",
+  );
+  const updateItem = (itemId: string, changes: Partial<DeliveryHandoverItem>) =>
+    setItems((current) =>
+      current.map((item) =>
+        item.id === itemId ? { ...item, ...changes } : item,
+      ),
+    );
+  const addAlternative = () => {
+    const product = products.find((item) => item.id === productId);
+    if (!product) return;
+    setItems((current) => [
+      ...current,
+      {
+        id: id(),
+        productId: product.id,
+        productName: product.name,
+        specification: product.specifications[0],
+        quantity: 1,
+        unitPrice: product.unitPrice,
+        source: "备选商品",
+        result: "待确认",
+      },
+    ]);
+  };
+  const pending = items.filter((item) => item.result === "待确认").length;
+  const returns = items.some(
+    (item) => item.result === "退回仓库" || item.result === "破损异常",
+  );
+  const trials = items.some((item) => item.result === "客户留样");
+  const settlementAmount = items.reduce(
+    (sum, item) =>
+      item.source === "备选商品" && item.result === "客户留下"
+        ? sum + item.unitPrice * item.quantity
+        : item.source === "原订单" && item.result === "退回仓库"
+          ? sum - item.unitPrice * item.quantity
+          : sum,
+    0,
+  );
+  const inspectionReady = task.returnInspection === "待退回验收" && !trials;
+  const changes = (complete: boolean): Partial<DeliveryTask> => ({
+    handoverItems: items,
+    acceptanceNote,
+    customerSignatureDataUrl: signature || undefined,
+    signedAt: complete && signature ? new Date().toISOString() : undefined,
+    settlementAmount,
+    settlementStatus:
+      settlementAmount > 0
+        ? "待补款"
+        : settlementAmount < 0
+          ? "待退款"
+          : "无需结算",
+    returnInspection: returns
+      ? inspectionReady && complete
+        ? "已验收入库"
+        : "待退回验收"
+      : "无需退回",
+    status: complete
+      ? trials || (returns && !inspectionReady)
+        ? "待验收"
+        : "已完成"
+      : "配送中",
+  });
 
-  return <div className="lifecycle-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="lifecycle-dialog handover-modal" role="dialog" aria-modal="true" aria-label={`配送交接 · ${task.customerName}`}><header><h2>配送交接 · {task.customerName}</h2><button aria-label="关闭" onClick={onClose}><X/></button></header><div className="handover-dialog"><div className="handover-summary"><span>装车 <b>{items.reduce((sum, item) => sum + item.quantity, 0)}</b> 件</span><span>待确认 <b>{pending}</b> 项</span><span className={settlementAmount ? 'money-change' : ''}>{settlementAmount > 0 ? `待补款 ${money(settlementAmount)}` : settlementAmount < 0 ? `待退款 ${money(Math.abs(settlementAmount))}` : '无需补退款'}</span></div><div className="alternative-picker"><select aria-label="选择备选商品" value={productId} onChange={(event) => setProductId(event.target.value)}>{products.map((item) => <option value={item.id} key={item.id}>{item.name} · 可用 {Math.max(0, item.availableStock - (item.reservedStock ?? 0))}</option>)}</select><button type="button" onClick={addAlternative} disabled={!productId}><Plus size={15}/>加入备选装车</button></div><div className="handover-items">{items.map((item) => <article key={item.id}><div><strong>{item.productName}</strong><small>{item.source} · {item.specification || '规格未登记'} · {money(item.unitPrice)}</small></div><label>数量<input aria-label={`${item.productName}数量`} type="number" min="1" value={item.quantity} onChange={(event) => updateItem(item.id, { quantity: Number(event.target.value) })}/></label><label>现场结果<select aria-label={`${item.productName}现场结果`} value={item.result} onChange={(event) => updateItem(item.id, { result: event.target.value as DeliveryHandoverItem['result'] })}><option>待确认</option><option>客户留下</option><option>退回仓库</option><option>客户留样</option><option>破损异常</option></select></label><label>补充说明<input aria-label={`${item.productName}补充说明`} value={item.resultNote ?? ''} onChange={(event) => updateItem(item.id, { resultNote: event.target.value })} placeholder="换货原因、破损情况等"/></label>{item.source === '备选商品' && <button type="button" className="remove-line" onClick={() => setItems((current) => current.filter((entry) => entry.id !== item.id))}>移除</button>}</article>)}</div><label className="handover-note">交接说明<textarea rows={3} value={acceptanceNote} onChange={(event) => setAcceptanceNote(event.target.value)} placeholder="现场情况、客户要求、后续处理"/></label><p className="dialog-note">原订单保持不变；备选商品留用、原商品退回会形成补款或退款差额。退回商品必须经过仓库验收。</p><footer><button type="button" onClick={onClose}>取消</button><button type="button" onClick={() => onSubmit(changes(false))}>保存交接进度</button><button type="button" className="primary-button" disabled={pending > 0} onClick={() => onSubmit(changes(true))}>{pending > 0 ? `还有 ${pending} 项未确认` : trials || returns ? '提交待验收' : '完成交接'}</button></footer></div></section></div>
+  return (
+    <div
+      className="lifecycle-backdrop"
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+    >
+      <section
+        className="lifecycle-dialog handover-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`配送交接 · ${task.customerName}`}
+      >
+        <header>
+          <div><h2>发货单 {task.deliveryNo ?? ""} · {task.customerName}</h2><small>订单 {order.orderNo} · {task.scheduledAt?.replace("T"," ")} · 送货人 {task.owner}{task.vehicleInfo?` · ${task.vehicleInfo}`:""}</small></div>
+          <div><button type="button" aria-label="打印发货单" onClick={()=>window.print()}><Printer /></button><button aria-label="关闭" onClick={onClose}><X /></button></div>
+        </header>
+        <div className="handover-dialog">
+          <div className="handover-summary">
+            <span>
+              装车 <b>{items.reduce((sum, item) => sum + item.quantity, 0)}</b>{" "}
+              件
+            </span>
+            <span>
+              待确认 <b>{pending}</b> 项
+            </span>
+            <span className={settlementAmount ? "money-change" : ""}>
+              {settlementAmount > 0
+                ? `待补款 ${money(settlementAmount)}`
+                : settlementAmount < 0
+                  ? `待退款 ${money(Math.abs(settlementAmount))}`
+                  : "无需补退款"}
+            </span>
+          </div>
+          <div className="alternative-picker">
+            <select
+              aria-label="选择备选商品"
+              value={productId}
+              onChange={(event) => setProductId(event.target.value)}
+            >
+              {products.map((item) => (
+                <option value={item.id} key={item.id}>
+                  {item.name} · 可用{" "}
+                  {Math.max(0, item.availableStock - (item.reservedStock ?? 0))}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={addAlternative}
+              disabled={!productId}
+            >
+              <Plus size={15} />
+              加入备选装车
+            </button>
+          </div>
+          <div className="handover-items">
+            {items.map((item) => (
+              <article key={item.id}>
+                <div>
+                  <strong>{item.productName}</strong>
+                  <small>
+                    {item.source} · {item.specification || "规格未登记"} ·{" "}
+                    {money(item.unitPrice)}
+                  </small>
+                </div>
+                <label>
+                  数量
+                  <input
+                    aria-label={`${item.productName}数量`}
+                    type="number"
+                    min="1"
+                    value={item.quantity}
+                    onChange={(event) =>
+                      updateItem(item.id, {
+                        quantity: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  现场结果
+                  <select
+                    aria-label={`${item.productName}现场结果`}
+                    value={item.result}
+                    onChange={(event) =>
+                      updateItem(item.id, {
+                        result: event.target
+                          .value as DeliveryHandoverItem["result"],
+                      })
+                    }
+                  >
+                    <option>待确认</option>
+                    <option>客户留下</option>
+                    <option>退回仓库</option>
+                    <option>客户留样</option>
+                    <option>破损异常</option>
+                  </select>
+                </label>
+                <label>
+                  补充说明
+                  <input
+                    aria-label={`${item.productName}补充说明`}
+                    value={item.resultNote ?? ""}
+                    onChange={(event) =>
+                      updateItem(item.id, { resultNote: event.target.value })
+                    }
+                    placeholder="换货原因、破损情况等"
+                  />
+                </label>
+                {item.source === "备选商品" && (
+                  <button
+                    type="button"
+                    className="remove-line"
+                    onClick={() =>
+                      setItems((current) =>
+                        current.filter((entry) => entry.id !== item.id),
+                      )
+                    }
+                  >
+                    移除
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+          {signature ? (
+            <div className="saved-delivery-signature">
+              <strong>客户签收签名</strong>
+              <img src={signature} alt="客户签收签名" />
+              <button type="button" onClick={() => setSignature("")}>重新签名</button>
+            </div>
+          ) : (
+            <SignaturePad onConfirm={(file) => setSignature(file.dataUrl ?? "")} />
+          )}
+          <label className="handover-note">
+            交接说明
+            <textarea
+              rows={3}
+              value={acceptanceNote}
+              onChange={(event) => setAcceptanceNote(event.target.value)}
+              placeholder="现场情况、客户要求、后续处理"
+            />
+          </label>
+          <p className="dialog-note">
+            原订单保持不变；备选商品留用、原商品退回会形成补款或退款差额。退回商品必须经过仓库验收。
+          </p>
+          <footer>
+            <button type="button" onClick={onClose}>
+              取消
+            </button>
+            <button type="button" onClick={() => onSubmit(changes(false))}>
+              保存交接进度
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              disabled={pending > 0 || (Boolean(task.deliveryNo) && !signature)}
+              onClick={() => onSubmit(changes(true))}
+            >
+              {pending > 0
+                ? `还有 ${pending} 项未确认`
+                : task.deliveryNo && !signature
+                  ? "请客户签名"
+                : trials || returns
+                  ? "提交待验收"
+                  : "完成交接"}
+            </button>
+          </footer>
+        </div>
+      </section>
+    </div>
+  );
 }

@@ -2,6 +2,25 @@ import { DatabaseSync } from 'node:sqlite'
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 
 const parseJson = (value) => JSON.parse(value)
+const CONCURRENT_RECORD_KEYS = ['customers', 'followUps', 'designTasks', 'orders', 'deliveryTasks', 'afterSalesTickets', 'supplyDemands', 'inventoryMovements', 'inventoryDocuments', 'replenishmentRequests', 'categories', 'series', 'components', 'skuUnits', 'configProducts', 'productPackages']
+const recordTime = item => item?.updatedAt || item?.createdAt || item?.lastContactAt || ''
+const mergeRecordList = (current = [], incoming = []) => {
+  const records = new Map(current.filter(item => item?.id).map(item => [item.id, item]))
+  for (const item of incoming) {
+    if (!item?.id) continue
+    const saved = records.get(item.id)
+    if (!saved || recordTime(item) >= recordTime(saved)) records.set(item.id, item)
+  }
+  return [...records.values()].sort((a, b) => recordTime(b).localeCompare(recordTime(a)))
+}
+const mergeConcurrentState = (current, incoming) => {
+  if (!current || typeof current !== 'object' || !incoming || typeof incoming !== 'object') return incoming
+  const merged = { ...incoming }
+  for (const key of CONCURRENT_RECORD_KEYS) {
+    if (Array.isArray(current[key]) && Array.isArray(incoming[key])) merged[key] = mergeRecordList(current[key], incoming[key])
+  }
+  return merged
+}
 const tokenDigest = token => createHash('sha256').update(token).digest('hex')
 const validPermissions = new Set(['store.analytics', 'coaching', 'data.manage', 'members.manage', 'customers.own', 'customers.design', 'tasks.own', 'conversation.analysis', 'sop', 'revenue.summary', 'inventory.manage', 'inventory.receive', 'inventory.issue', 'inventory.transfer', 'inventory.audit', 'replenishment.request', 'replenishment.approve', 'purchasing.manage', 'finance.reconcile', 'cashier.payments', 'cost.view'])
 const normalizePermissions = permissions => permissions == null ? null : [...new Set(permissions)].filter(permission => validPermissions.has(permission))
@@ -200,8 +219,9 @@ export class SalesDatabase {
   }
   setState(value) {
     const at = this.now()
-    this.transaction(() => { this.statements.putState.run(JSON.stringify(value), at); this.record('update', 'state') })
-    return { value, updatedAt: at }
+    const merged = mergeConcurrentState(this.getState().value, value)
+    this.transaction(() => { this.statements.putState.run(JSON.stringify(merged), at); this.record('update', 'state') })
+    return { value: merged, updatedAt: at }
   }
   getAudit(limit, offset) {
     return { items: this.statements.getAudit.all(limit, offset).map(r => ({ ...r, details: parseJson(r.details), createdAt: r.created_at, created_at: undefined })), total: Number(this.statements.countAudit.get().count), limit, offset }

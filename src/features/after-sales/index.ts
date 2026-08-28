@@ -1,0 +1,1 @@
+export { AfterSalesPage } from './AfterSalesPage'

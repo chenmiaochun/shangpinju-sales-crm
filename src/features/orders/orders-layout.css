@@ -15,6 +15,30 @@
   border-bottom: 1px solid #e7ece9;
 }
 
+.order-entry-panel .sales-form-basics {
+  grid-template-columns: 150px minmax(250px, 340px) minmax(320px, 1fr);
+}
+
+.order-page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.print-order-button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid #701318;
+  background: #fff;
+  color: #701318;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .order-entry-panel .selection-bar label {
   display: grid;
   gap: 7px;
@@ -106,6 +130,11 @@
     grid-template-columns: 1fr;
   }
 
+  .order-page-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .order-entry-panel .order-customer-summary {
     grid-template-columns: 1fr 1fr;
   }
@@ -113,6 +142,21 @@
   .order-entry-panel .order-customer-summary label {
     grid-column: 1 / -1;
   }
+}
+
+@media print {
+  .app-sidebar, .app-topbar, .product-browser, .order-steps, .order-pipeline, .print-order-button, .order-notice, .order-file-row, .save-order { display: none !important; }
+  .app-main, .order-workspace { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  .selection-layout { display: block !important; }
+  .order-entry-panel, .selection-cart { break-inside: avoid; border-color: #222 !important; }
+}
+
+.selection-cart > article.order-line {
+  grid-template-columns: minmax(0, 1fr) 58px 92px 90px 32px;
+}
+
+.selection-cart .line-price {
+  width: 92px;
 }
 
 @media (max-width: 560px) {

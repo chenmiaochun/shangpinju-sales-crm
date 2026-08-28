@@ -1,4 +1,7 @@
 import { createServer } from 'node:http'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { basename, extname, join, resolve } from 'node:path'
+import { randomUUID } from 'node:crypto'
 
 const JSON_TYPE = { 'content-type': 'application/json; charset=utf-8' }
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -57,6 +60,35 @@ function validateBackup(value) {
   return { version: 1, state: value.state, members: validateMembers(value.members), integrations: validateIntegrations(value.integrations) }
 }
 
+const cleanText = (value, max = 120) => typeof value === 'string' ? value.trim().slice(0, max) : ''
+const cleanList = (value, maxItems = 12, maxLength = 60) => Array.isArray(value) ? value.map(item => cleanText(item, maxLength)).filter(Boolean).slice(0, maxItems) : []
+const EXPERIENCE_STATIONS = ['家具与动线体验', '重点空间诊断', '全家睡眠体验']
+
+function validateExperienceIntake(value) {
+  if (!isObject(value) || value.consent !== true) throw new ApiError(400, 'VALIDATION_ERROR', 'consent is required')
+  const name = cleanText(value.name, 40), phone = cleanText(value.phone, 30)
+  if (!name || !/^1\d{10}$/.test(phone)) throw new ApiError(400, 'VALIDATION_ERROR', 'name and a valid mobile phone are required')
+  const preferredStations = cleanList(value.preferredStations, 3).filter(item => EXPERIENCE_STATIONS.includes(item))
+  return {
+    name, phone, preferredStations,
+    cityArea: cleanText(value.cityArea, 40), houseLayout: cleanText(value.houseLayout, 60),
+    houseArea: Number.isFinite(Number(value.houseArea)) && Number(value.houseArea) > 0 ? Math.min(2000, Number(value.houseArea)) : undefined,
+    housingStage: cleanText(value.housingStage, 40) || '其他', familyMembers: cleanList(value.familyMembers),
+    focusSpaces: cleanList(value.focusSpaces), painPoints: cleanList(value.painPoints), budget: cleanText(value.budget, 40) || '待确认',
+    moveInPlan: cleanText(value.moveInPlan, 60), sleepNeeds: cleanList(value.sleepNeeds),
+    source: cleanText(value.source, 40) || '活动扫码测评', contentId: cleanText(value.contentId, 80),
+  }
+}
+
+function experienceRecommendation(input) {
+  const recommended = []
+  if (input.preferredStations.includes('家具与动线体验') || input.focusSpaces.some(item => ['客厅', '餐厅', '家具尺寸/摆放'].includes(item))) recommended.push('家具与动线体验')
+  if (input.preferredStations.includes('重点空间诊断') || input.focusSpaces.length > 1 || input.painPoints.some(item => ['空间不好用', '收纳不足', '风格不统一'].includes(item))) recommended.push('重点空间诊断')
+  if (input.preferredStations.includes('全家睡眠体验') || input.sleepNeeds.length || input.focusSpaces.some(item => ['主卧', '儿童房', '老人房'].includes(item))) recommended.push('全家睡眠体验')
+  if (!recommended.length) recommended.push('重点空间诊断')
+  return [...new Set(recommended)]
+}
+
 async function readJson(req, maxBodyBytes) {
   const contentType = req.headers['content-type'] || ''
   if (!contentType.toLowerCase().startsWith('application/json')) throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Content-Type must be application/json')
@@ -71,23 +103,51 @@ async function readJson(req, maxBodyBytes) {
   catch { throw new ApiError(400, 'INVALID_JSON', 'request body is not valid JSON') }
 }
 
-export function createApiServer({ database, maxBodyBytes = 20 * 1_048_576, corsOrigin = '*', sessionTtlMs = 8 * 60 * 60 * 1000, secureCookies = false, loginLimit = 5, loginWindowMs = 15 * 60 * 1000 }) {
+export function createApiServer({ database, uploadDir = resolve('server/data/uploads'), maxBodyBytes = 20 * 1_048_576, corsOrigin = '*', sessionTtlMs = 8 * 60 * 60 * 1000, secureCookies = false, loginLimit = 5, loginWindowMs = 15 * 60 * 1000, publicIntakeLimit = 20, publicIntakeWindowMs = 60 * 60 * 1000 }) {
+  mkdirSync(uploadDir, { recursive: true })
   const loginAttempts = new Map()
+  const publicIntakeAttempts = new Map()
   return createServer(async (req, res) => {
     const requestOrigin = req.headers.origin
-    const allowOrigin = corsOrigin === '*' ? '*' : corsOrigin
+    const allowedOrigins = corsOrigin === '*' ? [] : String(corsOrigin).split(',').map(value => value.trim()).filter(Boolean)
+    const originAllowed = corsOrigin === '*' || Boolean(requestOrigin && allowedOrigins.includes(requestOrigin))
+    const allowOrigin = corsOrigin === '*' ? '*' : originAllowed ? requestOrigin : allowedOrigins[0]
     const headers = { ...JSON_TYPE, 'access-control-allow-origin': allowOrigin, 'access-control-allow-methods': 'GET, PUT, POST, PATCH, OPTIONS', 'access-control-allow-headers': 'Content-Type', ...(allowOrigin === '*' ? {} : { 'access-control-allow-credentials': 'true', vary: 'Origin' }) }
     const send = (status, body, extra = {}) => { res.writeHead(status, { ...headers, ...extra }); res.end(body === undefined ? undefined : JSON.stringify(body)) }
     const cookie = (value, maxAge) => `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=${secureCookies ? 'None' : 'Lax'}; Max-Age=${maxAge}${secureCookies ? '; Secure' : ''}`
     const unsafe = !['GET', 'HEAD', 'OPTIONS'].includes(req.method)
     const crossSite = req.headers['sec-fetch-site'] === 'cross-site'
-    if (requestOrigin && corsOrigin !== '*' && requestOrigin !== corsOrigin) return send(403, { error: { code: 'ORIGIN_FORBIDDEN', message: 'Request origin is not allowed' } })
+    if (requestOrigin && !originAllowed) return send(403, { error: { code: 'ORIGIN_FORBIDDEN', message: 'Request origin is not allowed' } })
     if (unsafe && corsOrigin !== '*' && !requestOrigin) return send(403, { error: { code: 'ORIGIN_REQUIRED', message: 'Request origin is required' } })
     if (unsafe && corsOrigin === '*' && crossSite) return send(403, { error: { code: 'ORIGIN_FORBIDDEN', message: 'Request origin is not allowed' } })
     if (req.method === 'OPTIONS') return send(204)
     try {
       const url = new URL(req.url, 'http://localhost')
       if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, service: 'sales-data', timestamp: new Date().toISOString() })
+      if (req.method === 'POST' && url.pathname === '/api/public/experience-intake') {
+        const address = req.socket.remoteAddress || 'unknown', now = Date.now()
+        const recent = (publicIntakeAttempts.get(address) || []).filter(at => now - at < publicIntakeWindowMs)
+        if (recent.length >= publicIntakeLimit) throw new ApiError(429, 'INTAKE_RATE_LIMITED', 'Too many submissions; try again later')
+        const input = validateExperienceIntake(await readJson(req, maxBodyBytes))
+        recent.push(now); publicIntakeAttempts.set(address, recent)
+        const at = new Date().toISOString(), stamp = at.slice(0, 10).replace(/-/g, ''), suffix = `${now}`.slice(-6)
+        const leadId = `L-${stamp}-${suffix}`, assessmentId = `EXP-${stamp}-${suffix}`
+        const recommendedStations = experienceRecommendation(input)
+        const summary = `家庭成员：${input.familyMembers.join('、') || '待补充'}；重点空间：${input.focusSpaces.join('、') || '待确认'}；主要问题：${input.painPoints.join('、') || '待确认'}；建议体验：${recommendedStations.join('、')}`
+        const state = database.getState().value
+        const customer = {
+          id: `lead-${now}`, leadId, campaignId: 'SPJ-2026-09', contentId: input.contentId || undefined,
+          name: input.name, phone: input.phone, source: input.source, salesperson: '待分配', stage: '新线索', intent: '中', expectedAmount: 0,
+          productLines: recommendedStations.flatMap(item => item === '家具与动线体验' ? ['原创家具'] : item === '重点空间诊断' ? ['整屋全案'] : ['雅兰睡眠']),
+          products: [], style: '', budget: input.budget, renovationProgress: input.housingStage, concerns: input.painPoints,
+          cityArea: input.cityArea || undefined, houseLayout: input.houseLayout || undefined, houseArea: input.houseArea,
+          notes: '客户通过“尚品居10分钟家庭空间体验诊断”自主提交。', lastContactAt: at, createdAt: at.slice(0, 10), updatedAt: at,
+          experienceAssessment: { assessmentId, submittedAt: at, housingStage: input.housingStage, familyMembers: input.familyMembers, focusSpaces: input.focusSpaces, painPoints: input.painPoints, moveInPlan: input.moveInPlan || undefined, sleepNeeds: input.sleepNeeds, preferredStations: input.preferredStations, recommendedStations, summary, status: '待体验' },
+        }
+        database.setState({ ...state, customers: [customer, ...(Array.isArray(state.customers) ? state.customers : [])] })
+        database.record('create', 'public_experience_intake', { leadId, assessmentId })
+        return send(201, { ok: true, leadId, assessmentId, recommendedStations, summary })
+      }
       if (req.method === 'POST' && url.pathname === '/api/auth/login') {
         const address = req.socket.remoteAddress || 'unknown', now = Date.now()
         const recent = (loginAttempts.get(address) || []).filter(at => now - at < loginWindowMs)
@@ -110,6 +170,31 @@ export function createApiServer({ database, maxBodyBytes = 20 * 1_048_576, corsO
         return send(204, undefined, { 'set-cookie': cookie('', 0) })
       }
       if (!session) throw new ApiError(401, 'AUTH_REQUIRED', 'Authentication is required')
+      const fileReadMatch = url.pathname.match(/^\/api\/files\/([a-zA-Z0-9-]+)$/)
+      if (req.method === 'GET' && fileReadMatch) {
+        const metadataPath = join(uploadDir, `${fileReadMatch[1]}.json`)
+        if (!existsSync(metadataPath)) throw new ApiError(404, 'NOT_FOUND', 'File not found')
+        const metadata = JSON.parse(readFileSync(metadataPath, 'utf8'))
+        const filePath = join(uploadDir, metadata.storedName)
+        if (!existsSync(filePath)) throw new ApiError(404, 'NOT_FOUND', 'File not found')
+        res.writeHead(200, { ...headers, 'content-type': metadata.type || 'application/octet-stream', 'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(metadata.name)}`, 'cache-control': 'private, max-age=3600' })
+        return res.end(readFileSync(filePath))
+      }
+      if (req.method === 'POST' && url.pathname === '/api/files') {
+        const body = await readJson(req, maxBodyBytes)
+        const name = basename(String(body?.name || '')).slice(0, 180)
+        const match = String(body?.dataUrl || '').match(/^data:([^;,]+)?;base64,(.+)$/s)
+        if (!name || !match) throw new ApiError(400, 'VALIDATION_ERROR', 'A valid file is required')
+        const bytes = Buffer.from(match[2], 'base64')
+        if (!bytes.length || bytes.length > maxBodyBytes) throw new ApiError(413, 'PAYLOAD_TOO_LARGE', 'File is empty or too large')
+        const id = randomUUID(), extension = extname(name).replace(/[^.a-zA-Z0-9]/g, '').slice(0, 12)
+        const storedName = `${id}${extension}`
+        const metadata = { id, name, storedName, type: cleanText(body.type, 120) || match[1] || 'application/octet-stream', size: bytes.length, ownerId: cleanText(body.ownerId, 120), category: cleanText(body.category, 60), uploadedAt: new Date().toISOString() }
+        writeFileSync(join(uploadDir, storedName), bytes)
+        writeFileSync(join(uploadDir, `${id}.json`), JSON.stringify(metadata))
+        database.record('upload', 'design_file', { fileId: id, ownerId: metadata.ownerId, name })
+        return send(201, { file: { id, name, type: metadata.type, size: bytes.length, url: `/api/files/${id}`, uploadedAt: metadata.uploadedAt } })
+      }
       if (req.method === 'GET' && url.pathname === '/api/auth/me') return send(200, { user: session.account, expiresAt: session.expiresAt })
       const hasRole = (account, role) => (account.roles || [account.role]).includes(role)
       const requireManager = () => { if (!hasRole(session.account, 'manager')) throw new ApiError(403, 'FORBIDDEN', 'Manager permission is required') }

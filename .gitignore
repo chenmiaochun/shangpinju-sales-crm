@@ -12,3 +12,8 @@ server/data/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+.env.production
+.env.local
+backups/
+test-flow-data/
+test-assets/

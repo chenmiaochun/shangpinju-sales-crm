@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { AlertTriangle, CalendarDays, Check, Clock3, FileUp, ListTodo, UserRound, X } from 'lucide-react'
 import type { Customer, CustomerFile, DesignTask, FollowUp } from '../../types'
 import type { TeamMember } from '../team'
+import { hasIdentityRole } from '../team'
 import { buildNextAction, NextActionPicker } from '../followups/NextActionPicker'
 import { deriveFollowUpTasks, groupTasksBySchedule, type FollowUpTask, type TaskCategory, type TaskPriority } from './task-utils'
 import './tasks.css'
+import './design-review.css'
 
 export interface TaskCenterPageProps {
   customers: Customer[]
@@ -43,7 +45,7 @@ export function TaskCenterPage({ customers, followUps, onCompleteTask, now = new
   const [owner, setOwner] = useState('全部')
   const [priority, setPriority] = useState<TaskPriority | '全部'>('全部')
   const [activeTask, setActiveTask] = useState<FollowUpTask | null>(null)
-  const [mode, setMode] = useState<'sales' | 'design'>('sales')
+  const [mode, setMode] = useState<'sales' | 'design'>(() => new URLSearchParams(typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] ?? '').get('mode') === 'design' ? 'design' : 'sales')
   const tasks = useMemo(() => deriveFollowUpTasks(customers, followUps, now), [customers, followUps, now])
   const requestedTask = tasks.find((task) => task.customer.id === focusedCustomerId)
   useEffect(() => { if (requestedTask) { setMode('sales'); setCategory(requestedTask.category) } }, [requestedTask?.category])
@@ -51,7 +53,7 @@ export function TaskCenterPage({ customers, followUps, onCompleteTask, now = new
   const counts = useMemo(() => Object.fromEntries(categories.map(({ id }) => [id, tasks.filter((task) => task.category === id).length])) as Record<TaskCategory, number>, [tasks])
   const visible = tasks.filter((task) => (category === 'due' ? task.category === 'today' || task.category === 'overdue' : task.category === category) && (!focusedCustomerId || task.customer.id === focusedCustomerId) && (owner === '全部' || task.customer.salesperson === owner) && (priority === '全部' || task.priority === priority))
   const groups = groupTasksBySchedule(visible)
-  const visibleDesignTasks = designTasks.filter((task) => !activeMember || activeMember.role === 'manager' || task.designerId === activeMember.id || task.designerName === activeMember.name || task.salesperson === activeMember.name)
+  const visibleDesignTasks = designTasks.filter((task) => !activeMember || hasIdentityRole(activeMember, 'manager') || task.designerId === activeMember.id || task.designerName === activeMember.name || task.salesperson === activeMember.name)
 
   return <section className="task-center" aria-label="跟进任务中心">
     <header className="task-header">
@@ -72,7 +74,7 @@ export function TaskCenterPage({ customers, followUps, onCompleteTask, now = new
     {mode === 'sales' && focusedCustomerId && <div className="task-customer-focus"><span>{requestedTask ? `已定位客户：${requestedTask.customer.name} · ${requestedTask.nextAction}` : '该客户当前没有可执行任务'}</span><button type="button" onClick={() => setFocusedCustomerId('')}>查看全部任务</button></div>}
 
     <main className="task-schedule">
-      {mode === 'design' ? <DesignTaskList tasks={visibleDesignTasks} canReview={activeMember?.role === 'manager' || activeMember?.role === 'sales'} onUpdate={onUpdateDesignTask} /> : <>
+      {mode === 'design' ? <DesignTaskList tasks={visibleDesignTasks} worker={activeMember} reviewer={activeMember?.name ?? ''} canReview={Boolean(activeMember && (hasIdentityRole(activeMember, 'manager') || hasIdentityRole(activeMember, 'sales')))} onUpdate={onUpdateDesignTask} /> : <>
       {groups.map((group) => <section className="schedule-group" key={group.key}>
         <header><CalendarDays size={17} /><h2>{groupTitle(group.key, now)}</h2><span>{group.tasks.length} 项</span></header>
         <div className="task-list">{group.tasks.map((task) => <TaskRow key={task.customer.id} task={task} onComplete={() => setActiveTask(task)} />)}</div>
@@ -84,9 +86,11 @@ export function TaskCenterPage({ customers, followUps, onCompleteTask, now = new
   </section>
 }
 
-function DesignTaskList({ tasks, canReview, onUpdate }: { tasks: DesignTask[]; canReview: boolean; onUpdate?: (id: string, changes: Partial<DesignTask>) => void }) {
+function DesignTaskList({ tasks, worker, canReview, reviewer, onUpdate }: { tasks: DesignTask[]; worker?: TeamMember; canReview: boolean; reviewer: string; onUpdate?: (id: string, changes: Partial<DesignTask>) => void }) {
+  const [rejectingId, setRejectingId] = useState('')
+  const [feedback, setFeedback] = useState('')
   if (!tasks.length) return <div className="task-empty"><Check size={28} /><strong>暂无设计协作任务</strong><span>销售在跟进记录中开启“需要设计师协助”后，任务会显示在这里</span></div>
-  return <div className="design-task-list">{tasks.map((task) => <article className="design-task-card" key={task.id}><header><div><h2>{task.customerName}<span>{task.type}</span>{task.priority === '紧急' && <i>紧急</i>}</h2><p>@{task.designerName} · 销售负责人 {task.salesperson}</p></div><strong className={`design-status status-${task.status}`}>{task.status}</strong></header><p className="design-requirement">{task.requirement}</p><div className="design-meta">计划完成：{new Date(task.dueAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · 参考资料 {task.referenceFiles.length} 个</div>{task.solutionFiles.length > 0 && <div className="design-meta">已提交方案：{task.solutionFiles.map((file) => file.name).join('、')}</div>}<div className="design-actions">{task.status === '待接收' && <button onClick={() => onUpdate?.(task.id, { status: '设计中' })}>开始设计</button>}{task.status === '待销售确认' && canReview && <><button onClick={() => onUpdate?.(task.id, { status: '客户沟通中' })}>确认并发送客户</button><button className="outline" onClick={() => onUpdate?.(task.id, { status: '修改中' })}>退回修改</button></>}{task.status === '客户沟通中' && canReview && <><button onClick={() => onUpdate?.(task.id, { status: '已完成' })}>客户已确认</button><button className="outline" onClick={() => onUpdate?.(task.id, { status: '修改中' })}>客户要求修改</button></>}{task.status === '设计中' || task.status === '修改中' ? <SolutionUploader task={task} onSubmit={(files, note) => onUpdate?.(task.id, { solutionFiles: files, solutionNote: note, status: '待销售确认' })} /> : null}</div></article>)}</div>
+  return <div className="design-task-list">{tasks.map((task) => { const canWork = Boolean(worker && (task.designerId === worker.id || task.designerName === worker.name)); return <article className="design-task-card" key={task.id}><header><div><h2>{task.customerName}<span>{task.type}</span>{task.priority === '紧急' && <i>紧急</i>}</h2><p>@{task.designerName} · 销售负责人 {task.salesperson}</p></div><strong className={`design-status status-${task.status}`}>{task.status}</strong></header><p className="design-requirement">{task.requirement}</p><div className="design-meta">计划完成：{new Date(task.dueAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · 参考资料 {task.referenceFiles.length} 个</div>{task.referenceFiles.length > 0 && <div className="design-file-links">参考资料：{task.referenceFiles.map((file) => file.url || file.dataUrl ? <a key={file.id} href={file.url || file.dataUrl} target="_blank" rel="noreferrer">{file.name}</a> : <span key={file.id}>{file.name}（旧附件不可打开）</span>)}</div>}{task.solutionFiles.length > 0 && <div className="design-file-links">已提交方案：{task.solutionFiles.map((file) => file.url || file.dataUrl ? <a key={file.id} href={file.url || file.dataUrl} target="_blank" rel="noreferrer">{file.name}</a> : <span key={file.id}>{file.name}（旧附件不可打开）</span>)}</div>}{task.solutionNote && <div className="design-solution-note"><strong>方案说明：</strong>{task.solutionNote}</div>}{task.versions && task.versions.length > 0 && <div className="design-meta">当前 V{task.versions.length} · 共提交 {task.versions.length} 个版本</div>}{task.feedback && <div className="design-reject-note"><strong>修改意见：</strong>{task.feedback}</div>}<div className="design-actions">{task.status === '待接收' && canWork && <button onClick={() => onUpdate?.(task.id, { status: '设计中' })}>开始设计</button>}{task.status === '待销售确认' && canReview && <><button onClick={() => { const at=new Date().toISOString(); onUpdate?.(task.id, { status: '客户沟通中', confirmedBy: reviewer, timeline: [...(task.timeline ?? []), { id:`timeline-${Date.now()}`, type:'审核通过', at, operator:reviewer, detail:'销售审核通过，进入客户沟通' }] }) }}>确认通过</button><button className="outline" onClick={() => { setRejectingId(task.id); setFeedback('') }}>打回修改</button></>}{task.status === '客户沟通中' && canReview && <><button onClick={() => { const at=new Date().toISOString(); onUpdate?.(task.id, { status: '已完成', completedAt:at, confirmedBy:reviewer, timeline: [...(task.timeline ?? []), { id:`timeline-${Date.now()}`, type:'客户确认', at, operator:reviewer, detail:'客户确认设计成果，任务完成' }] }) }}>客户已确认</button><button className="outline" onClick={() => { setRejectingId(task.id); setFeedback('') }}>客户要求修改</button></>}{canWork && (task.status === '设计中' || task.status === '修改中') ? <SolutionUploader task={task} onSubmit={(files, note) => onUpdate?.(task.id, { solutionFiles: files, solutionNote: note, status: '待销售确认' })} /> : null}</div>{rejectingId === task.id && <form className="design-reject-form" onSubmit={(event) => { event.preventDefault(); const value=feedback.trim(); if(!value)return; const at=new Date().toISOString(); onUpdate?.(task.id,{status:'修改中',feedback:value,timeline:[...(task.timeline??[]),{id:`timeline-${Date.now()}`,type:'退回修改',at,operator:reviewer,detail:value}]}); setRejectingId(''); setFeedback('') }}><label>修改意见（必填）<textarea required value={feedback} onChange={(event)=>setFeedback(event.target.value)} placeholder="写清楚需要调整的内容，设计师会在工作台看到"/></label><div><button type="submit">确认打回</button><button type="button" className="outline" onClick={()=>setRejectingId('')}>取消</button></div></form>}</article> })}</div>
 }
 
 function SolutionUploader({ task, onSubmit }: { task: DesignTask; onSubmit: (files: CustomerFile[], note: string) => void }) {

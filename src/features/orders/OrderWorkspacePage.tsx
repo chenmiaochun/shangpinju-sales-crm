@@ -1,8 +1,14 @@
 import { useMemo, useRef, useState } from 'react'
-import { CheckCircle2, FileUp, PackagePlus, Search, ShoppingCart, Trash2 } from 'lucide-react'
-import type { Customer, CustomerFile, OrderItem, PaymentRecord, ProductCatalogItem, SalesOrder } from '../../types'
+import { CheckCircle2, FileUp, PackagePlus, Printer, Search, ShoppingCart, Trash2 } from 'lucide-react'
+import type { ConfigProduct, Customer, CustomerFile, OrderItem, PaymentRecord, ProductCatalogItem, ProductComponent, ProductPackage, SalesOrder, SkuUnit } from '../../types'
+import { availableCount, configProductAvailability, configProductPriceRange, packageAvailability, packagePriceRange } from '../../utils/product-config'
+import { formatPriceRange } from '../product-master/pm-utils'
+import { ConfigProductPicker } from './ConfigProductPicker'
+import { PackagePicker } from './PackagePicker'
+import { OrderPreviewModal } from './OrderPreviewModal'
 import './orders.css'
 import './orders-layout.css'
+import './order-config.css'
 
 type Props = {
   customers: Customer[]
@@ -13,20 +19,59 @@ type Props = {
   onUpdateOrder: (id: string, changes: Partial<SalesOrder>) => void
   onActivate: (id: string, operator: string) => { ok: boolean; error?: string }
   onAddPayment?: (orderId: string, payment: PaymentRecord) => void
+  configProducts?: ConfigProduct[]
+  skuUnits?: SkuUnit[]
+  components?: ProductComponent[]
+  packages?: ProductPackage[]
+  showPricing?: boolean
 }
 
 const money = (value: number) => `¥${value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const paid = (order: SalesOrder) => order.payments.reduce((sum, item) => sum + (item.type === '退款' ? -item.amount : item.amount), 0)
 const routeCustomerId = () => new URLSearchParams(typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] ?? '').get('customer') ?? ''
+const nextOrderNo = (orders: SalesOrder[]) => {
+  const max = orders.reduce((current, order) => {
+    const match = order.orderNo.match(/^NO\.(\d{7})$/)
+    return match ? Math.max(current, Number(match[1])) : current
+  }, 0)
+  return `NO.${String(max + 1).padStart(7, '0')}`
+}
 
-export function OrderWorkspacePage({ customers, products, orders, activeUser, onAddOrder, onUpdateOrder, onActivate, onAddPayment }: Props) {
+// 加急订单现货不足检查：现货/展厅样品主件可用量 < 需要量 → 返回警示文案；外采/定制可订货不警示
+const shortageText = (item: OrderItem, skuUnits: SkuUnit[], products: ProductCatalogItem[]): string | null => {
+  if (item.skuLines?.length) {
+    for (const line of item.skuLines) {
+      if (!['现货', '展厅样品'].includes(line.supplyType)) continue
+      const unit = skuUnits.find((u) => u.id === line.skuUnitId)
+      if (!unit) continue
+      const need = item.quantity * line.quantity
+      const avail = availableCount(unit)
+      if (avail < need) return `「${line.componentName}」现货不足：可用 ${avail}，本单需要 ${need}（${line.sku}）`
+    }
+    return null
+  }
+  const product = products.find((p) => p.id === item.productId)
+  if (!product || !['现货', '展厅样品'].includes(product.supplyType)) return null
+  const avail = Math.max(0, product.availableStock - (product.reservedStock ?? 0))
+  return avail < item.quantity ? `现货不足：可用 ${avail}，本单需要 ${item.quantity}（${product.sku}）` : null
+}
+
+export function OrderWorkspacePage({ customers, products, orders, activeUser, onAddOrder, onUpdateOrder, onActivate, onAddPayment, configProducts = [], skuUnits = [], components = [], packages = [], showPricing = false }: Props) {
   const routeCustomer = routeCustomerId()
   const [customerId, setCustomerId] = useState(customers.some((item) => item.id === routeCustomer) ? routeCustomer : customers[0]?.id ?? '')
   const [query, setQuery] = useState('')
+  const [source, setSource] = useState<'config' | 'package' | 'catalog'>(configProducts.length ? 'config' : packages.length ? 'package' : 'catalog')
+  const [pickerProduct, setPickerProduct] = useState<ConfigProduct | null>(null)
+  const [pickerPackage, setPickerPackage] = useState<ProductPackage | null>(null)
+  const [expandedLine, setExpandedLine] = useState<string>('')
+  const [orderType, setOrderType] = useState<'订货' | '现货' | '退货'>('订货')
+  const [urgent, setUrgent] = useState(false)
   const [items, setItems] = useState<OrderItem[]>([])
   const [discount, setDiscount] = useState(0)
+  const [otherFee, setOtherFee] = useState(0)
   const [discountReason, setDiscountReason] = useState('')
   const [deliveryMonth, setDeliveryMonth] = useState('')
+  const [deliveryDate, setDeliveryDate] = useState('')
   const [address, setAddress] = useState('')
   const [depositRate, setDepositRate] = useState(20)
   const [note, setNote] = useState('')
@@ -34,11 +79,20 @@ export function OrderWorkspacePage({ customers, products, orders, activeUser, on
   const [paymentOrderId, setPaymentOrderId] = useState('')
   const [paymentAmount, setPaymentAmount] = useState(0)
   const [notice, setNotice] = useState('')
+  const [previewOrder, setPreviewOrder] = useState<SalesOrder | null>(null)
   const quoteInput = useRef<HTMLInputElement>(null)
   const customer = customers.find((item) => item.id === customerId)
   const filtered = products.filter((item) => `${item.name}${item.sku}${item.category ?? ''}${item.woodMaterial ?? ''}`.toLowerCase().includes(query.toLowerCase()))
+  const filteredConfig = useMemo(() => configProducts
+    .filter((item) => item.status === '上架')
+    .filter((item) => `${item.name}${item.code}${item.series ?? ''}${item.style ?? ''}`.toLowerCase().includes(query.toLowerCase()))
+    .sort((a, b) => a.sortOrder - b.sortOrder), [configProducts, query])
+  const filteredPackages = useMemo(() => packages
+    .filter((item) => item.status === '上架')
+    .filter((item) => `${item.name}${item.code}${item.description ?? ''}`.toLowerCase().includes(query.toLowerCase()))
+    .sort((a, b) => a.sortOrder - b.sortOrder), [packages, query])
   const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
-  const total = Math.max(0, subtotal - discount)
+  const total = Math.max(0, subtotal - discount + otherFee)
   const requiredDeposit = Math.round(total * depositRate / 100 * 100) / 100
   const selectedPaymentOrder = orders.find((item) => item.id === paymentOrderId)
 
@@ -46,8 +100,29 @@ export function OrderWorkspacePage({ customers, products, orders, activeUser, on
   const add = (product: ProductCatalogItem) => setItems((current) => {
     const found = current.find((item) => item.productId === product.id)
     if (found) return current.map((item) => item === found ? { ...item, quantity: item.quantity + 1 } : item)
-    return [...current, { id: `item-${Date.now()}-${product.id}`, productId: product.id, sku: product.sku, productName: product.name, specification: product.specifications[0], quantity: 1, unitPrice: product.unitPrice, supplyType: product.supplyType, availableStock: Math.max(0, product.availableStock - (product.reservedStock ?? 0)), material: product.woodMaterial, color: product.color, dimensions: product.dimensions, attachments: [] }]
+    return [...current, { id: `item-${Date.now()}-${product.id}`, productId: product.id, sku: product.sku, productName: product.name, specification: product.specifications[0], quantity: 1, unit: '件', unitPrice: product.unitPrice, supplyType: product.supplyType, availableStock: Math.max(0, product.availableStock - (product.reservedStock ?? 0)), material: product.woodMaterial, color: product.color, dimensions: product.dimensions, attachments: [] }]
   })
+  const addConfigItem = (item: OrderItem) => {
+    setItems((current) => {
+      const key = (row: OrderItem) => `${row.configProductId ?? ''}|${JSON.stringify(row.selections ?? {})}`
+      const found = current.find((row) => row.configProductId && key(row) === key(item))
+      if (found) return current.map((row) => row === found ? { ...row, quantity: row.quantity + item.quantity } : row)
+      return [...current, item]
+    })
+    setExpandedLine(item.id)
+    setPickerProduct(null)
+  }
+
+  const packagePickKey = (row: OrderItem) => `${row.packageId ?? ''}|${JSON.stringify((row.packageItems ?? []).map((entry) => [entry.productId, entry.quantity, entry.selections]))}`
+  const addPackageItem = (item: OrderItem) => {
+    setItems((current) => {
+      const found = current.find((row) => row.packageId && packagePickKey(row) === packagePickKey(item))
+      if (found) return current.map((row) => row === found ? { ...row, quantity: row.quantity + item.quantity } : row)
+      return [...current, item]
+    })
+    setExpandedLine(item.id)
+    setPickerPackage(null)
+  }
 
   const changeCustomer = (id: string) => {
     setCustomerId(id)
@@ -59,9 +134,11 @@ export function OrderWorkspacePage({ customers, products, orders, activeUser, on
     if (!customer || !items.length) { setNotice('请选择客户并至少加入一件商品'); return }
     if (discount > 0 && !discountReason.trim()) { setNotice('有优惠时请填写优惠原因，便于店长审核'); return }
     const now = new Date().toISOString()
-    onAddOrder({ id: `order-${Date.now()}`, orderNo: `SPJ${String(Date.now()).slice(-8)}`, customerId: customer.id, customerName: customer.name, salesperson: customer.salesperson || activeUser, salespersonId: customer.salespersonId, collaborators: customer.designer ? [customer.designer] : [], products: items.map((item) => item.productName), items, contractAmount: total, signedAt: now.slice(0, 10), expectedDeliveryMonth: deliveryMonth || undefined, contactPhone: customer.phone, deliveryAddress: address || customer.cityArea, quotationFiles, requiredDeposit, discountAmount: discount, discountReason: discountReason || undefined, note: note || undefined, status: '草稿', payments: [], performanceRate: 100, createdAt: now, updatedAt: now })
-    setItems([]); setDiscount(0); setDiscountReason(''); setQuotationFiles([]); setNote('')
-    setNotice('订单草稿已保存，尚未占用库存')
+    const order: SalesOrder = { id: `order-${Date.now()}`, orderNo: nextOrderNo(orders), orderType, urgent, customerId: customer.id, customerName: customer.name, salesperson: customer.salesperson || activeUser, salespersonId: customer.salespersonId, collaborators: customer.designer ? [customer.designer] : [], products: items.map((item) => item.productName), items, contractAmount: total, otherFee, signedAt: now.slice(0, 10), expectedDeliveryAt: deliveryDate || undefined, expectedDeliveryMonth: deliveryMonth || undefined, contactPhone: customer.phone, deliveryAddress: address || customer.cityArea, opener: activeUser, follower: customer.salesperson || activeUser, quotationFiles, requiredDeposit, discountAmount: discount, discountReason: discountReason || undefined, note: note || undefined, status: '待客户签名', payments: [], performanceRate: 100, createdAt: now, updatedAt: now }
+    onAddOrder(order)
+    setPreviewOrder(order)
+    setItems([]); setDiscount(0); setOtherFee(0); setDiscountReason(''); setQuotationFiles([]); setNote('')
+    setNotice('销售单已保存，请在预览中打印并完成签名留存')
   }
 
   const recordDeposit = () => {
@@ -71,20 +148,28 @@ export function OrderWorkspacePage({ customers, products, orders, activeUser, on
   }
 
   return <main className="order-workspace">
-    <header><div><p>唯一开单入口</p><h1>现场选品与正式订单</h1><span>从客户跟进带入资料；客户确认和定金达标后，店长审核生效并自动生成库存、采购或工厂需求。</span></div></header>
+    <header className="order-page-heading"><div><p>尚品居产品销售单</p><h1>销售开单</h1><span>按日常纸质销售单填写，保存后统一进入订单、收款、送货与售后流程。</span></div><button type="button" className="print-order-button" onClick={() => window.print()}><Printer size={17}/>打印当前开单页</button></header>
     {notice && <div className="order-notice" role="status">{notice}</div>}
     <section className="order-steps" aria-label="订单流程"><b>1 选客户商品</b><span>2 保存报价草稿</span><span>3 客户确认</span><span>4 登记定金</span><span>5 审核备货</span></section>
     <section className="order-entry-panel" aria-label="开单信息">
-      <div className="selection-bar">
+      <div className="selection-bar sales-form-basics">
+        <label><span>订单类型</span><select value={orderType} onChange={(e) => setOrderType(e.target.value as typeof orderType)}><option>订货</option><option>现货</option><option>退货</option></select></label>
+        <label className="urgent-toggle" title="客户时间紧急时勾选；加急订单中现货不足的商品会红色警示"><input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)}/>加急订单</label>
         <label><span>当前客户</span><select value={customerId} onChange={(e) => changeCustomer(e.target.value)}>{customers.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.phone || '电话未登记'}</option>)}</select></label>
         <label className="product-search"><span>搜索商品</span><div><Search/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="输入商品名、SKU、品类或木材"/></div></label>
       </div>
-      <div className="order-customer-summary"><span><small>客户</small><b>{customer?.name ?? '未选择'}</b></span><span><small>负责人</small><b>{customer?.salesperson ?? '-'}</b></span><label>收货地址<input value={address || customer?.cityArea || ''} onChange={(e) => setAddress(e.target.value)} placeholder="填写详细收货地址"/></label><label>预计送货月份<input type="month" value={deliveryMonth} onChange={(e) => setDeliveryMonth(e.target.value)}/></label></div>
+      <div className="order-customer-summary"><span><small>客户名称</small><b>{customer?.name ?? '未选择'}</b></span><span><small>联系方式</small><b>{customer?.phone ?? '-'}</b></span><label>送货地址<input value={address || customer?.cityArea || ''} onChange={(e) => setAddress(e.target.value)} placeholder="填写详细送货地址"/></label><label>送货日期<input type="date" value={deliveryDate} onChange={(e) => { setDeliveryDate(e.target.value); setDeliveryMonth(e.target.value.slice(0, 7)) }}/></label></div>
     </section>
-    <div className="selection-layout"><section className="product-browser"><header><h2>商品库</h2><span>{filtered.length} 个商品</span></header><div>{filtered.map((product) => <article key={product.id}><div><strong>{product.name}</strong><small>{product.sku} · {product.woodMaterial || product.category || '资料待完善'}</small><small>{product.dimensions || product.specifications.join(' / ')}</small></div><span><b>{money(product.unitPrice)}</b><small>{product.supplyType} · 可用 {Math.max(0, product.availableStock - (product.reservedStock ?? 0))}</small></span><button onClick={() => add(product)} title="加入选品"><PackagePlus/></button></article>)}</div></section>
-      <aside className="selection-cart"><header><ShoppingCart/><div><h2>本次选品</h2><span>{customer?.name || '未选择客户'} · {items.length} 项</span></div></header>{items.map((item) => <article className="order-line" key={item.id}><div className="order-line-main"><strong>{item.productName}</strong><select aria-label={`${item.productName}规格`} value={item.specification} onChange={(e) => updateItem(item.id, { specification: e.target.value, dimensions: e.target.value })}>{products.find((p) => p.id === item.productId)?.specifications.map((spec) => <option key={spec}>{spec}</option>)}</select><div className="order-line-details"><input aria-label={`${item.productName}材质`} value={item.material ?? ''} onChange={(e) => updateItem(item.id, { material: e.target.value })} placeholder="材质"/><input aria-label={`${item.productName}颜色`} value={item.color ?? ''} onChange={(e) => updateItem(item.id, { color: e.target.value })} placeholder="颜色"/><input aria-label={`${item.productName}定制要求`} value={item.customRequirement ?? ''} onChange={(e) => updateItem(item.id, { customRequirement: e.target.value })} placeholder="定制/工艺要求"/></div></div><input aria-label={`${item.productName}数量`} type="number" min="1" value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Math.max(1, Number(e.target.value)) })}/><b>{money(item.unitPrice * item.quantity)}</b><button aria-label={`删除${item.productName}`} onClick={() => setItems((rows) => rows.filter((row) => row.id !== item.id))}><Trash2/></button></article>)}{!items.length && <div className="cart-empty">从左侧选择客户需要的商品</div>}
-        <div className="cart-totals"><label>整单优惠<input type="number" min="0" max={subtotal} value={discount} onChange={(e) => setDiscount(Number(e.target.value))}/></label>{discount > 0 && <label>优惠原因<input value={discountReason} onChange={(e) => setDiscountReason(e.target.value)} placeholder="店长审核依据"/></label>}<label>定金比例<input type="number" min="0" max="100" value={depositRate} onChange={(e) => setDepositRate(Number(e.target.value))}/></label><label>订单备注<input value={note} onChange={(e) => setNote(e.target.value)} placeholder="楼层、入户、安装等要求"/></label><div className="order-file-row"><input ref={quoteInput} className="visually-hidden" type="file" multiple accept="image/*,.pdf,.doc,.docx,.dwg,.dxf,.cad" onChange={(e) => { const files = Array.from(e.target.files ?? []).map((file) => ({ id: `quote-${Date.now()}-${file.name}`, name: file.name, type: file.type || '文件', size: file.size })); setQuotationFiles((current) => [...current, ...files]); e.target.value = '' }}/><button type="button" onClick={() => quoteInput.current?.click()}><FileUp size={15}/>报价/图纸</button><span>{quotationFiles.length ? `已选 ${quotationFiles.length} 个文件` : '可上传客户确认资料'}</span></div><span>商品合计<b>{money(subtotal)}</b></span><span>应收定金<b>{money(requiredDeposit)}</b></span><strong>订单金额<b>{money(total)}</b></strong><button className="save-order" onClick={saveDraft}>保存订单草稿</button></div></aside></div>
-    <section className="order-pipeline"><header><h2>订单处理</h2><span>每张订单只沿这一条链路推进</span></header>{orders.map((order) => { const received = paid(order); const depositEnough = received >= (order.requiredDeposit ?? 0); return <article key={order.id}><span><b>{order.orderNo} · {order.customerName}</b><small>{order.products.join('、')} · {money(order.contractAmount)} · 已收 {money(received)}</small></span><i>{order.status}</i><div>{order.status === '草稿' && <button onClick={() => onUpdateOrder(order.id, { status: '待客户确认' })}>生成报价并提交确认</button>}{order.status === '待客户确认' && <button onClick={() => onUpdateOrder(order.id, { status: '待审核', customerConfirmedAt: new Date().toISOString(), customerConfirmationNote: '客户现场/线上确认' })}>客户已确认</button>}{order.status === '待审核' && !depositEnough && onAddPayment && <button onClick={() => { setPaymentOrderId(order.id); setPaymentAmount(Math.max(0, (order.requiredDeposit ?? 0) - received)) }}>登记定金</button>}{order.status === '待审核' && depositEnough && <button onClick={() => { const result = onActivate(order.id, activeUser); setNotice(result.ok ? '订单已生效，已自动生成库存、采购或工厂需求' : result.error ?? '操作失败') }}><CheckCircle2/>审核并生效</button>}</div></article> })}</section>
+    <div className="selection-layout"><section className="product-browser"><header className="browser-head"><div className="browser-tabs" role="tablist" aria-label="商品来源"><button type="button" role="tab" aria-selected={source === 'config'} className={source === 'config' ? 'active' : ''} onClick={() => setSource('config')}>产品库单品{configProducts.length ? ` · ${filteredConfig.length}` : ''}</button><button type="button" role="tab" aria-selected={source === 'package'} className={source === 'package' ? 'active' : ''} onClick={() => setSource('package')}>产品库套餐{packages.length ? ` · ${filteredPackages.length}` : ''}</button><button type="button" role="tab" aria-selected={source === 'catalog'} className={source === 'catalog' ? 'active' : ''} onClick={() => setSource('catalog')}>商品库 · {filtered.length}</button></div></header>
+      {source === 'config' && <div className="config-list">{filteredConfig.length ? filteredConfig.map((cp) => { const avail = configProductAvailability(cp, skuUnits); const availText = avail.missingSku ? '规格未配齐' : avail.hasCustom ? '含定制主件' : avail.hasPurchase ? '含外采主件' : `可售 ${avail.stock} 套`; return <article key={cp.id} className="config-card"><div><strong>{cp.name}</strong><small>{cp.code}{cp.series ? ` · ${cp.series}` : ''}{cp.style ? ` · ${cp.style}` : ''}</small><small>{availText}</small></div><span><b>{formatPriceRange(configProductPriceRange(cp, skuUnits))}</b><small>选规格后自动算价</small></span><button onClick={() => setPickerProduct(cp)} title="选择规格加入选品"><PackagePlus/></button></article> }) : <div className="cart-empty">产品库暂无上架单品，可切换到商品库或让店长在「产品主数据」中配置</div>}</div>}
+      {source === 'package' && <div className="config-list">{filteredPackages.length ? filteredPackages.map((pk) => { const avail = packageAvailability(pk, configProducts, skuUnits); const availText = avail.missingSku ? '有单品规格未配齐' : avail.hasCustom ? '含定制主件' : avail.hasPurchase ? '含外采主件' : `可售 ${avail.stock} 套`; return <article key={pk.id} className="config-card package-card"><div><strong>{pk.name}</strong><small>{pk.code} · 含 {pk.items.length} 件单品{pk.description ? ` · ${pk.description}` : ''}</small><small>{availText}</small></div><span><b>{formatPriceRange(packagePriceRange(pk, configProducts, skuUnits))}</b><small>选配后自动算价</small></span><button onClick={() => setPickerPackage(pk)} title="选配套餐加入选品"><PackagePlus/></button></article> }) : <div className="cart-empty">产品库暂无上架套餐，可让店长在「产品主数据 · 套餐配置」中创建</div>}</div>}
+      {source === 'catalog' && <div>{filtered.map((product) => <article key={product.id}><div><strong>{product.name}</strong><small>{product.sku} · {product.woodMaterial || product.category || '资料待完善'}</small><small>{product.dimensions || product.specifications.join(' / ')}</small></div><span><b>{money(product.unitPrice)}</b><small>{product.supplyType} · 可用 {Math.max(0, product.availableStock - (product.reservedStock ?? 0))}</small></span><button onClick={() => add(product)} title="加入选品"><PackagePlus/></button></article>)}</div>}</section>
+      <aside className="selection-cart"><header><ShoppingCart/><div><h2>销售单明细</h2><span>{customer?.name || '未选择客户'} · {items.length} 项</span></div></header>{items.map((item) => <article className="order-line" key={item.id} data-config-line={item.configProductId || item.packageId ? 'true' : undefined}><div className="order-line-main"><strong>{item.productName}{(item.configProductCode || item.packageCode) && <small className="line-code">{item.configProductCode ?? item.packageCode}</small>}</strong>{item.configProductId || item.packageId ? <span className="line-spec-text">{item.specification}</span> : <select aria-label={`${item.productName}规格`} value={item.specification} onChange={(e) => updateItem(item.id, { specification: e.target.value, dimensions: e.target.value })}>{products.find((p) => p.id === item.productId)?.specifications.map((spec) => <option key={spec}>{spec}</option>)}</select>}<div className="order-line-details"><input aria-label={`${item.productName}材质`} value={item.material ?? ''} onChange={(e) => updateItem(item.id, { material: e.target.value })} placeholder="材质"/><input aria-label={`${item.productName}单位`} value={item.unit ?? '件'} onChange={(e) => updateItem(item.id, { unit: e.target.value })} placeholder="单位"/><input aria-label={`${item.productName}备注`} value={item.lineNote ?? ''} onChange={(e) => updateItem(item.id, { lineNote: e.target.value })} placeholder="本行备注"/></div>{item.skuLines?.length ? <button type="button" className="line-sku-toggle" aria-expanded={expandedLine === item.id} onClick={() => setExpandedLine((current) => current === item.id ? '' : item.id)}>组件明细 {item.skuLines.length} 项</button> : null}{urgent && shortageText(item, skuUnits, products) && <span className="line-shortage" role="alert">⚠ {shortageText(item, skuUnits, products)}</span>}</div><input aria-label={`${item.productName}数量`} type="number" min="1" value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Math.max(1, Number(e.target.value)) })}/><input className="line-price" aria-label={`${item.productName}单价`} type="number" min="0" value={item.unitPrice} onChange={(e) => updateItem(item.id, { unitPrice: Math.max(0, Number(e.target.value)) })}/><b>{money(item.unitPrice * item.quantity)}</b><button aria-label={`删除${item.productName}`} onClick={() => setItems((rows) => rows.filter((row) => row.id !== item.id))}><Trash2/></button>{item.skuLines?.length && expandedLine === item.id ? <ul className="line-sku-lines">{item.skuLines.map((line) => <li key={line.skuUnitId}><span>{line.componentName} ×{line.quantity}</span><small>{line.specSummary}</small><small>{line.supplyType}{line.optional ? ' · 选配' : ''}</small>{showPricing && <b>{money(line.unitPrice * line.quantity)}</b>}</li>)}</ul> : null}</article>)}{!items.length && <div className="cart-empty">从左侧选择客户需要的商品</div>}
+        <div className="cart-totals"><label>其他费用<input type="number" min="0" value={otherFee} onChange={(e) => setOtherFee(Number(e.target.value))}/></label><label>整单优惠<input type="number" min="0" max={subtotal + otherFee} value={discount} onChange={(e) => setDiscount(Number(e.target.value))}/></label>{discount > 0 && <label>优惠原因<input value={discountReason} onChange={(e) => setDiscountReason(e.target.value)} placeholder="店长审核依据"/></label>}<label>定金比例<input type="number" min="0" max="100" value={depositRate} onChange={(e) => setDepositRate(Number(e.target.value))}/></label><label>整单备注<input value={note} onChange={(e) => setNote(e.target.value)} placeholder="楼层、入户、送货、安装及其他约定"/></label><div className="order-file-row"><input ref={quoteInput} className="visually-hidden" type="file" multiple accept="image/*,.pdf,.doc,.docx,.dwg,.dxf,.cad" onChange={(e) => { const files = Array.from(e.target.files ?? []).map((file) => ({ id: `quote-${Date.now()}-${file.name}`, name: file.name, type: file.type || '文件', size: file.size })); setQuotationFiles((current) => [...current, ...files]); e.target.value = '' }}/><button type="button" onClick={() => quoteInput.current?.click()}><FileUp size={15}/>报价/图纸</button><span>{quotationFiles.length ? `已选 ${quotationFiles.length} 个文件` : '可上传客户确认资料'}</span></div><span>商品合计<b>{money(subtotal)}</b></span><span>其他费用<b>{money(otherFee)}</b></span><span>应收定金<b>{money(requiredDeposit)}</b></span><strong>订单金额<b>{money(total)}</b></strong><button className="save-order" onClick={saveDraft}>保存销售单</button></div></aside></div>
+    <section className="order-pipeline"><header><h2>订单处理</h2><span>每张订单只沿这一条链路推进</span></header>{orders.map((order) => { const received = paid(order); const depositEnough = received >= (order.requiredDeposit ?? 0); return <article key={order.id}><span><b>{order.orderNo} · {order.customerName}</b><small>{order.products.join('、')} · {money(order.contractAmount)} · 已收 {money(received)}</small></span><i>{order.status}</i><div><button onClick={() => setPreviewOrder(order)}>查看/打印</button>{order.status === '草稿' && <button onClick={() => onUpdateOrder(order.id, { status: '待客户确认' })}>提交客户确认</button>}{order.status === '已签名已确认' && <button onClick={() => onUpdateOrder(order.id, { status: '待审核', customerConfirmedAt: new Date().toISOString(), customerConfirmationNote: '签名回单已上传' })}>提交店长审核</button>}{order.status === '待客户确认' && <button onClick={() => onUpdateOrder(order.id, { status: '待审核', customerConfirmedAt: new Date().toISOString(), customerConfirmationNote: '客户现场/线上确认' })}>客户已确认</button>}{order.status === '待审核' && !depositEnough && onAddPayment && <button onClick={() => { setPaymentOrderId(order.id); setPaymentAmount(Math.max(0, (order.requiredDeposit ?? 0) - received)) }}>登记定金</button>}{order.status === '待审核' && depositEnough && <button onClick={() => { const result = onActivate(order.id, activeUser); setNotice(result.ok ? '订单已生效，已自动生成库存、采购或工厂需求' : result.error ?? '操作失败') }}><CheckCircle2/>审核并生效</button>}</div></article> })}</section>
     {selectedPaymentOrder && <div className="order-payment-backdrop"><section role="dialog" aria-label={`登记定金 · ${selectedPaymentOrder.customerName}`}><h2>登记定金 · {selectedPaymentOrder.customerName}</h2><p>应收定金 {money(selectedPaymentOrder.requiredDeposit ?? 0)}，已收 {money(paid(selectedPaymentOrder))}</p><label>本次收款<input aria-label="本次定金" type="number" min="0.01" value={paymentAmount} onChange={(e) => setPaymentAmount(Number(e.target.value))}/></label><footer><button onClick={() => setPaymentOrderId('')}>取消</button><button onClick={recordDeposit}>确认登记</button></footer></section></div>}
+    {previewOrder && <OrderPreviewModal order={previewOrder} onClose={() => setPreviewOrder(null)} onUpdate={(id, changes) => { onUpdateOrder(id, changes); setPreviewOrder((current) => current?.id === id ? { ...current, ...changes } : current) }}/>}
+    {pickerProduct && <ConfigProductPicker product={pickerProduct} components={components} skuUnits={skuUnits} showPricing={showPricing} onClose={() => setPickerProduct(null)} onConfirm={addConfigItem}/>}
+    {pickerPackage && <PackagePicker pkg={pickerPackage} configProducts={configProducts} components={components} skuUnits={skuUnits} showPricing={showPricing} onClose={() => setPickerPackage(null)} onConfirm={addPackageItem}/>}
   </main>
 }

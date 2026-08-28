@@ -24,7 +24,7 @@ describe('customer import files', () => {
     const sheet = workbook.Sheets['客户导入模板']
     const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: false })
     expect(rows[0]).toEqual(expect.arrayContaining(['所在城市', '车牌号码', '小区名称', '意向产品', '初步报价金额', '优惠详情']))
-    expect(rows[1][1]).toBe('13800138000')
+    expect(rows[1][rows[0].indexOf('电话')]).toBe('13800138000')
     expect(previewCustomerCsv(XLSX.utils.sheet_to_csv(sheet)).rows[0].errors).toEqual([])
   })
 })

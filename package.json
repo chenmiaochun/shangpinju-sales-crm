@@ -45,8 +45,10 @@
       "output": "artifacts/desktop"
     },
     "files": [
+      "desktop/main.cjs",
       "desktop/**/*",
-      "package.json"
+      "package.json",
+      "dist/**/*"
     ],
     "win": {
       "target": "nsis",

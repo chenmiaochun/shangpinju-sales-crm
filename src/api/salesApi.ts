@@ -1,7 +1,11 @@
-import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, FollowUp, InventoryDocument, InventoryMovement, ProductCatalogItem, ReplenishmentRequest, SalesOrder, SupplyDemand, Warehouse, WarehouseStock } from '../types'
+import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, ExperienceStation, FollowUp, InventoryDocument, InventoryMovement, ProductCatalogItem, ProductCategory, ProductComponent, ProductSeries, SkuUnit, ConfigProduct, ProductPackage, ReplenishmentRequest, SalesOrder, SupplyDemand, Warehouse, WarehouseStock } from '../types'
 import type { AccessPermission, TeamRole } from '../features/team/access'
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3001').replace(/\/$/, '') + '/api'
+const IS_LOCAL_PREVIEW = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+const DEFAULT_API_ORIGIN = IS_LOCAL_PREVIEW
+  ? `${window.location.protocol}//${window.location.hostname}:3001`
+  : window.location.origin
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_ORIGIN).replace(/\/$/, '') + '/api'
 const STATIC_DEMO = import.meta.env.VITE_STATIC_DEMO === 'true'
 const STATIC_ACCOUNTS_KEY = 'shangpinju.static-accounts.v1'
 const STATIC_SESSION_KEY = 'shangpinju.static-session.v1'
@@ -20,6 +24,13 @@ export interface RemoteSalesState {
   warehouseStocks: WarehouseStock[]
   inventoryDocuments: InventoryDocument[]
   replenishmentRequests: ReplenishmentRequest[]
+  // 产品主数据体系（Phase 1 新增，服务端 app_state 全量状态承载，按记录并发合并）
+  categories: ProductCategory[]
+  series: ProductSeries[]
+  components: ProductComponent[]
+  skuUnits: SkuUnit[]
+  configProducts: ConfigProduct[]
+  productPackages: ProductPackage[]
 }
 export interface RemoteAuditEvent { id: number; action: string; resource: string; details: Record<string, unknown>; createdAt: string }
 export type AccountRole = TeamRole
@@ -75,11 +86,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     if (response.status === 401 && !path.startsWith('/auth/')) window.dispatchEvent(new Event('sales-crm:session-expired'))
     let message = `API ${response.status}`
-    try { message = (await response.json() as { error?: string; message?: string }).message ?? message } catch { /* Use status fallback. */ }
+    try {
+      const body = await response.json() as { error?: string | { message?: string }; message?: string }
+      message = body.message ?? (typeof body.error === 'object' ? body.error.message : body.error) ?? message
+    } catch { /* Use status fallback. */ }
     throw new ApiError(response.status, message)
   }
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
+}
+
+function fileDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
 }
 
 export const salesApi = {
@@ -103,6 +126,22 @@ export const salesApi = {
   },
   logout: () => { if (STATIC_DEMO) { sessionStorage.removeItem(STATIC_SESSION_KEY); return Promise.resolve() } return request<void>('/auth/logout', { method: 'POST' }) },
   health: () => request<{ ok: boolean }>('/health'),
+  uploadFile: async (file: File, ownerId: string, category = 'design') => {
+    const dataUrl = await fileDataUrl(file)
+    if (STATIC_DEMO) return { file: { id: `file-${Date.now()}-${file.name}`, name: file.name, type: file.type || 'application/octet-stream', size: file.size, dataUrl, uploadedAt: new Date().toISOString() } }
+    try {
+      const result = await request<{ file: import('../types').CustomerFile }>('/files', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: file.name, type: file.type || 'application/octet-stream', size: file.size, dataUrl, ownerId, category }) })
+      return { file: { ...result.file, url: result.file.url?.startsWith('/') ? `${new URL(API_BASE).origin}${result.file.url}` : result.file.url } }
+    } catch (error) {
+      // 兼容尚未重启到新版的服务器：把文件内容随业务数据同步，避免只留下文件名。
+      if (error instanceof ApiError && error.status === 404) return { file: { id: `embedded-${Date.now()}-${crypto.randomUUID()}`, name: file.name, type: file.type || 'application/octet-stream', size: file.size, dataUrl, uploadedAt: new Date().toISOString() } }
+      throw error
+    }
+  },
+  submitExperienceAssessment: (input: { name: string; phone: string; cityArea?: string; houseLayout?: string; houseArea?: number; housingStage: string; familyMembers: string[]; focusSpaces: string[]; painPoints: string[]; budget?: string; moveInPlan?: string; sleepNeeds: string[]; preferredStations: ExperienceStation[]; consent: boolean; source?: string; contentId?: string }) => {
+    if (STATIC_DEMO) return Promise.reject(new ApiError(503, '正式共享数据库尚未启用，请联系尚品居工作人员登记'))
+    return request<{ ok: boolean; leadId: string; assessmentId: string; recommendedStations: ExperienceStation[]; summary: string }>('/public/experience-intake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
+  },
   getState: () => request<{ value: Partial<RemoteSalesState>; updatedAt: string | null }>('/state'),
   putState: (state: RemoteSalesState) => request('/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state) }),
   getAudit: () => request<{ items: RemoteAuditEvent[] }>('/audit?limit=50&offset=0'),

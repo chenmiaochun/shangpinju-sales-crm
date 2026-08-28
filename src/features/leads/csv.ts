@@ -1,6 +1,7 @@
 import type { Customer } from '../../types'
 
 export const CSV_HEADERS = [
+  '线索编号', '活动批次', '内容编号', '广告组/素材组', '转化来源', '预约到店时间', '预约/到店状态', '需求产品线',
   '姓名', '电话', '所在城市', '负责人',
   '车牌号码', '车辆品牌', '车辆系列',
   '小区名称', '楼栋/房号', '户型', '建筑面积', '房产参考价值',
@@ -84,6 +85,14 @@ export function csvRowToCustomer(row: CsvPreviewRow, now = new Date()): Customer
   const supplemental = [values.客户编号 && `客户编号：${values.客户编号}`, values.微信名 && `微信名：${values.微信名}`, values.备注].filter(Boolean).join('；')
   return {
     id: `lead-${now.getTime()}-${row.line}-${Math.random().toString(36).slice(2, 7)}`,
+    leadId: values.线索编号 || undefined,
+    campaignId: values.活动批次 || undefined,
+    contentId: values.内容编号 || undefined,
+    adGroup: values['广告组/素材组'] || undefined,
+    conversionSource: values.转化来源 || undefined,
+    appointmentAt: values.预约到店时间 ? new Date(values.预约到店时间).toISOString() : undefined,
+    arrivalStatus: (values['预约/到店状态'] || '未预约') as Customer['arrivalStatus'],
+    productLines: splitList(values.需求产品线) as Customer['productLines'],
     name: values.姓名,
     phone: values.电话,
     source: preferred(values.客户来源, values.来源),
@@ -113,6 +122,7 @@ export function csvRowToCustomer(row: CsvPreviewRow, now = new Date()): Customer
     lastContactAt: importedAt.toISOString(),
     nextFollowUpAt: values.下次跟进 ? new Date(values.下次跟进).toISOString() : undefined,
     createdAt: importedAt.toISOString().slice(0, 10),
+    updatedAt: importedAt.toISOString(),
   }
 }
 
@@ -124,6 +134,7 @@ export function customerCsv(customers: Customer[]): string {
   return serializeCsv([
     [...CSV_HEADERS],
     ...customers.map((item) => [
+      item.leadId, item.campaignId, item.contentId, item.adGroup, item.conversionSource, item.appointmentAt, item.arrivalStatus, item.productLines?.join('|'),
       item.name, item.phone, item.cityArea, item.salesperson,
       item.licensePlate, item.vehicleBrand, item.vehicleSeries,
       item.communityName, item.buildingRoom, item.houseLayout, item.houseArea, item.houseValueRange,
@@ -137,7 +148,7 @@ export function customerCsv(customers: Customer[]): string {
 export function templateRows(): unknown[][] {
   return [
     [...CSV_HEADERS],
-    ['张女士', '13800138000', '揭阳', '林晓', '粤V12345', '宝马', 'X5', '保利锦城', '8栋 1202', '三房两厅', 108, '约 124-146 万元', '8-15 万', '沙发|餐边柜', '小红书', '首次到店', '硬装收尾', '2026-08-10', 80000, '客厅家具组合', '节日活动', '整单 95 折', '周末方便联系'],
+    ['L-20260828-001', 'SPJ-2026-09', 'CT-20260828-01', '抖音测试A组', '抖音', '2026-08-28T15:30', '已预约', '原创家具|雅兰睡眠', '张女士', '13800138000', '揭阳', '陈婉珊', '粤V12345', '宝马', 'X5', '保利锦城', '8栋 1202', '三房两厅', 108, '约 124-146 万元', '8-15 万', '沙发|餐边柜', '小红书', '首次到店', '硬装收尾', '2026-08-10', 80000, '客厅家具组合', '节日活动', '整单 95 折', '周末方便联系'],
   ]
 }
 

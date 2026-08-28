@@ -21,10 +21,12 @@ import {
 } from 'lucide-react'
 import { customers as seedCustomers, followUps as seedFollowUps } from '../../data'
 import { productCatalog } from '../../productCatalog'
+import { salesApi } from '../../api/salesApi'
 import type { Customer, CustomerFile, CustomerStage, DesignTask, DesignTaskType, FollowUp, OrderItem, ProductCatalogItem } from '../../types'
 import type { TeamMember } from '../team'
 import { buildNextAction, NextActionPicker } from '../followups/NextActionPicker'
 import './customers.css'
+import './upload-feedback.css'
 
 const STORAGE_KEY = 'shangpinju.customer-followup.v1'
 const CLOSED_STAGES = new Set<CustomerStage>(['已成交', '已流失'])
@@ -247,7 +249,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
     }))
     if (design && onAddDesignTask) {
       const now = new Date().toISOString()
-      onAddDesignTask({ ...design, id: `design-${Date.now()}`, customerId: selected.id, customerName: selected.name, salesperson: selected.salesperson, status: '待接收', solutionFiles: [], createdAt: now, updatedAt: now })
+      onAddDesignTask({ ...design, id: `design-${Date.now()}`, customerId: selected.id, customerName: selected.name, salesperson: selected.salesperson, status: '待接收', solutionFiles: [], versions: [], timeline: [{ id: `timeline-${Date.now()}`, type: '任务创建', at: now, operator: selected.salesperson, detail: `指派给 ${design.designerName}，要求：${design.requirement}` }], createdAt: now, updatedAt: now })
     }
     setFormOpen(false)
   }
@@ -374,7 +376,12 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
                   <div><dt>车辆信息</dt><dd>{selected.vehicleBrand ? `${selected.vehicleBrand}${selected.vehicleSeries ? ` · ${selected.vehicleSeries}` : ''}${selected.vehiclePriceRange ? ` · 参考 ${selected.vehiclePriceRange}` : ''}` : '未登记'}</dd></div>
                   <div><dt>主要顾虑</dt><dd className="concern-list">{selected.concerns.map((item) => <span key={item}>{item}</span>)}</dd></div>
                   <div><dt>客户来源</dt><dd>{selected.source}</dd></div>
+                  <div><dt>活动线索</dt><dd>{selected.leadId || '历史客户'}{selected.campaignId ? ` · ${selected.campaignId}` : ''}</dd></div>
+                  <div><dt>内容归因</dt><dd>{selected.contentId || '未登记'}{selected.adGroup ? ` · ${selected.adGroup}` : ''}</dd></div>
+                  <div><dt>预约状态</dt><dd>{selected.arrivalStatus || '未登记'}{selected.appointmentAt ? ` · ${selected.appointmentAt}` : ''}</dd></div>
+                  <div><dt>体验诊断</dt><dd>{selected.experienceAssessment ? `${selected.experienceAssessment.assessmentId} · ${selected.experienceAssessment.status}` : '未测评'}</dd></div>
                 </dl>
+                {selected.experienceAssessment && <section className="experience-assessment-card"><header><strong>家庭空间体验诊断</strong><span>{selected.experienceAssessment.recommendedStations.join(' → ')}</span></header><p>{selected.experienceAssessment.summary}</p><small>本结果用于体验和需求沟通，不是正式设计、报价、库存、交期或效果承诺。</small></section>}
                 {selected.remarkImages?.length ? <div className="customer-remark-gallery">{selected.remarkImages.map((image) => <figure key={image.id}><img src={image.dataUrl} alt={image.name}/><figcaption>{image.name}</figcaption></figure>)}</div> : null}
               </section>
 
@@ -569,19 +576,38 @@ function FollowUpDialog({ customer, designers, purpose = 'default', initialActio
   const [designerId, setDesignerId] = useState('')
   const [designType, setDesignType] = useState<DesignTaskType>('效果图')
   const [requirement, setRequirement] = useState('')
-  const [dueAt, setDueAt] = useState('')
+  const [dueAt, setDueAt] = useState(() => { const date = new Date(Date.now() + 2 * 86400000); date.setHours(18, 0, 0, 0); return toLocalInput(date) })
   const [designPriority, setDesignPriority] = useState<'普通' | '紧急'>('普通')
   const [referenceFiles, setReferenceFiles] = useState<CustomerFile[]>([])
+  const [designReferenceFiles, setDesignReferenceFiles] = useState<CustomerFile[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadMessage, setUploadMessage] = useState('')
+  const [formError, setFormError] = useState('')
   const [dealConfirmed, setDealConfirmed] = useState(false)
   const referenceInput = useRef<HTMLInputElement>(null)
   const designReferenceInput = useRef<HTMLInputElement>(null)
 
   function submit(event: FormEvent) {
     event.preventDefault()
+    setFormError('')
     const designer = designers.find((item) => item.id === designerId)
     const nextAction = dealConfirmed ? '进入选品订单工作台创建正式订单' : buildNextAction(nextActions, customAction)
     const mergedResult = mergeFollowUpText(resultChoices, result)
-    onSubmit({ channel, at: new Date(at).toISOString(), content: mergeFollowUpText(contentChoices, content), result: dealConfirmed ? [mergedResult, '客户确认购买意向'].filter(Boolean).join('；') : mergedResult, nextAction: nextAction || undefined, nextAt: nextAt ? new Date(nextAt).toISOString() : undefined, attachments: referenceFiles }, needsDesign && designer ? { designerId, designerName: designer.name, type: designType, requirement: requirement.trim(), dueAt: new Date(dueAt).toISOString(), priority: designPriority, referenceFiles } : undefined)
+    const due = dueAt ? new Date(dueAt) : null
+    if (needsDesign && (!designer || !due || Number.isNaN(due.getTime()))) { setFormError('请选择设计师并填写有效的计划完成时间'); return }
+    onSubmit({ channel, at: new Date(at).toISOString(), content: mergeFollowUpText(contentChoices, content), result: dealConfirmed ? [mergedResult, '客户确认购买意向'].filter(Boolean).join('；') : mergedResult, nextAction: nextAction || undefined, nextAt: nextAt ? new Date(nextAt).toISOString() : undefined, attachments: referenceFiles }, needsDesign && designer && due ? { designerId, designerName: designer.name, type: designType, requirement: requirement.trim(), dueAt: due.toISOString(), priority: designPriority, referenceFiles: designReferenceFiles } : undefined)
+  }
+
+  async function uploadSelected(files: File[], category: 'followup' | 'design') {
+    if (!files.length) return
+    setUploading(true); setFormError(''); setUploadMessage('')
+    try {
+      const uploaded = await Promise.all(files.map((file) => salesApi.uploadFile(file, customer.id, category).then((result) => result.file)))
+      if (category === 'design') setDesignReferenceFiles((current) => [...current, ...uploaded])
+      else setReferenceFiles((current) => [...current, ...uploaded])
+      setUploadMessage(`已上传 ${uploaded.length} 个文件，保存跟进后设计师即可查看`)
+    } catch { setFormError('文件上传失败，请检查文件大小或联系管理员后重试') }
+    finally { setUploading(false) }
   }
 
   return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -592,14 +618,16 @@ function FollowUpDialog({ customer, designers, purpose = 'default', initialActio
         <label>跟进时间<input type="datetime-local" required value={at} onChange={(event) => setAt(event.target.value)} /></label>
         <FollowUpChoiceField fieldId={`followup-${customer.id}-content`} label="沟通内容" options={followUpContentOptions} selected={contentChoices} supplement={content} onSelectedChange={setContentChoices} onSupplementChange={setContent} placeholder="如有特殊需求，可在这里补充" />
         <FollowUpChoiceField fieldId={`followup-${customer.id}-result`} label="本次结果" options={followUpResultOptions} selected={resultChoices} supplement={result} onSelectedChange={setResultChoices} onSupplementChange={setResult} placeholder="如有特殊结果，可在这里补充" />
-        <div className="reference-upload followup-attachments"><input ref={referenceInput} className="visually-hidden" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.cad,.zip" onChange={(event) => { const files = Array.from(event.target.files ?? []).map((file) => ({ id: `followup-file-${Date.now()}-${file.name}`, name: file.name, type: file.type || '文件', size: file.size })); setReferenceFiles((current) => [...current, ...files]); event.target.value = '' }} /><button type="button" onClick={() => referenceInput.current?.click()}><FileUp size={16} />上传本次资料</button><span>报价单、微信截图、方案、图纸，可多选</span>{referenceFiles.map((file) => <div key={file.id}><span>{file.name}</span><button type="button" aria-label={`删除 ${file.name}`} onClick={() => setReferenceFiles((current) => current.filter((item) => item.id !== file.id))}><Trash2 size={14} /></button></div>)}</div>
+        <div className="reference-upload followup-attachments"><input ref={referenceInput} className="visually-hidden" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.cad,.zip" onChange={(event) => { void uploadSelected(Array.from(event.target.files ?? []), 'followup'); event.target.value = '' }} /><button type="button" disabled={uploading} onClick={() => referenceInput.current?.click()}><FileUp size={16} />{uploading ? '上传中...' : '上传本次资料'}</button><span>报价单、微信截图、方案、图纸，可多选</span>{referenceFiles.map((file) => <div key={file.id}><span>{file.name}</span><button type="button" aria-label={`删除 ${file.name}`} onClick={() => setReferenceFiles((current) => current.filter((item) => item.id !== file.id))}><Trash2 size={14} /></button></div>)}</div>
         <div className="design-assist-toggle"><label><input type="checkbox" checked={dealConfirmed} onChange={(event) => { setDealConfirmed(event.target.checked); if (event.target.checked) { setNextActions([]); setCustomAction(''); setNextAt('') } }} /><span>客户已确认购买意向</span></label><small>保存后生成“创建正式订单”待办，不在跟进中填写订单</small></div>
         <div className="form-divider"><span>下一步任务</span></div>
         <NextActionPicker selected={nextActions} customAction={customAction} onSelectedChange={setNextActions} onCustomActionChange={setCustomAction} />
         <label>计划时间<input type="datetime-local" value={nextAt} onChange={(event) => setNextAt(event.target.value)} /></label>
         <div className="design-assist-toggle"><label><input type="checkbox" checked={needsDesign} onChange={(event) => setNeedsDesign(event.target.checked)} /><span>需要设计师协助</span></label><small>保存后自动 @设计师，并在任务中心生成待办</small></div>
-        {needsDesign && <section className="design-assist-fields"><div className="design-grid"><label>指派设计师 *<select required disabled={!designers.length} value={designerId} onChange={(event) => setDesignerId(event.target.value)}><option value="">{designers.length ? '请选择设计师' : '暂无设计师账号，请先在团队权限中新增'}</option>{designers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>任务类型 *<select required value={designType} onChange={(event) => setDesignType(event.target.value as DesignTaskType)}>{(['平面布局', '家具搭配', '效果图', '报价方案', '方案修改', '其他'] as DesignTaskType[]).map((item) => <option key={item}>{item}</option>)}</select></label><label>计划完成时间 *<input required type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} /></label><label>紧急程度<select value={designPriority} onChange={(event) => setDesignPriority(event.target.value as '普通' | '紧急')}><option>普通</option><option>紧急</option></select></label></div><label>设计任务要求 *<textarea required rows={2} value={requirement} onChange={(event) => setRequirement(event.target.value)} placeholder="说明客户需求、空间范围和设计重点" /></label><div className="reference-upload"><input ref={designReferenceInput} className="visually-hidden" type="file" multiple accept="image/*,.pdf,.dwg,.dxf,.cad,.zip" onChange={(event) => { const files = Array.from(event.target.files ?? []).map((file) => ({ id: `ref-${Date.now()}-${file.name}`, name: file.name, type: file.type || '文件', size: file.size })); setReferenceFiles((current) => [...current, ...files]) }} /><button type="button" onClick={() => designReferenceInput.current?.click()}><FileUp size={16} />添加参考资料</button><span>户型图、现场照片、PDF、CAD</span>{referenceFiles.map((file) => <div key={file.id}><span>{file.name}</span><button type="button" aria-label={`删除 ${file.name}`} onClick={() => setReferenceFiles((current) => current.filter((item) => item.id !== file.id))}><Trash2 size={14} /></button></div>)}</div></section>}
-        <footer><button type="button" className="secondary-button" onClick={onClose}>取消</button><button className="primary-button" type="submit">保存跟进</button></footer>
+        {needsDesign && <section className="design-assist-fields"><div className="design-grid"><label>指派设计师 *<select required disabled={!designers.length} value={designerId} onChange={(event) => setDesignerId(event.target.value)}><option value="">{designers.length ? '请选择设计师' : '暂无设计师账号，请先在团队权限中新增'}</option>{designers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>任务类型 *<select required value={designType} onChange={(event) => setDesignType(event.target.value as DesignTaskType)}>{(['平面布局', '家具搭配', '效果图', '报价方案', '方案修改', '其他'] as DesignTaskType[]).map((item) => <option key={item}>{item}</option>)}</select></label><label>计划完成时间 *<input required type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} /></label><label>紧急程度<select value={designPriority} onChange={(event) => setDesignPriority(event.target.value as '普通' | '紧急')}><option>普通</option><option>紧急</option></select></label></div><label>设计任务要求 *<textarea required rows={2} value={requirement} onChange={(event) => setRequirement(event.target.value)} placeholder="说明客户需求、空间范围和设计重点" /></label><div className="reference-upload"><input ref={designReferenceInput} className="visually-hidden" type="file" multiple accept="image/*,.pdf,.dwg,.dxf,.cad,.zip" onChange={(event) => { void uploadSelected(Array.from(event.target.files ?? []), 'design'); event.target.value = '' }} /><button type="button" disabled={uploading} onClick={() => designReferenceInput.current?.click()}><FileUp size={16} />{uploading ? '上传中...' : '添加参考资料'}</button><span>户型图、现场照片、PDF、CAD</span>{designReferenceFiles.map((file) => <div key={file.id}><span>{file.name}</span><button type="button" aria-label={`删除 ${file.name}`} onClick={() => setDesignReferenceFiles((current) => current.filter((item) => item.id !== file.id))}><Trash2 size={14} /></button></div>)}</div></section>}
+        {uploadMessage && <p className="dialog-success" role="status">{uploadMessage}</p>}
+        {formError && <p className="dialog-error" role="alert">{formError}</p>}
+        <footer><button type="button" className="secondary-button" onClick={onClose}>取消</button><button className="primary-button" type="submit" disabled={uploading}>{uploading ? '正在上传...' : '保存跟进'}</button></footer>
       </form>
     </section>
   </div>

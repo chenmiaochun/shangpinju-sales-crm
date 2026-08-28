@@ -1,4 +1,14 @@
-import type { Customer, FollowUp } from '../../types'
+import type {
+  ConfigProduct,
+  Customer,
+  FollowUp,
+  OrderItem,
+  ProductCatalogItem,
+  ProductCategory,
+  ProductPackage,
+  SalesOrder,
+  SkuUnit,
+} from '../../types'
 import { productCatalog } from '../../productCatalog'
 
 export type InsightPeriod = 7 | 30 | 90
@@ -155,4 +165,179 @@ export function buildSalesInsights(
 export function formatCompactMoney(amount: number) {
   if (amount >= 10_000) return `${Number((amount / 10_000).toFixed(1))}万`
   return amount.toLocaleString('zh-CN')
+}
+
+// ---------------------------------------------------------------------------
+// 4.6 经营分析：商品销售分析 / 品类分析 / 毛利分析（cost.view 门控）
+// 基于真实订单，按单品(configProductId)/套餐(packageId)/老商品(productId) 三路归一。
+// 成本仅在 canViewCost 为真时按 skuUnitId → SkuUnit.costPrice 实时核算，快照不落地。
+// ---------------------------------------------------------------------------
+
+export type ProductSalesKind = 'single' | 'package' | 'legacy'
+
+export interface ProductSalesRow {
+  key: string
+  name: string
+  kind: ProductSalesKind
+  categoryName: string
+  quantity: number
+  amount: number
+  cost: number
+  margin: number
+  marginRate: number // -1 表示无成本数据
+  hasCostData: boolean
+}
+
+export interface CategorySalesRow {
+  category: string
+  amount: number
+  share: number // 0~1
+}
+
+export interface ProductAnalytics {
+  period: InsightPeriod
+  productSales: ProductSalesRow[]
+  categorySales: CategorySalesRow[]
+  totalAmount: number
+  totalCost: number
+  totalMargin: number
+  marginRate: number // -1 表示无可用成本数据
+  costAvailable: boolean
+}
+
+export function buildProductAnalytics(
+  orders: SalesOrder[],
+  configProducts: ConfigProduct[],
+  productPackages: ProductPackage[],
+  skuUnits: SkuUnit[],
+  categories: ProductCategory[],
+  legacyProducts: ProductCatalogItem[],
+  canViewCost: boolean,
+  period: InsightPeriod = 30,
+  now = new Date(),
+): ProductAnalytics {
+  const nowTime = now.getTime()
+  const startTime = nowTime - period * DAY
+  const inPeriod = (value: string) => {
+    const time = validTime(value)
+    return time >= startTime && time <= nowTime
+  }
+  const configById = new Map(configProducts.map((item) => [item.id, item]))
+  const pkgById = new Map(productPackages.map((item) => [item.id, item]))
+  const legacyById = new Map(legacyProducts.map((item) => [item.id, item]))
+  const skuById = new Map(skuUnits.map((item) => [item.id, item]))
+  const categoryNameById = new Map(categories.map((item) => [item.id, item.name]))
+
+  const resolveItem = (
+    item: OrderItem,
+  ): { key: string; name: string; kind: ProductSalesKind; categoryName: string } | null => {
+    if (item.packageId && pkgById.has(item.packageId)) {
+      const pkg = pkgById.get(item.packageId)!
+      const firstProduct = pkg.items[0] ? configById.get(pkg.items[0].productId) : undefined
+      return {
+        key: item.packageId,
+        name: pkg.name,
+        kind: 'package',
+        categoryName: (firstProduct && categoryNameById.get(firstProduct.categoryId)) || '未分类',
+      }
+    }
+    if (item.configProductId && configById.has(item.configProductId)) {
+      const cp = configById.get(item.configProductId)!
+      return {
+        key: item.configProductId,
+        name: cp.name,
+        kind: 'single',
+        categoryName: categoryNameById.get(cp.categoryId) || '未分类',
+      }
+    }
+    if (item.productId && legacyById.has(item.productId)) {
+      const lp = legacyById.get(item.productId)!
+      return { key: item.productId, name: lp.name, kind: 'legacy', categoryName: lp.category || '未分类' }
+    }
+    if (item.productName) return { key: item.productName, name: item.productName, kind: 'legacy', categoryName: '未分类' }
+    return null
+  }
+
+  const computeCost = (item: OrderItem, quantity: number): { cost: number; hasCost: boolean } => {
+    if (!canViewCost) return { cost: 0, hasCost: false }
+    if (item.skuLines && item.skuLines.length) {
+      let cost = 0
+      let hasCost = true
+      for (const line of item.skuLines) {
+        const unit = skuById.get(line.skuUnitId)
+        if (!unit || unit.costPrice == null || Number.isNaN(unit.costPrice)) {
+          hasCost = false
+          continue
+        }
+        cost += unit.costPrice * line.quantity * quantity
+      }
+      return { cost, hasCost }
+    }
+    if (item.productId) {
+      const lp = legacyById.get(item.productId)
+      if (lp && lp.costPrice != null && !Number.isNaN(lp.costPrice)) {
+        return { cost: lp.costPrice * quantity, hasCost: true }
+      }
+    }
+    return { cost: 0, hasCost: false }
+  }
+
+  const map = new Map<
+    string,
+    { name: string; kind: ProductSalesKind; categoryName: string; quantity: number; amount: number; cost: number; hasCostData: boolean }
+  >()
+  for (const order of orders) {
+    if (!inPeriod(order.createdAt)) continue
+    for (const item of order.items ?? []) {
+      const resolved = resolveItem(item)
+      if (!resolved) continue
+      const lineQuantity = item.quantity || 0
+      const lineAmount = (item.unitPrice || 0) * lineQuantity
+      const { cost, hasCost } = computeCost(item, lineQuantity)
+      const entry =
+        map.get(resolved.key) ??
+        { name: resolved.name, kind: resolved.kind, categoryName: resolved.categoryName, quantity: 0, amount: 0, cost: 0, hasCostData: true }
+      entry.quantity += lineQuantity
+      entry.amount += lineAmount
+      entry.cost += hasCost ? cost : 0
+      entry.hasCostData = entry.hasCostData && hasCost
+      map.set(resolved.key, entry)
+    }
+  }
+
+  const productSales: ProductSalesRow[] = [...map.entries()].map(([key, entry]) => ({
+    key,
+    name: entry.name,
+    kind: entry.kind,
+    categoryName: entry.categoryName,
+    quantity: entry.quantity,
+    amount: entry.amount,
+    cost: entry.hasCostData ? entry.cost : 0,
+    margin: entry.hasCostData ? entry.amount - entry.cost : 0,
+    marginRate: entry.hasCostData && entry.amount > 0 ? (entry.amount - entry.cost) / entry.amount : -1,
+    hasCostData: entry.hasCostData,
+  })).sort((a, b) => b.amount - a.amount)
+
+  const catMap = new Map<string, number>()
+  for (const row of productSales) catMap.set(row.categoryName, (catMap.get(row.categoryName) ?? 0) + row.amount)
+  const totalAmount = productSales.reduce((sum, row) => sum + row.amount, 0)
+  const categorySales: CategorySalesRow[] = [...catMap.entries()]
+    .map(([category, amount]) => ({ category, amount, share: totalAmount > 0 ? amount / totalAmount : 0 }))
+    .sort((a, b) => b.amount - a.amount)
+
+  const someCostData = productSales.some((row) => row.hasCostData)
+  const totalCost = productSales.reduce((sum, row) => sum + (row.hasCostData ? row.cost : 0), 0)
+  const totalMargin = totalAmount - totalCost
+  const marginRate = someCostData && totalAmount > 0 ? totalMargin / totalAmount : -1
+
+  return {
+    period,
+    productSales,
+    categorySales,
+    totalAmount,
+    totalCost,
+    totalMargin,
+    marginRate,
+    costAvailable: someCostData && canViewCost,
+  }
 }

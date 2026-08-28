@@ -104,10 +104,27 @@ test('employees can list active delivery staff', async () => {
 })
 
 test('health and CORS', async () => { const r = await json('/api/health'); assert.equal(r.status, 200); assert.equal(r.body.ok, true); assert.equal(r.headers.get('access-control-allow-origin'), '*') })
+test('public experience intake creates a CRM lead without exposing state', async () => {
+  const submitted = await json('/api/public/experience-intake', { method:'POST', cookie:false, body:JSON.stringify({ name:'林女士', phone:'13800138000', housingStage:'已入住焕新', familyMembers:['夫妻'], focusSpaces:['客厅'], painPoints:['空间不好用'], sleepNeeds:[], preferredStations:['家具与动线体验'], consent:true }) })
+  assert.equal(submitted.status, 201); assert.match(submitted.body.leadId, /^L-/); assert.deepEqual(submitted.body.recommendedStations, ['家具与动线体验', '重点空间诊断'])
+  const state = (await json('/api/state')).body.value
+  const customer = state.customers.find(item => item.leadId === submitted.body.leadId)
+  assert.equal(customer.phone, '13800138000'); assert.equal(customer.salesperson, '待分配'); assert.equal(customer.experienceAssessment.status, '待体验')
+})
+test('public experience intake validates consent and mobile phone', async () => {
+  const rejected = await json('/api/public/experience-intake', { method:'POST', cookie:false, body:JSON.stringify({ name:'测试', phone:'123', consent:false }) })
+  assert.equal(rejected.status, 400); assert.equal(rejected.body.error.code, 'VALIDATION_ERROR')
+})
 test('state round trip and audit', async () => {
   assert.deepEqual((await put('/api/state', { pipeline: ['new'] })).body.value, { pipeline: ['new'] })
   assert.deepEqual((await json('/api/state')).body.value, { pipeline: ['new'] })
   const audit = await json('/api/audit?limit=20&offset=0'); assert.ok(audit.body.total >= 1); assert.ok(audit.body.items.some(item => item.resource === 'state'))
+})
+test('preserves concurrently added activity customers during full-state saves', async () => {
+  await put('/api/state', { customers: [{ id: 'c-a', name: '客户A', createdAt: '2026-08-15T09:00:00.000Z', updatedAt: '2026-08-15T09:00:00.000Z' }], followUps: [] })
+  const saved = await put('/api/state', { customers: [{ id: 'c-b', name: '客户B', createdAt: '2026-08-15T09:01:00.000Z', updatedAt: '2026-08-15T09:01:00.000Z' }], followUps: [] })
+  assert.deepEqual(saved.body.value.customers.map(item => item.id).sort(), ['c-a', 'c-b'])
+  await put('/api/state', { pipeline: ['new'] })
 })
 test('members and integrations round trip', async () => {
   assert.deepEqual((await put('/api/members', { members: [{ id: 'u1', name: 'Li' }] })).body.members, [{ id: 'u1', name: 'Li' }])

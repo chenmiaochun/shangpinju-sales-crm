@@ -1,0 +1,289 @@
+.fulfillment-detail {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #e3e5e7;
+}
+.fulfillment-detail__header {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e6e7e8;
+}
+.fulfillment-detail__header > button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: none;
+  color: #6f757d;
+  cursor: pointer;
+}
+.fulfillment-detail__header svg {
+  width: 17px;
+}
+.fulfillment-detail__header span {
+  color: #8d1932;
+  font-size: 11px;
+}
+.fulfillment-detail__header h2 {
+  margin: 3px 0 0;
+  font-size: 22px;
+}
+.fulfillment-summary {
+  display: grid;
+  gap: 3px;
+  min-width: 260px;
+  padding: 10px 13px;
+  border-left: 4px solid;
+}
+.fulfillment-summary.green {
+  border-color: #268254;
+  background: #eff8f3;
+  color: #18643e;
+}
+.fulfillment-summary.orange {
+  border-color: #d98420;
+  background: #fff7e9;
+  color: #99520d;
+}
+.fulfillment-summary.red {
+  border-color: #bd3b3b;
+  background: #fff0f0;
+  color: #8e2828;
+}
+.fulfillment-summary small {
+  font-size: 11px;
+}
+.order-basic-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.order-basic-grid label,
+.order-detail-bottom label {
+  display: grid;
+  gap: 6px;
+  color: #68707a;
+  font-size: 11px;
+}
+.order-basic-grid .wide {
+  grid-column: span 2;
+}
+.order-basic-grid input,
+.order-detail-bottom textarea {
+  padding: 9px;
+  border: 1px solid #dadddf;
+  border-radius: 4px;
+}
+.fulfillment-products {
+  border: 1px solid #e2e4e6;
+}
+.fulfillment-products > header {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #f8f8f7;
+}
+.fulfillment-products h3,
+.order-detail-bottom h3 {
+  margin: 0 0 3px;
+  font-size: 15px;
+}
+.fulfillment-products header span {
+  color: #7b828b;
+  font-size: 11px;
+}
+.product-group h4 {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 14px;
+  background: #f7f1ec;
+  color: #7e261e;
+  font-size: 13px;
+}
+.product-group h4 small {
+  color: #91857d;
+  font-weight: 400;
+}
+.fulfillment-product-row {
+  display: grid;
+  grid-template-columns: minmax(210px, 1.8fr) 0.55fr 1fr 1.1fr 1.1fr 1.25fr;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-top: 1px solid #eceeef;
+}
+.fulfillment-product-row.head {
+  min-height: 34px;
+  background: #fbfbfb;
+  color: #7b8189;
+  font-size: 11px;
+}
+.fulfillment-product-row > span {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+.fulfillment-product-row small {
+  color: #858b93;
+  font-size: 10px;
+}
+.fulfillment-product-row input,
+.fulfillment-product-row select {
+  width: 100%;
+  padding: 7px;
+  border: 1px solid #d7dade;
+  background: #fff;
+}
+.fulfillment-product-row button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 5px;
+  padding: 5px;
+  border: 1px solid #c87922;
+  background: #fff;
+  color: #a45b10;
+  font-size: 10px;
+}
+.fulfillment-product-row button svg {
+  width: 13px;
+}
+.stock-pill {
+  width: max-content;
+  padding: 4px 7px;
+  border-radius: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+.stock-pill.available,
+.stock-pill.arrived {
+  background: #e7f5ec;
+  color: #26764b;
+}
+.stock-pill.ordering {
+  background: #fff0db;
+  color: #ad610f;
+}
+.no-order-items {
+  display: grid;
+  min-height: 140px;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  color: #858b93;
+}
+.order-detail-bottom {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 18px;
+  padding: 16px;
+  background: #f8f8f7;
+}
+.order-detail-bottom dl {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+}
+.order-detail-bottom dl div {
+  display: flex;
+  justify-content: space-between;
+}
+.order-detail-bottom dt,
+.order-detail-bottom dd {
+  margin: 0;
+  font-size: 12px;
+}
+.order-detail-bottom img {
+  max-width: 180px;
+  max-height: 80px;
+}
+.order-detail-bottom p {
+  color: #8a9097;
+  font-size: 12px;
+}
+.fulfillment-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0 0;
+  background: #fff;
+  border-top: 1px solid #e4e6e8;
+}
+.fulfillment-actions span {
+  color: #727982;
+  font-size: 11px;
+}
+.fulfillment-actions > div { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:7px; }
+.fulfillment-actions > div > button { padding:9px 12px; border:1px solid #cfd3d6; background:#fff; color:#4f565e; }
+.fulfillment-product-row.stock-shortage { background:#fff4f4; box-shadow:inset 3px 0 #c83b3b; }
+.saved-delivery-signature { display:flex; align-items:center; gap:12px; padding:10px; border:1px solid #d8dedb; }
+.saved-delivery-signature img { max-width:220px; max-height:75px; }
+.fulfillment-actions button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border: 0;
+}
+.fulfillment-actions svg {
+  width: 16px;
+}
+@media (max-width: 1000px) {
+  .fulfillment-detail__header {
+    grid-template-columns: 1fr auto;
+  }
+  .fulfillment-detail__header > button {
+    grid-column: 1/-1;
+  }
+  .order-basic-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .fulfillment-product-row {
+    grid-template-columns: 1.5fr 0.5fr 1fr 1fr;
+  }
+  .fulfillment-product-row > span:nth-child(5),
+  .fulfillment-product-row > span:nth-child(6) {
+    grid-column: span 2;
+  }
+  .order-detail-bottom {
+    grid-template-columns: 1fr 1fr;
+  }
+  .order-detail-bottom > div:last-child {
+    grid-column: 1/-1;
+  }
+}
+@media (max-width: 700px) {
+  .fulfillment-summary {
+    min-width: 0;
+  }
+  .fulfillment-detail__header {
+    grid-template-columns: 1fr;
+  }
+  .order-basic-grid {
+    grid-template-columns: 1fr;
+  }
+  .order-basic-grid .wide {
+    grid-column: auto;
+  }
+  .fulfillment-product-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .fulfillment-product-row.head {
+    display: none;
+  }
+  .order-detail-bottom {
+    grid-template-columns: 1fr;
+  }
+  .order-detail-bottom > div:last-child {
+    grid-column: auto;
+  }
+}

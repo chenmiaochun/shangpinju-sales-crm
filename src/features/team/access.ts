@@ -32,6 +32,8 @@ export type CustomerAccessSubject = {
   sourceService?: string
   pendingSalesperson?: string
   pendingSalespersonId?: string
+  createdBy?: string
+  createdById?: string
 }
 
 export interface RoleIdentity {
@@ -130,6 +132,7 @@ export function getIdentityPermissions(identity: RoleIdentity): AccessPermission
 }
 
 export function getDefaultRoute(identity: RoleIdentity): string {
+  if (identity.role === 'designer') return '/designer-workspace'
   if (hasIdentityPermission(identity, 'customers.own')) return '/leads'
   if (hasIdentityPermission(identity, 'store.analytics')) return '/dashboard'
   if (hasIdentityPermission(identity, 'customers.design')) return '/customers'
@@ -141,6 +144,7 @@ export function getDefaultRoute(identity: RoleIdentity): string {
 export function canAccessCustomer(identity: RoleIdentity, customer: CustomerAccessSubject): boolean {
   const roles = getIdentityRoles(identity)
   if (roles.includes('manager')) return true
+  if (customer.createdById === identity.id || customer.createdBy === identity.name) return true
   if (roles.includes('operations') || roles.includes('aftersales')) {
     return customer.salespersonId === identity.id || customer.salesperson === identity.name
       || customer.pendingSalespersonId === identity.id || customer.pendingSalesperson === identity.name

@@ -3,6 +3,7 @@ import { Eye, EyeOff, LoaderCircle, LockKeyhole, UserRound } from 'lucide-react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/salesApi'
 import { useAuth } from './AuthContext'
+import { SHANGPINJU_LOGO } from '../assets/shangpinju-brand'
 import './auth.css'
 
 export function LoginPage() {
@@ -25,12 +26,12 @@ export function LoginPage() {
       await auth.login(username.trim(), password)
       navigate((location.state as { from?: string } | null)?.from ?? '/dashboard', { replace: true })
     } catch (cause) {
-      setError(cause instanceof ApiError && cause.status === 429 ? '尝试次数过多，请稍后再试' : '账号或密码不正确')
+      setError(cause instanceof ApiError && cause.status === 429 ? '尝试次数过多，请稍后再试' : cause instanceof ApiError && cause.status === 403 ? '当前访问地址未获服务器允许，请联系管理员检查本地服务配置' : cause instanceof ApiError && cause.status >= 500 ? '服务器暂时不可用，请稍后重试' : '账号或密码不正确')
     } finally { setSubmitting(false) }
   }
 
   return <main className="login-page">
-    <section className="login-brand"><div className="login-brand-mark">尚</div><p>尚品居原创家具</p><h1>经营工作台</h1><span>客户、销售、库存、交付一体化管理。</span></section>
+    <section className="login-brand"><div className="login-brand-mark"><img src={SHANGPINJU_LOGO} alt="尚品居"/></div><p>SHANG · PIN · JU</p><h1>尚品居原创家具</h1><span>以原创实木家具、潮汕生活方式和全案落地为核心的家居经营系统。</span></section>
     <section className="login-panel" aria-labelledby="login-title">
       <form onSubmit={submit}>
         <header><small>安全登录</small><h2 id="login-title">欢迎回来</h2><p>使用店长分配的账号登录系统</p></header>

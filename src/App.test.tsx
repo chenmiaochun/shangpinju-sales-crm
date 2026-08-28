@@ -1,9 +1,18 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
-import { App } from './App'
 
-vi.mock('./auth/AuthContext', () => ({ useAuth: () => ({ user: { id: 'manager', name: '陈店长', role: 'manager', active: true }, status: 'authenticated', notice: '', logout: vi.fn(), clearNotice: vi.fn() }) }))
+vi.mock('./auth/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 'manager', name: '陈店长', role: 'manager', roles: ['manager'], active: true },
+    status: 'authenticated',
+    notice: '',
+    logout: vi.fn(),
+    clearNotice: vi.fn(),
+  }),
+}))
+
+import { App } from './App'
 
 function renderAt(path: string) {
   return render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)

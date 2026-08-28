@@ -41,7 +41,7 @@ describe('LeadsPage customer intake', () => {
     const onAddCustomers = vi.fn()
     const { container } = render(<LeadsPage customers={[]} onAddCustomers={onAddCustomers} />)
 
-    fireEvent.change(screen.getByLabelText('姓名 *'), { target: { value: '林女士' } })
+    fireEvent.change(screen.getByLabelText('姓名/微信名 *'), { target: { value: '林女士' } })
     fireEvent.change(screen.getByLabelText('电话'), { target: { value: '13800138000' } })
     fireEvent.change(screen.getByLabelText('负责人 *'), { target: { value: '陈婉珊' } })
     fireEvent.change(screen.getByLabelText('预算范围'), { target: { value: '5-8 万' } })
@@ -72,12 +72,45 @@ describe('LeadsPage customer intake', () => {
     expect(window.location.hash).toContain('/customers?customer=lead-')
   })
 
+  it('records campaign attribution, appointment and product lines', () => {
+    const onAddCustomers = vi.fn()
+    render(<LeadsPage customers={[]} onAddCustomers={onAddCustomers} />)
+    fireEvent.change(screen.getByLabelText('姓名/微信名 *'), { target: { value: '活动客户' } })
+    fireEvent.change(screen.getByLabelText('电话'), { target: { value: '13800138000' } })
+    fireEvent.change(screen.getByLabelText('负责人 *'), { target: { value: '郭予旭' } })
+    fireEvent.change(screen.getByLabelText('首次来源'), { target: { value: '视频号' } })
+    fireEvent.change(screen.getByLabelText('内容编号'), { target: { value: 'CT-20260828-01' } })
+    fireEvent.change(screen.getByLabelText('预约到店时间'), { target: { value: '2026-08-28T15:30' } })
+    fireEvent.change(screen.getByLabelText('预约 / 到店状态'), { target: { value: '已预约' } })
+    fireEvent.click(screen.getByLabelText('原创家具'))
+    fireEvent.click(screen.getByLabelText('雅兰睡眠'))
+    fireEvent.click(screen.getByRole('button', { name: '保存并进入客户跟进' }))
+    expect(onAddCustomers.mock.calls[0][0][0]).toMatchObject({ campaignId: 'SPJ-2026-09', source: '视频号', contentId: 'CT-20260828-01', arrivalStatus: '已预约', productLines: ['原创家具', '雅兰睡眠'] })
+    expect(onAddCustomers.mock.calls[0][0][0].leadId).toMatch(/^L-202608/)
+  })
+
+  it('records the referring designer when the source is designer referral', () => {
+    const onAddCustomers = vi.fn()
+    render(<LeadsPage customers={[]} designers={[{ id: 'designer-1', name: '林设计师' }]} onAddCustomers={onAddCustomers} />)
+    fireEvent.change(screen.getByLabelText('姓名/微信名 *'), { target: { value: '微信客户A' } })
+    fireEvent.change(screen.getByLabelText('负责人 *'), { target: { value: '郭予旭' } })
+    expect(screen.queryByLabelText('推荐设计师')).toBeNull()
+    fireEvent.change(screen.getByLabelText('首次来源'), { target: { value: '设计师推荐' } })
+    fireEvent.change(screen.getByLabelText('推荐设计师'), { target: { value: '林设计师' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存并进入客户跟进' }))
+    expect(onAddCustomers.mock.calls[0][0][0]).toMatchObject({
+      source: '设计师推荐',
+      referrerDesigner: '林设计师',
+      referrerDesignerId: 'designer-1',
+    })
+  })
+
   it('allows an unknown budget and reports the actual required fields', () => {
     const onAddCustomers = vi.fn()
     render(<LeadsPage customers={[]} onAddCustomers={onAddCustomers} />)
     fireEvent.click(screen.getByRole('button', { name: '保存并进入客户跟进' }))
     expect(screen.getByRole('status').textContent).toContain('姓名、负责人')
-    fireEvent.change(screen.getByLabelText('姓名 *'), { target: { value: '陈女士' } })
+    fireEvent.change(screen.getByLabelText('姓名/微信名 *'), { target: { value: '陈女士' } })
     fireEvent.change(screen.getByLabelText('负责人 *'), { target: { value: '陈婉珊' } })
     fireEvent.click(screen.getByRole('button', { name: '保存并进入客户跟进' }))
     expect(onAddCustomers.mock.calls[0][0][0]).toMatchObject({ name: '陈女士', budget: '待确认', expectedAmount: 0 })
@@ -105,7 +138,7 @@ describe('LeadsPage customer intake', () => {
   it('suggests vehicle series and stores its reference price', () => {
     const onAddCustomers = vi.fn()
     render(<LeadsPage customers={[]} onAddCustomers={onAddCustomers}/>)
-    fireEvent.change(screen.getByLabelText('姓名 *'), { target: { value: '林先生' } })
+    fireEvent.change(screen.getByLabelText('姓名/微信名 *'), { target: { value: '林先生' } })
     fireEvent.change(screen.getByLabelText('负责人 *'), { target: { value: '陈婉珊' } })
     fireEvent.change(screen.getByLabelText('车辆品牌'), { target: { value: '宝马' } })
     fireEvent.change(screen.getByLabelText('车辆系列'), { target: { value: 'X5' } })
@@ -117,7 +150,7 @@ describe('LeadsPage customer intake', () => {
   it('links a community to its layouts and estimates the house value', () => {
     const onAddCustomers = vi.fn()
     render(<LeadsPage customers={[]} onAddCustomers={onAddCustomers}/>)
-    fireEvent.change(screen.getByLabelText('姓名 *'), { target:{ value:'许女士' } })
+    fireEvent.change(screen.getByLabelText('姓名/微信名 *'), { target:{ value:'许女士' } })
     fireEvent.change(screen.getByLabelText('负责人 *'), { target:{ value:'陈婉珊' } })
     fireEvent.change(screen.getByLabelText('所在城市'), { target:{ value:'揭阳' } })
     fireEvent.change(screen.getByLabelText('小区名称'), { target:{ value:'jy-baoli' } })
@@ -140,7 +173,7 @@ describe('LeadsPage customer intake', () => {
     expect(screen.getByText('黄先生')).toBeTruthy()
     expect(screen.getByText(/13900001111 · 粤V12345/)).toBeTruthy()
 
-    fireEvent.change(screen.getByLabelText('姓名 *'), { target: { value: '陈女士' } })
+    fireEvent.change(screen.getByLabelText('姓名/微信名 *'), { target: { value: '陈女士' } })
     expect((screen.getByLabelText('车牌省份') as HTMLSelectElement).value).toBe('粤')
     expect((screen.getByLabelText('车牌字母') as HTMLSelectElement).value).toBe('V')
     expect(Array.from((screen.getByLabelText('车牌字母') as HTMLSelectElement).options).slice(0, 3).map((option) => option.value)).toEqual(['V', 'U', 'D'])

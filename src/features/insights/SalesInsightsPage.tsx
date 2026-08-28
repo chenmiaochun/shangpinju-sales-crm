@@ -1,15 +1,58 @@
 import { useMemo, useState } from 'react'
 import { AlertTriangle, ArrowUpRight, BarChart3, Boxes, CheckCircle2, Lightbulb, Megaphone, MessageSquareText, Radio, Target } from 'lucide-react'
-import type { Customer, FollowUp } from '../../types'
-import { buildSalesInsights, formatCompactMoney, type InsightPeriod, type TrendPoint } from './insights'
+import type {
+  ConfigProduct,
+  Customer,
+  FollowUp,
+  OrderItem,
+  ProductCatalogItem,
+  ProductCategory,
+  ProductPackage,
+  SalesOrder,
+  SkuUnit,
+} from '../../types'
+import {
+  buildProductAnalytics,
+  buildSalesInsights,
+  formatCompactMoney,
+  type InsightPeriod,
+  type ProductAnalytics,
+  type TrendPoint,
+} from './insights'
 import './insights.css'
 
-export interface SalesInsightsPageProps { customers: Customer[]; followUps: FollowUp[]; now?: Date }
+export interface SalesInsightsPageProps {
+  customers: Customer[]
+  followUps: FollowUp[]
+  orders?: SalesOrder[]
+  configProducts?: ConfigProduct[]
+  productPackages?: ProductPackage[]
+  skuUnits?: SkuUnit[]
+  categories?: ProductCategory[]
+  legacyProducts?: ProductCatalogItem[]
+  canViewCost?: boolean
+  now?: Date
+}
 
-export function SalesInsightsPage({ customers, followUps, now = new Date() }: SalesInsightsPageProps) {
+export function SalesInsightsPage({
+  customers,
+  followUps,
+  orders = [],
+  configProducts = [],
+  productPackages = [],
+  skuUnits = [],
+  categories = [],
+  legacyProducts = [],
+  canViewCost = false,
+  now = new Date(),
+}: SalesInsightsPageProps) {
   const [period, setPeriod] = useState<InsightPeriod>(30)
   const insight = useMemo(() => buildSalesInsights(customers, followUps, period, now), [customers, followUps, period, now])
-  const isEmpty = customers.length === 0 && followUps.length === 0
+  const productAnalytics = useMemo<ProductAnalytics>(
+    () => buildProductAnalytics(orders, configProducts, productPackages, skuUnits, categories, legacyProducts, canViewCost, period, now),
+    [orders, configProducts, productPackages, skuUnits, categories, legacyProducts, canViewCost, period, now],
+  )
+  const isEmpty = customers.length === 0 && followUps.length === 0 && orders.length === 0
 
   return <main className="sales-insights" aria-labelledby="insights-title">
     <header className="insights-header">
@@ -78,7 +121,85 @@ export function SalesInsightsPage({ customers, followUps, now = new Date() }: Sa
         </Panel>
       </div>
     </>}
-  </main>
+
+      <section className="insights-product-section" aria-labelledby="product-analytics-title">
+        <header className="insights-subheader">
+          <h2 id="product-analytics-title">商品销售分析</h2>
+          <p>基于真实订单（近{period}天）按单品 / 套餐 / 老商品归一统计</p>
+        </header>
+
+        <div className="insights-grid insights-grid-top">
+          <Panel title="商品销售排名" subtitle={`近${period}天按销售额排序`}>
+            {productAnalytics.productSales.length ? (
+              <div className="product-sales" role="table" aria-label="商品销售排名">
+                <div className="product-sales-head" role="row">
+                  <span>排名 / 商品</span><span>类型</span><span>销量</span><span>销售额</span>
+                  {productAnalytics.costAvailable && <span>毛利率</span>}
+                </div>
+                {productAnalytics.productSales.map((row, index) => (
+                  <div className="product-sales-row" role="row" key={row.key}>
+                    <div className="product-sales-name">
+                      <b>{index + 1}</b>
+                      <span><strong>{row.name}</strong><small>{row.categoryName}{row.hasCostData ? '' : ' · 无成本数据'}</small></span>
+                    </div>
+                    <span className={`product-sales-kind kind-${row.kind}`}>{row.kind === 'single' ? '单品' : row.kind === 'package' ? '套餐' : '老商品'}</span>
+                    <span>{row.quantity}</span>
+                    <b>¥{formatCompactMoney(row.amount)}</b>
+                    {productAnalytics.costAvailable && (
+                      <span className={row.marginRate >= 0 ? 'margin-pos' : 'margin-none'}>
+                        {row.marginRate >= 0 ? `${Math.round(row.marginRate * 100)}%` : '—'}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <MiniEmpty text={`近${period}天暂无订单数据`} />
+            )}
+          </Panel>
+
+          <Panel title="品类销售占比" subtitle="按销售额归类到大类">
+            {productAnalytics.categorySales.length ? (
+              <div className="category-share">
+                {productAnalytics.categorySales.map((cat) => (
+                  <div className="category-share-row" key={cat.category}>
+                    <div><strong>{cat.category}</strong><small>¥{formatCompactMoney(cat.amount)}</small></div>
+                    <div className="category-share-bar">
+                      <i style={{ width: `${Math.round(cat.share * 100)}%` }} />
+                      <span>{Math.round(cat.share * 100)}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <MiniEmpty text={`近${period}天暂无订单数据`} />
+            )}
+          </Panel>
+        </div>
+
+        {productAnalytics.costAvailable && (
+          <Panel title="毛利分析" subtitle="成本按最小单位实时核算，快照不落地；无成本数据的商品不猜">
+            <div className="margin-summary">
+              <span>总销售额 <b>¥{formatCompactMoney(productAnalytics.totalAmount)}</b></span>
+              <span>总成本 <b>¥{formatCompactMoney(productAnalytics.totalCost)}</b></span>
+              <span>总毛利 <b>¥{formatCompactMoney(productAnalytics.totalMargin)}</b></span>
+              <span>综合毛利率 <b className="margin-pos">{Math.round(productAnalytics.marginRate * 100)}%</b></span>
+            </div>
+            <div className="product-sales margin-table" role="table" aria-label="商品毛利率">
+              <div className="product-sales-head" role="row"><span>商品</span><span>销售额</span><span>毛利额</span><span>毛利率</span></div>
+              {productAnalytics.productSales.filter((row) => row.hasCostData).map((row) => (
+                <div className="product-sales-row" role="row" key={row.key}>
+                  <span><strong>{row.name}</strong><small>{row.categoryName}</small></span>
+                  <span>¥{formatCompactMoney(row.amount)}</span>
+                  <span>¥{formatCompactMoney(row.margin)}</span>
+                  <span className="margin-pos">{Math.round(row.marginRate * 100)}%</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        )}
+      </section>
+    </main>
 }
 
 function Summary({ icon, label, value, detail, tone }: { icon: React.ReactNode; label: string; value: string; detail: string; tone: string }) { return <article className={`insight-summary-card tone-${tone}`}><span>{icon}</span><div><p>{label}</p><strong>{value}</strong><small>{detail}</small></div></article> }

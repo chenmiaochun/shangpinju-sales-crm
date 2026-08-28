@@ -1,0 +1,71 @@
+/* Phase 3：销售开单联动（产品库单品选规格开单） */
+
+/* 商品来源切换 */
+.browser-head{padding:10px 14px;border-bottom:1px solid #e5eae7}
+.browser-tabs{display:flex;gap:8px}
+.browser-tabs button{min-height:34px;padding:0 14px;border:1px solid #b8c9be;background:#fff;color:#4f5d55;font-weight:700;cursor:pointer}
+.browser-tabs button.active{border-color:#701318;background:#701318;color:#fff}
+
+/* 单品卡片 */
+.config-list{display:block}
+.config-card small{color:#77817b;font-size:11px}
+
+/* 购物车单品行 */
+.line-code{margin-left:7px;padding:1px 6px;border-radius:3px;background:#F5ECE8;color:#701318;font-size:10px;font-weight:700}
+.line-spec-text{font-size:11px;color:#5c6962;line-height:1.5}
+.line-sku-toggle{justify-self:start;min-height:26px;padding:0 9px;border:1px solid #c9d4cc;background:#fff;color:#4f5d55;font-size:11px;cursor:pointer}
+.line-sku-toggle[aria-expanded="true"]{border-color:#701318;color:#701318}
+/* 加急订单：现货不足红色警示 */
+.urgent-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:#701318;font-weight:700;cursor:pointer}
+.urgent-toggle input{accent-color:#701318;width:15px;height:15px;cursor:pointer}
+.line-shortage{display:block;grid-column:1/-1;margin-top:6px;padding:4px 8px;border:1px solid #e8b4b6;background:#fdeaea;color:#a01c1c;font-size:11px;font-weight:700;border-radius:4px}
+.line-sku-lines{grid-column:1/-1;display:grid;gap:4px;margin:0;padding:8px 10px;border:1px dashed #cfd8d2;background:#fafbf9;list-style:none}
+.line-sku-lines li{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;font-size:11px;color:#4f5d55}
+.line-sku-lines li span{font-weight:700;color:#223129}
+.line-sku-lines li b{color:#701318}
+
+/* 规格选择对话框 */
+.config-picker-backdrop{position:fixed;inset:0;z-index:95;display:grid;place-items:center;padding:18px;background:#18231e88;overflow:auto}
+.config-picker{width:min(680px,100%);max-height:min(86vh,760px);display:flex;flex-direction:column;background:#fff;box-shadow:0 18px 60px #0003}
+.config-picker>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid #e5eae7}
+.config-picker>header b{font-size:17px;color:#18231e}
+.config-picker>header small{display:block;margin-top:3px;color:#77817b;font-size:11px}
+.config-picker>header>button{min-height:30px;display:grid;place-items:center;border:0;background:none;color:#4f5d55;cursor:pointer}
+.picker-warning{margin:12px 18px 0;padding:9px 12px;border:1px solid #e0c9b0;background:#fdf6ec;color:#8c4a40;font-size:12px}
+.picker-rows{flex:1;overflow:auto;padding:10px 18px;display:grid;gap:8px;align-content:start}
+.picker-row{display:grid;grid-template-columns:210px 1fr;gap:10px;align-items:center;padding:10px 11px;border:1px solid #e2e8e4;background:#fbfcfb}
+.picker-row[data-included="false"]{opacity:.55}
+.picker-row-head{display:flex;align-items:center;gap:8px}
+.picker-row-head input{width:15px;height:15px;accent-color:#701318}
+.picker-row-head b{font-size:13px;color:#18231e}
+.picker-row-head small{color:#77817b;font-size:11px}
+.picker-row select{width:100%;min-height:36px;padding:0 8px;border:1px solid #d8dfda;background:#fff;color:#223129}
+.picker-row select:disabled{background:#f0f2f0}
+.picker-empty{font-size:12px;color:#8c4a40}
+.config-picker>footer{display:grid;gap:8px;padding:14px 18px 16px;border-top:1px solid #e5eae7}
+.picker-summary{display:flex;flex-wrap:wrap;gap:14px;align-items:baseline;font-size:12px;color:#4f5d55}
+.picker-summary strong{margin-left:auto;font-size:16px;color:#701318}
+.picker-meta{display:flex;gap:12px;font-size:11px;color:#77817b}
+.picker-actions{display:flex;justify-content:flex-end;gap:9px}
+.picker-actions button{min-height:38px;padding:0 16px;border:1px solid #701318;background:#fff;color:#701318;font-weight:700;cursor:pointer}
+.picker-actions button.primary{background:#701318;color:#fff}
+.picker-actions button:disabled{opacity:.45;cursor:not-allowed}
+
+/* Phase 4.2：套餐选配对话框 */
+.package-picker{width:min(760px,100%)}
+.package-product-row{grid-template-columns:1fr;align-items:stretch}
+.package-product-row .picker-row-head{flex-wrap:wrap}
+.picker-quantity-options{display:inline-flex;gap:6px;align-items:center}
+.picker-quantity-option{display:inline-flex;gap:4px;align-items:center;padding:2px 9px;border:1px solid #d8dfda;background:#fff;color:#4f5d55;font-size:12px;cursor:pointer}
+.picker-quantity-option input{width:13px;height:13px;accent-color:#701318}
+.package-component-rows{display:grid;gap:6px;margin-top:6px}
+.package-component-row{display:grid;grid-template-columns:170px 1fr;gap:10px;align-items:center}
+.package-component-row>small{display:flex;flex-wrap:wrap;gap:4px;color:#4f5d55;font-size:11px;font-weight:700}
+.package-component-row>small span{color:#77817b;font-weight:400}
+.package-component-row select{width:100%;min-height:34px;padding:0 8px;border:1px solid #d8dfda;background:#fff;color:#223129}
+.package-component-row select:disabled{background:#f0f2f0}
+.package-product-price{margin-top:7px;color:#5c6962;font-size:11px}
+.package-product-price b{color:#701318}
+
+/* 套餐卡片（商品来源 Tab 内） */
+.package-card small{color:#77817b;font-size:11px}

@@ -1,0 +1,1 @@
+export { ProductMasterPage } from "./ProductMasterPage";
