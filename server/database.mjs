@@ -104,6 +104,12 @@ export class SalesDatabase {
         value TEXT NOT NULL CHECK (json_valid(value)),
         updated_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS ideas (
+        id TEXT PRIMARY KEY,
+        value TEXT NOT NULL CHECK (json_valid(value)),
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ideas_updated_idx ON ideas(updated_at DESC);
       CREATE TABLE IF NOT EXISTS auth_accounts (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL COLLATE NOCASE UNIQUE,
@@ -185,6 +191,11 @@ export class SalesDatabase {
       putIntegration: this.db.prepare(`INSERT INTO integration_settings(name, value, updated_at) VALUES(?, ?, ?)
         ON CONFLICT(name) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`),
       deleteIntegrations: this.db.prepare('DELETE FROM integration_settings'),
+      listIdeas: this.db.prepare('SELECT id, value, updated_at FROM ideas ORDER BY updated_at DESC'),
+      getIdea: this.db.prepare('SELECT id, value, updated_at FROM ideas WHERE id = ?'),
+      putIdea: this.db.prepare(`INSERT INTO ideas(id, value, updated_at) VALUES(?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`),
+      deleteIdea: this.db.prepare('DELETE FROM ideas WHERE id = ?'),
       countAccounts: this.db.prepare('SELECT COUNT(*) AS count FROM auth_accounts'),
       accountByUsername: this.db.prepare('SELECT * FROM auth_accounts WHERE username = ? COLLATE NOCASE'),
       accountById: this.db.prepare('SELECT * FROM auth_accounts WHERE id = ?'),
@@ -237,6 +248,51 @@ export class SalesDatabase {
     const at = this.now()
     this.transaction(() => { this.statements.deleteIntegrations.run(); for (const [name, value] of Object.entries(settings)) this.statements.putIntegration.run(name, JSON.stringify(value), at); this.record('replace', 'integrations', { names: Object.keys(settings) }) })
     return this.getIntegrations()
+  }
+  listIdeas() { return this.statements.listIdeas.all().map(r => ({ ...parseJson(r.value), id: r.id })) }
+  createIdea(input) {
+    const at = this.now()
+    const content = String(input?.content || '').trim()
+    if (!content) throw new Error('IDEA_CONTENT_REQUIRED')
+    if (content.length > 1000) throw new Error('IDEA_CONTENT_TOO_LONG')
+    const id = `idea-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const idea = {
+      id,
+      content,
+      module: String(input?.module || '待分类').slice(0, 30),
+      status: '待评估',
+      priority: 'P1',
+      author: String(input?.author || ''),
+      authorName: String(input?.authorName || ''),
+      note: '',
+      createdAt: at,
+      updatedAt: at,
+    }
+    this.transaction(() => { this.statements.putIdea.run(id, JSON.stringify(idea), at); this.record('create', 'idea', { id, module: idea.module }) })
+    return idea
+  }
+  updateIdea(id, patch) {
+    const row = this.statements.getIdea.get(id)
+    if (!row) return null
+    const at = this.now()
+    const current = parseJson(row.value)
+    const next = {
+      ...current,
+      ...(patch?.status !== undefined ? { status: String(patch.status).slice(0, 20) } : {}),
+      ...(patch?.priority !== undefined ? { priority: String(patch.priority).slice(0, 10) } : {}),
+      ...(patch?.note !== undefined ? { note: String(patch.note).slice(0, 2000) } : {}),
+      ...(patch?.module !== undefined ? { module: String(patch.module).slice(0, 30) } : {}),
+      id,
+      updatedAt: at,
+    }
+    this.transaction(() => { this.statements.putIdea.run(id, JSON.stringify(next), at); this.record('update', 'idea', { id, patch }) })
+    return next
+  }
+  deleteIdea(id) {
+    const existed = Boolean(this.statements.getIdea.get(id))
+    if (!existed) return false
+    this.transaction(() => { this.statements.deleteIdea.run(id); this.record('delete', 'idea', { id }) })
+    return true
   }
   publicAccount(row) {
     const roles = normalizeRoles(row.roles ? parseJson(row.roles) : null, row.role)

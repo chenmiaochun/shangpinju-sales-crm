@@ -12,6 +12,29 @@ import './orders.css'
 import './orders-layout.css'
 import './order-config.css'
 
+// QuickCustomerModal 造出来的客户骨架：字段比 Customer 少，stage 是宽泛的 string。
+// 单独定义是为了让「弹窗产出什么」和「落库要什么」这两件事在类型上说清楚。
+type QuickCustomerInput = {
+  id: string
+  name: string
+  phone: string
+  cityArea: string
+  stage: string
+  intent: '高' | '中' | '低'
+  expectedAmount: number
+  products: string[]
+  style: string
+  budget: string
+  renovationProgress: string
+  concerns: string[]
+  salesperson: string
+  source: string
+  createdAt: string
+  lastContactAt: string
+  createdBy: string
+  updatedAt: string
+}
+
 type Props = {
   customers: Customer[]
   products: ProductCatalogItem[]
@@ -204,8 +227,9 @@ export function OrderWorkspacePage({ customers, products, orders, activeUser, on
   }
 
   // 临时客户：销售开单页「+ 新建客户」直接进 customers 表 + 选为当前客户。
-  const handleQuickCustomerConfirm = (customer: Parameters<NonNullable<typeof onAddCustomer>>[0]) => {
+  const handleQuickCustomerConfirm = (input: QuickCustomerInput) => {
     if (!onAddCustomer) return
+    const customer = { ...input, stage: input.stage as Customer['stage'] } as Customer
     onAddCustomer(customer)
     setCustomerId(customer.id)
     setShowQuickCustomer(false)

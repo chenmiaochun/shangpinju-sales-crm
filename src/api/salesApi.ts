@@ -9,6 +9,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_ORIGIN).repla
 const STATIC_DEMO = import.meta.env.VITE_STATIC_DEMO === 'true'
 const STATIC_ACCOUNTS_KEY = 'shangpinju.static-accounts.v1'
 const STATIC_SESSION_KEY = 'shangpinju.static-session.v1'
+const STATIC_IDEAS_KEY = 'shangpinju.static-ideas.v1'
 
 export interface RemoteSalesState {
   customers: Customer[]
@@ -50,6 +51,29 @@ export interface RemoteAccount {
 }
 export interface CreateAccountInput { username: string; name: string; role: AccountRole; roles?: AccountRole[]; canDesign?: boolean; permissions?: AccessPermission[]; password: string; phone?: string }
 export interface UpdateAccountInput { username: string; name: string; role: AccountRole; roles?: AccountRole[]; canDesign?: boolean; permissions?: AccessPermission[]; phone?: string }
+
+// 想法收集（记一笔）
+export interface RemoteIdea {
+  id: string
+  content: string
+  module: string
+  status: string
+  priority: string
+  author: string
+  authorName: string
+  note: string
+  createdAt: string
+  updatedAt: string
+}
+export interface CreateIdeaInput { content: string; module?: string }
+export interface UpdateIdeaInput { status?: string; priority?: string; note?: string; module?: string }
+export const IDEA_STATUSES = ['待评估', '已排期', '开发中', '已上线', '不做'] as const
+export const IDEA_MODULES = ['订单报价', '产品主数据', '客户线索', '库存', '经营分析', '售后', '系统其它', '待分类'] as const
+
+function loadStaticIdeas(): RemoteIdea[] {
+  try { return JSON.parse(localStorage.getItem(STATIC_IDEAS_KEY) || '[]') as RemoteIdea[] } catch { return [] }
+}
+function saveStaticIdeas(items: RemoteIdea[]) { localStorage.setItem(STATIC_IDEAS_KEY, JSON.stringify(items)); return items }
 
 export const STATIC_TEST_PASSWORD = '123456'
 export const STATIC_TEST_ACCOUNTS: RemoteAccount[] = [
@@ -174,5 +198,20 @@ export const salesApi = {
     if (!STATIC_DEMO) return request<{ ok: boolean }>(`/accounts/${encodeURIComponent(id)}/reset-password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) })
     const accounts = loadStaticAccounts(); if (!accounts.some((item) => item.id === id)) staticAccountError('API 400')
     saveStaticAccounts(accounts.map((item) => item.id === id ? { ...item, password, mustChangePassword: true } : item)); return Promise.resolve({ ok: true })
+  },
+  listIdeas: () => STATIC_DEMO ? Promise.resolve({ ideas: loadStaticIdeas() }) : request<{ ideas: RemoteIdea[] }>('/ideas'),
+  createIdea: (input: CreateIdeaInput) => {
+    if (!STATIC_DEMO) return request<{ idea: RemoteIdea }>('/ideas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
+    const at = new Date().toISOString()
+    const idea: RemoteIdea = { id: `static-idea-${Date.now()}`, content: input.content, module: input.module || '待分类', status: '待评估', priority: 'P1', author: 'local', authorName: '本地预览', note: '', createdAt: at, updatedAt: at }
+    saveStaticIdeas([idea, ...loadStaticIdeas()])
+    return Promise.resolve({ idea })
+  },
+  updateIdea: (id: string, patch: UpdateIdeaInput) => {
+    if (!STATIC_DEMO) return request<{ idea: RemoteIdea }>(`/ideas/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) })
+    const items = loadStaticIdeas().map((item) => item.id === id ? { ...item, ...patch, updatedAt: new Date().toISOString() } : item)
+    saveStaticIdeas(items)
+    const idea = items.find((item) => item.id === id)
+    return idea ? Promise.resolve({ idea }) : Promise.reject(new ApiError(404, 'API 404'))
   },
 }

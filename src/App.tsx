@@ -51,6 +51,7 @@ import { SalesDataProvider, useSalesData } from "./store/SalesDataContext";
 import { LoginPage } from "./auth/LoginPage";
 import { useAuth } from "./auth/AuthContext";
 import { SHANGPINJU_LOGO } from "./assets/shangpinju-brand";
+import { IdeaBox } from "./features/idea-box/IdeaBox";
 
 const AIQualityPage = lazy(() =>
   import("./features/ai").then((module) => ({ default: module.AIQualityPage })),
@@ -1207,6 +1208,8 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
           <span>全部</span>
         </NavLink>
       </nav>
+
+      <IdeaBox />
     </div>
   );
 }

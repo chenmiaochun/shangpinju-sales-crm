@@ -232,6 +232,23 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
       if (req.method === 'PUT' && url.pathname === '/api/members') { requireManager(); return send(200, { members: database.setMembers(validateMembers(await readJson(req, maxBodyBytes))) }) }
       if (req.method === 'GET' && url.pathname === '/api/integrations') { requireManager(); return send(200, { integrations: publicIntegrations(database.getIntegrations()) }) }
       if (req.method === 'PUT' && url.pathname === '/api/integrations') { requireManager(); const incoming = validateIntegrations(await readJson(req, maxBodyBytes)); const saved = database.setIntegrations(mergeIntegrationSecrets(database.getIntegrations(), incoming)); return send(200, { integrations: publicIntegrations(saved) }) }
+      // 想法收集：任何登录的人都能提，但只有店长能看全部、改状态、删除
+      if (req.method === 'GET' && url.pathname === '/api/ideas') { requireManager(); return send(200, { ideas: database.listIdeas() }) }
+      if (req.method === 'POST' && url.pathname === '/api/ideas') {
+        const body = await readJson(req, maxBodyBytes)
+        try {
+          const idea = database.createIdea({ ...body, author: session.account.username, authorName: session.account.name })
+          return send(201, { idea })
+        } catch (error) {
+          const message = String(error?.message)
+          if (message === 'IDEA_CONTENT_REQUIRED') throw new ApiError(400, 'VALIDATION_ERROR', 'Please describe your idea')
+          if (message === 'IDEA_CONTENT_TOO_LONG') throw new ApiError(400, 'VALIDATION_ERROR', 'Idea is too long (max 1000 characters)')
+          throw error
+        }
+      }
+      const ideaMatch = url.pathname.match(/^\/api\/ideas\/([^/]+)$/)
+      if (req.method === 'PATCH' && ideaMatch) { requireManager(); const idea = database.updateIdea(decodeURIComponent(ideaMatch[1]), await readJson(req, maxBodyBytes)); if (!idea) throw new ApiError(404, 'NOT_FOUND', 'Idea not found'); return send(200, { idea }) }
+      if (req.method === 'DELETE' && ideaMatch) { requireManager(); if (!database.deleteIdea(decodeURIComponent(ideaMatch[1]))) throw new ApiError(404, 'NOT_FOUND', 'Idea not found'); return send(204) }
       throw new ApiError(404, 'NOT_FOUND', 'API route not found')
     } catch (error) {
       const known = error instanceof ApiError
