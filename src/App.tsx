@@ -892,6 +892,9 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
                       categories={sales.categories}
                       series={sales.series}
                       showPricing={access.can("cost.view")}
+                      onAddCustomer={(customer) =>
+                        sales.addCustomers([customer])
+                      }
                     />
                   </CustomerAllowed>
                 }

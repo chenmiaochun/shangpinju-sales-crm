@@ -267,6 +267,8 @@ export interface OrderItem {
   packageId?: string;
   packageCode?: string; // TC-001
   packageItems?: PackageOrderItem[]; // 套餐内单品分组快照（打印分组展示用）
+  // 测试期销售开单页临时录入的标记（不进产品主库；店长后续清洗）
+  isTemporary?: boolean;
 }
 
 // Phase 4.2：套餐行内每个单品的选配快照。
