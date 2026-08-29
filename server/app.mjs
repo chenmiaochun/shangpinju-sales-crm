@@ -2,6 +2,7 @@ import { createServer } from 'node:http'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, extname, join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { lanOrigins } from './lan.mjs'
 
 const JSON_TYPE = { 'content-type': 'application/json; charset=utf-8' }
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -109,7 +110,10 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
   const publicIntakeAttempts = new Map()
   return createServer(async (req, res) => {
     const requestOrigin = req.headers.origin
-    const allowedOrigins = corsOrigin === '*' ? [] : String(corsOrigin).split(',').map(value => value.trim()).filter(Boolean)
+    // 除了显式配置的白名单，额外放行「本机当前所有局域网 IP + 前端端口」，
+    // 这样路由器换 IP 后不用改配置、不用重启服务端（结果缓存 5 秒）。
+    const configuredOrigins = corsOrigin === '*' ? [] : String(corsOrigin).split(',').map(value => value.trim()).filter(Boolean)
+    const allowedOrigins = corsOrigin === '*' ? [] : [...new Set([...configuredOrigins, ...lanOrigins()])]
     const originAllowed = corsOrigin === '*' || Boolean(requestOrigin && allowedOrigins.includes(requestOrigin))
     const allowOrigin = corsOrigin === '*' ? '*' : originAllowed ? requestOrigin : allowedOrigins[0]
     const headers = { ...JSON_TYPE, 'access-control-allow-origin': allowOrigin, 'access-control-allow-methods': 'GET, PUT, POST, PATCH, OPTIONS', 'access-control-allow-headers': 'Content-Type', ...(allowOrigin === '*' ? {} : { 'access-control-allow-credentials': 'true', vary: 'Origin' }) }

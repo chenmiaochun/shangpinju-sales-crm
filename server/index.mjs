@@ -16,7 +16,8 @@ const server = createApiServer({
   database,
   uploadDir: join(dataDir, 'uploads'),
   maxBodyBytes: Number(process.env.SALES_MAX_BODY_BYTES || 20 * 1_048_576),
-  corsOrigin: process.env.SALES_CORS_ORIGIN || 'http://localhost:5173,http://127.0.0.1:5173,http://192.168.110.127:5173',
+  // 白名单只需写固定的本机/回环地址；本机局域网 IP 由 server/lan.mjs 动态放行，换 IP 不用改这里
+  corsOrigin: process.env.SALES_CORS_ORIGIN || 'http://localhost:5173,http://127.0.0.1:5173',
   secureCookies: process.env.NODE_ENV === 'production',
   sessionTtlMs: Number(process.env.SALES_SESSION_TTL_MS || 8 * 60 * 60 * 1000),
 })
