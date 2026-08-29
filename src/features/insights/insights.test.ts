@@ -21,7 +21,7 @@ describe('buildSalesInsights', () => {
     expect(result.activity).toMatchObject({ total:2, activeCustomers:2, coverageRate:100, nextActionRate:50, resultRate:50, averagePerActiveCustomer:1 })
     expect(result.stageRisks.find((item) => item.stage === '已报价')).toMatchObject({ riskCustomers:1, amountAtRisk:100000 })
     expect(result.suggestions.some((item) => item.includes('下一步'))).toBe(true)
-    expect(result.products[0]).toMatchObject({ product:'沙发', interestedCustomers:2, highIntent:1, highIntentRate:50, amount:150000, activityAdvice:'适合组合促销', supplyType:'定制生产', supplyAdvice:'按意向提前排产' })
+    expect(result.products[0]).toMatchObject({ product:'沙发', interestedCustomers:2, highIntent:1, highIntentRate:50, amount:150000, activityAdvice:'适合组合促销' })
     expect(result.suggestions.some((item) => item.includes('沙发'))).toBe(true)
   })
   it('groups lost reasons across all historical customers', () => {

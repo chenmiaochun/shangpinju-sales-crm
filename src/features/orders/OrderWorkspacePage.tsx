@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
-import { CheckCircle2, FileUp, PackagePlus, Printer, Search, ShoppingCart, Trash2 } from 'lucide-react'
-import type { ConfigProduct, Customer, CustomerFile, OrderItem, PaymentRecord, ProductCatalogItem, ProductComponent, ProductPackage, SalesOrder, SkuUnit } from '../../types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CheckCircle2, ChevronRight, FileUp, PackagePlus, Printer, Search, ShoppingCart, Trash2 } from 'lucide-react'
+import type { ConfigProduct, Customer, CustomerFile, OrderItem, PaymentRecord, ProductCatalogItem, ProductCategory, ProductComponent, ProductPackage, ProductSeries, SalesOrder, SkuUnit } from '../../types'
 import { availableCount, configProductAvailability, configProductPriceRange, packageAvailability, packagePriceRange } from '../../utils/product-config'
 import { formatPriceRange } from '../product-master/pm-utils'
 import { ConfigProductPicker } from './ConfigProductPicker'
@@ -23,6 +23,8 @@ type Props = {
   skuUnits?: SkuUnit[]
   components?: ProductComponent[]
   packages?: ProductPackage[]
+  categories?: ProductCategory[]
+  series?: ProductSeries[]
   showPricing?: boolean
 }
 
@@ -56,7 +58,7 @@ const shortageText = (item: OrderItem, skuUnits: SkuUnit[], products: ProductCat
   return avail < item.quantity ? `现货不足：可用 ${avail}，本单需要 ${item.quantity}（${product.sku}）` : null
 }
 
-export function OrderWorkspacePage({ customers, products, orders, activeUser, onAddOrder, onUpdateOrder, onActivate, onAddPayment, configProducts = [], skuUnits = [], components = [], packages = [], showPricing = false }: Props) {
+export function OrderWorkspacePage({ customers, products, orders, activeUser, onAddOrder, onUpdateOrder, onActivate, onAddPayment, configProducts = [], skuUnits = [], components = [], packages = [], categories = [], series = [], showPricing = false }: Props) {
   const routeCustomer = routeCustomerId()
   const [customerId, setCustomerId] = useState(customers.some((item) => item.id === routeCustomer) ? routeCustomer : customers[0]?.id ?? '')
   const [query, setQuery] = useState('')
@@ -64,6 +66,10 @@ export function OrderWorkspacePage({ customers, products, orders, activeUser, on
   const [pickerProduct, setPickerProduct] = useState<ConfigProduct | null>(null)
   const [pickerPackage, setPickerPackage] = useState<ProductPackage | null>(null)
   const [expandedLine, setExpandedLine] = useState<string>('')
+  // 产品库单品 三级导航：null = 全部；选品类时只显示该品类下系列；选系列时只显示该系列下单品
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
+  const [selectedSeries, setSelectedSeries] = useState<string | null>(null)
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(() => new Set())
   const [orderType, setOrderType] = useState<'订货' | '现货' | '退货'>('订货')
   const [urgent, setUrgent] = useState(false)
   const [items, setItems] = useState<OrderItem[]>([])
@@ -91,6 +97,65 @@ export function OrderWorkspacePage({ customers, products, orders, activeUser, on
     .filter((item) => item.status === '上架')
     .filter((item) => `${item.name}${item.code}${item.description ?? ''}`.toLowerCase().includes(query.toLowerCase()))
     .sort((a, b) => a.sortOrder - b.sortOrder), [packages, query])
+  // —— 产品库单品 三级导航数据 ——
+  // 按上架品类 (id, name, sort) → 该品类下的系列名集合 → 该系列下的 configProduct 数量
+  const configTree = useMemo(() => {
+    const catById = new Map(categories.map((c) => [c.id, c]))
+    const list = configProducts.filter((cp) => cp.status === '上架')
+    // categoryId -> Map<seriesName, count>
+    const grouped = new Map<string, Map<string, number>>()
+    for (const cp of list) {
+      const map = grouped.get(cp.categoryId) ?? new Map<string, number>()
+      const serName = cp.series?.trim() || '其他'
+      map.set(serName, (map.get(serName) ?? 0) + 1)
+      grouped.set(cp.categoryId, map)
+    }
+    const rows = categories
+      .map((cat) => {
+        const serMap = grouped.get(cat.id)
+        if (!serMap) return null
+        const seriesArr = Array.from(serMap.entries())
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'zh'))
+        return { cat, series: seriesArr, total: seriesArr.reduce((s, x) => s + x.count, 0) }
+      })
+      .filter((row): row is { cat: ProductCategory; series: { name: string; count: number }[]; total: number } => !!row)
+      .sort((a, b) => (a.cat.sort ?? 0) - (b.cat.sort ?? 0) || a.cat.name.localeCompare(b.cat.name, 'zh'))
+    // 给「其他」这种内置兜底系列，缺失时也补一条占位，让用户能看到完整结构
+    for (const r of rows) {
+      if (!r.series.find((s) => s.name === '其他')) r.series.push({ name: '其他', count: 0 })
+      r.series.sort((a, b) => (a.name === '其他' ? 1 : b.name === '其他' ? -1 : b.count - a.count || a.name.localeCompare(b.name, 'zh')))
+    }
+    return { rows, catById, total: list.length }
+  }, [categories, configProducts])
+  // 当前选中品类下可见的单品（受三级 + 搜索影响；搜索非空时忽略三级，全局扁平化匹配）
+  const visibleConfig = useMemo(() => {
+    const all = configProducts.filter((cp) => cp.status === '上架')
+    const q = query.trim().toLowerCase()
+    if (q) {
+      // 搜索模式：跨品类扁平匹配；顺便把「结果所属品类/系列」返给卡片，做面包屑提示
+      return all
+        .filter((cp) => `${cp.name}${cp.code}${cp.series ?? ''}${cp.style ?? ''}`.toLowerCase().includes(q))
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+    }
+    if (selectedSeries && selectedCategoryId) {
+      return all.filter((cp) => cp.categoryId === selectedCategoryId && (cp.series?.trim() || '其他') === selectedSeries).sort((a, b) => a.sortOrder - b.sortOrder)
+    }
+    if (selectedCategoryId) {
+      return all.filter((cp) => cp.categoryId === selectedCategoryId).sort((a, b) => a.sortOrder - b.sortOrder)
+    }
+    return all.sort((a, b) => a.sortOrder - b.sortOrder)
+  }, [configProducts, query, selectedCategoryId, selectedSeries])
+  // 在切换到「产品库单品」且没选中节点时，自动选第一个有单品的品类（让卡片区不空白）
+  useEffect(() => {
+    if (source !== 'config') return
+    if (selectedCategoryId || query.trim()) return
+    const first = configTree.rows[0]
+    if (first) {
+      setSelectedCategoryId(first.cat.id)
+      setExpandedCats((s) => (s.has(first.cat.id) ? s : new Set([...s, first.cat.id])))
+    }
+  }, [source, selectedCategoryId, query, configTree.rows])
   const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
   const total = Math.max(0, subtotal - discount + otherFee)
   const requiredDeposit = Math.round(total * depositRate / 100 * 100) / 100
@@ -160,8 +225,74 @@ export function OrderWorkspacePage({ customers, products, orders, activeUser, on
       </div>
       <div className="order-customer-summary"><span><small>客户名称</small><b>{customer?.name ?? '未选择'}</b></span><span><small>联系方式</small><b>{customer?.phone ?? '-'}</b></span><label>送货地址<input value={address || customer?.cityArea || ''} onChange={(e) => setAddress(e.target.value)} placeholder="填写详细送货地址"/></label><label>送货日期<input type="date" value={deliveryDate} onChange={(e) => { setDeliveryDate(e.target.value); setDeliveryMonth(e.target.value.slice(0, 7)) }}/></label></div>
     </section>
-    <div className="selection-layout"><section className="product-browser"><header className="browser-head"><div className="browser-tabs" role="tablist" aria-label="商品来源"><button type="button" role="tab" aria-selected={source === 'config'} className={source === 'config' ? 'active' : ''} onClick={() => setSource('config')}>产品库单品{configProducts.length ? ` · ${filteredConfig.length}` : ''}</button><button type="button" role="tab" aria-selected={source === 'package'} className={source === 'package' ? 'active' : ''} onClick={() => setSource('package')}>产品库套餐{packages.length ? ` · ${filteredPackages.length}` : ''}</button><button type="button" role="tab" aria-selected={source === 'catalog'} className={source === 'catalog' ? 'active' : ''} onClick={() => setSource('catalog')}>商品库 · {filtered.length}</button></div></header>
-      {source === 'config' && <div className="config-list">{filteredConfig.length ? filteredConfig.map((cp) => { const avail = configProductAvailability(cp, skuUnits); const availText = avail.missingSku ? '规格未配齐' : avail.hasCustom ? '含定制主件' : avail.hasPurchase ? '含外采主件' : `可售 ${avail.stock} 套`; return <article key={cp.id} className="config-card"><div><strong>{cp.name}</strong><small>{cp.code}{cp.series ? ` · ${cp.series}` : ''}{cp.style ? ` · ${cp.style}` : ''}</small><small>{availText}</small></div><span><b>{formatPriceRange(configProductPriceRange(cp, skuUnits))}</b><small>选规格后自动算价</small></span><button onClick={() => setPickerProduct(cp)} title="选择规格加入选品"><PackagePlus/></button></article> }) : <div className="cart-empty">产品库暂无上架单品，可切换到商品库或让店长在「产品主数据」中配置</div>}</div>}
+    <div className="selection-layout"><section className="product-browser"><header className="browser-head"><div className="browser-tabs" role="tablist" aria-label="商品来源"><button type="button" role="tab" aria-selected={source === 'config'} className={source === 'config' ? 'active' : ''} onClick={() => setSource('config')}>产品库单品{configProducts.length ? ` · ${visibleConfig.length}` : ''}</button><button type="button" role="tab" aria-selected={source === 'package'} className={source === 'package' ? 'active' : ''} onClick={() => setSource('package')}>产品库套餐{packages.length ? ` · ${filteredPackages.length}` : ''}</button>{products.length > 0 && <button type="button" role="tab" aria-selected={source === 'catalog'} className={source === 'catalog' ? 'active' : ''} onClick={() => setSource('catalog')}>商品库 · {filtered.length}</button>}</div></header>
+      {source === 'config' && (categories.length === 0
+        // 无品类数据时回退平铺（兼容老数据 / 测试场景）
+        ? <div className="config-list">{filteredConfig.length ? filteredConfig.map((cp) => { const avail = configProductAvailability(cp, skuUnits); const availText = avail.missingSku ? '规格未配齐' : avail.hasCustom ? '含定制主件' : avail.hasPurchase ? '含外采主件' : `可售 ${avail.stock} 套`; return <article key={cp.id} className="config-card"><div><strong>{cp.name}</strong><small>{cp.code}{cp.series ? ` · ${cp.series}` : ''}{cp.style ? ` · ${cp.style}` : ''}</small><small>{availText}</small></div><span><b>{formatPriceRange(configProductPriceRange(cp, skuUnits))}</b><small>选规格后自动算价</small></span><button onClick={() => setPickerProduct(cp)} title="选择规格加入选品"><PackagePlus/></button></article> }) : <div className="cart-empty">产品库暂无上架单品，可让店长在「产品主数据」中配置</div>}</div>
+        // 正常三级折叠树
+        : <div className="config-cascade">
+            <aside className="pm-tree" aria-label="产品库分类导航">
+              <div className="pm-tree-head">
+                <b>产品分类</b>
+                <small>共 {configTree.total} 款单品</small>
+              </div>
+              <button type="button" className={`pm-tree-row pm-tree-all${!selectedCategoryId ? ' active' : ''}`} onClick={() => { setSelectedCategoryId(null); setSelectedSeries(null) }} aria-pressed={!selectedCategoryId}>
+                <span>全部</span><small>{configTree.total}</small>
+              </button>
+              {configTree.rows.map((row) => {
+                const isCat = selectedCategoryId === row.cat.id
+                const isExpanded = expandedCats.has(row.cat.id)
+                return (
+                  <div key={row.cat.id} className={`pm-tree-cat${isCat ? ' active' : ''}`}>
+                    <button type="button" className="pm-tree-row pm-tree-cat-row" onClick={() => { const willExpand = !isExpanded; setExpandedCats((s) => { const next = new Set(s); if (willExpand) next.add(row.cat.id); else next.delete(row.cat.id); return next }); setSelectedCategoryId(row.cat.id); setSelectedSeries(null) }} aria-expanded={isExpanded}>
+                      <ChevronRight size={12} className={`pm-tree-chevron${isExpanded ? ' rotated' : ''}`} />
+                      <span>{row.cat.name}</span>
+                      <small>{row.total}</small>
+                    </button>
+                    {isExpanded && (
+                      <div className="pm-tree-series">
+                        {row.series.map((ser) => {
+                          const isSeries = isCat && selectedSeries === ser.name
+                          return (
+                            <button key={ser.name} type="button" className={`pm-tree-row pm-tree-series-row${isSeries ? ' active' : ''}`} onClick={() => { setSelectedCategoryId(row.cat.id); setSelectedSeries(ser.name) }} disabled={ser.count === 0} aria-pressed={isSeries}>
+                              <span>{ser.name}</span>
+                              <small>{ser.count}</small>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </aside>
+            <div className="pm-cards">
+              {query.trim() && <p className="pm-cards-meta">搜索「{query.trim()}」共匹配 <b>{visibleConfig.length}</b> 款单品</p>}
+              {!query.trim() && selectedCategoryId && (() => {
+                const cat = configTree.catById.get(selectedCategoryId)
+                const label = selectedSeries ? `${cat?.name ?? ''} · ${selectedSeries}` : (cat?.name ?? '')
+                return <p className="pm-cards-meta">{label} · 共 <b>{visibleConfig.length}</b> 款</p>
+              })()}
+              {!query.trim() && !selectedCategoryId && <p className="pm-cards-meta">全部 · 共 <b>{visibleConfig.length}</b> 款</p>}
+              {visibleConfig.length === 0
+                ? <div className="cart-empty">该节点下暂无单品，请换个分类或清空搜索词再试</div>
+                : visibleConfig.map((cp) => {
+                    const avail = configProductAvailability(cp, skuUnits)
+                    const availText = avail.missingSku ? '规格未配齐' : avail.hasCustom ? '含定制主件' : avail.hasPurchase ? '含外采主件' : `可售 ${avail.stock} 套`
+                    const cat = configTree.catById.get(cp.categoryId)
+                    return <article key={cp.id} className="config-card">
+                      <div>
+                        <strong>{cp.name}</strong>
+                        <small>{cp.code}{cat ? ` · ${cat.name}` : ''}{cp.series ? ` · ${cp.series}` : ''}{cp.style ? ` · ${cp.style}` : ''}</small>
+                        <small>{availText}</small>
+                      </div>
+                      <span><b>{formatPriceRange(configProductPriceRange(cp, skuUnits))}</b><small>选规格后自动算价</small></span>
+                      <button onClick={() => setPickerProduct(cp)} title="选择规格加入选品"><PackagePlus/></button>
+                    </article>
+                  })}
+            </div>
+          </div>
+      )}
       {source === 'package' && <div className="config-list">{filteredPackages.length ? filteredPackages.map((pk) => { const avail = packageAvailability(pk, configProducts, skuUnits); const availText = avail.missingSku ? '有单品规格未配齐' : avail.hasCustom ? '含定制主件' : avail.hasPurchase ? '含外采主件' : `可售 ${avail.stock} 套`; return <article key={pk.id} className="config-card package-card"><div><strong>{pk.name}</strong><small>{pk.code} · 含 {pk.items.length} 件单品{pk.description ? ` · ${pk.description}` : ''}</small><small>{availText}</small></div><span><b>{formatPriceRange(packagePriceRange(pk, configProducts, skuUnits))}</b><small>选配后自动算价</small></span><button onClick={() => setPickerPackage(pk)} title="选配套餐加入选品"><PackagePlus/></button></article> }) : <div className="cart-empty">产品库暂无上架套餐，可让店长在「产品主数据 · 套餐配置」中创建</div>}</div>}
       {source === 'catalog' && <div>{filtered.map((product) => <article key={product.id}><div><strong>{product.name}</strong><small>{product.sku} · {product.woodMaterial || product.category || '资料待完善'}</small><small>{product.dimensions || product.specifications.join(' / ')}</small></div><span><b>{money(product.unitPrice)}</b><small>{product.supplyType} · 可用 {Math.max(0, product.availableStock - (product.reservedStock ?? 0))}</small></span><button onClick={() => add(product)} title="加入选品"><PackagePlus/></button></article>)}</div>}</section>
       <aside className="selection-cart"><header><ShoppingCart/><div><h2>销售单明细</h2><span>{customer?.name || '未选择客户'} · {items.length} 项</span></div></header>{items.map((item) => <article className="order-line" key={item.id} data-config-line={item.configProductId || item.packageId ? 'true' : undefined}><div className="order-line-main"><strong>{item.productName}{(item.configProductCode || item.packageCode) && <small className="line-code">{item.configProductCode ?? item.packageCode}</small>}</strong>{item.configProductId || item.packageId ? <span className="line-spec-text">{item.specification}</span> : <select aria-label={`${item.productName}规格`} value={item.specification} onChange={(e) => updateItem(item.id, { specification: e.target.value, dimensions: e.target.value })}>{products.find((p) => p.id === item.productId)?.specifications.map((spec) => <option key={spec}>{spec}</option>)}</select>}<div className="order-line-details"><input aria-label={`${item.productName}材质`} value={item.material ?? ''} onChange={(e) => updateItem(item.id, { material: e.target.value })} placeholder="材质"/><input aria-label={`${item.productName}单位`} value={item.unit ?? '件'} onChange={(e) => updateItem(item.id, { unit: e.target.value })} placeholder="单位"/><input aria-label={`${item.productName}备注`} value={item.lineNote ?? ''} onChange={(e) => updateItem(item.id, { lineNote: e.target.value })} placeholder="本行备注"/></div>{item.skuLines?.length ? <button type="button" className="line-sku-toggle" aria-expanded={expandedLine === item.id} onClick={() => setExpandedLine((current) => current === item.id ? '' : item.id)}>组件明细 {item.skuLines.length} 项</button> : null}{urgent && shortageText(item, skuUnits, products) && <span className="line-shortage" role="alert">⚠ {shortageText(item, skuUnits, products)}</span>}</div><input aria-label={`${item.productName}数量`} type="number" min="1" value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Math.max(1, Number(e.target.value)) })}/><input className="line-price" aria-label={`${item.productName}单价`} type="number" min="0" value={item.unitPrice} onChange={(e) => updateItem(item.id, { unitPrice: Math.max(0, Number(e.target.value)) })}/><b>{money(item.unitPrice * item.quantity)}</b><button aria-label={`删除${item.productName}`} onClick={() => setItems((rows) => rows.filter((row) => row.id !== item.id))}><Trash2/></button>{item.skuLines?.length && expandedLine === item.id ? <ul className="line-sku-lines">{item.skuLines.map((line) => <li key={line.skuUnitId}><span>{line.componentName} ×{line.quantity}</span><small>{line.specSummary}</small><small>{line.supplyType}{line.optional ? ' · 选配' : ''}</small>{showPricing && <b>{money(line.unitPrice * line.quantity)}</b>}</li>)}</ul> : null}</article>)}{!items.length && <div className="cart-empty">从左侧选择客户需要的商品</div>}

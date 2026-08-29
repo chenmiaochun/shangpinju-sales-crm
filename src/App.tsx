@@ -889,6 +889,8 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
                       skuUnits={sales.skuUnits}
                       components={sales.components}
                       packages={sales.productPackages}
+                      categories={sales.categories}
+                      series={sales.series}
                       showPricing={access.can("cost.view")}
                     />
                   </CustomerAllowed>
