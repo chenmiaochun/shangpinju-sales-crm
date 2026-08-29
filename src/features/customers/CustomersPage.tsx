@@ -31,6 +31,8 @@ import './upload-feedback.css'
 const STORAGE_KEY = 'shangpinju.customer-followup.v1'
 const CLOSED_STAGES = new Set<CustomerStage>(['已成交', '已流失'])
 const WON_STAGES = new Set<CustomerStage>(['已定金', '生产交付', '已成交'])
+// 测试期销售开单页 QuickCustomerModal 自助录入的客户来源标记，店长按此清洗补全
+const TEMP_SOURCE = '销售开单临时录入'
 type CustomerScope = 'active' | 'won' | 'deals' | 'paid' | 'receivable' | 'marketing'
 
 export function getCustomerCounts(customers: Customer[]) {
@@ -135,6 +137,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
   const [taskFilter, setTaskFilter] = useState<'全部' | '待跟进' | '已逾期'>(initialFilters.task as '全部' | '待跟进' | '已逾期')
   const [intentFilter, setIntentFilter] = useState<'全部' | Customer['intent']>(initialFilters.intent as '全部' | Customer['intent'])
   const [scopeFilter, setScopeFilter] = useState<CustomerScope | undefined>(initialFilters.scope)
+  const [tempOnly, setTempOnly] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [followUpPurpose, setFollowUpPurpose] = useState<'default' | 'execute' | 'schedule'>('default')
   const [handoffOpen, setHandoffOpen] = useState(false)
@@ -169,6 +172,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
   }
 
   const owners = useMemo(() => [...new Set(state.customers.map((item) => item.salesperson))], [state.customers])
+  const tempCustomerCount = useMemo(() => state.customers.filter((customer) => customer.source === TEMP_SOURCE).length, [state.customers])
   const counts = useMemo(() => getCustomerCounts(state.customers), [state.customers])
   const filtered = useMemo(() => state.customers.filter((customer) => {
     const keyword = query.trim().toLowerCase()
@@ -198,8 +202,9 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
       || (routeFilters.period === 'leads' && inPeriod(customer.createdAt))
       || (routeFilters.period === 'deals' && inPeriod(customer.dealDate))
       || (routeFilters.period === 'visits' && (state.followUps.some((item) => item.customerId === customer.id && item.channel === '到店' && inPeriod(item.at)) || (reachedStore && inPeriod(customer.createdAt))))
-    return matchesQuery && matchesStage && matchesOwner && matchesIntent && matchesTask && matchesScope && matchesPeriod
-  }).sort((a, b) => initialFilters.sort === 'amount-desc' ? b.expectedAmount - a.expectedAmount : 0), [initialFilters.sort, intentFilter, ownerFilter, query, routeFilters, scopeFilter, stageFilter, state.customers, state.followUps, taskFilter])
+    const matchesTemp = !tempOnly || customer.source === TEMP_SOURCE
+    return matchesQuery && matchesStage && matchesOwner && matchesIntent && matchesTask && matchesScope && matchesPeriod && matchesTemp
+  }).sort((a, b) => initialFilters.sort === 'amount-desc' ? b.expectedAmount - a.expectedAmount : 0), [initialFilters.sort, intentFilter, ownerFilter, query, routeFilters, scopeFilter, stageFilter, state.customers, state.followUps, taskFilter, tempOnly])
 
   const activeDashboardFilter = Boolean(scopeFilter || routeFilters.period || intentFilter !== '全部' || stageFilter !== '全部' || ownerFilter !== '全部' || taskFilter !== '全部')
   const periodLabel = routeFilters.period && `${routeFilters.from} 至 ${routeFilters.to} ${routeFilters.period === 'leads' ? '新增线索' : routeFilters.period === 'visits' ? '新到店客户' : '新增成交'}`
@@ -321,6 +326,11 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
             <div className="segmented-control" aria-label="跟进状态">
               {(['全部', '待跟进', '已逾期'] as const).map((filter) => <button key={filter} className={taskFilter === filter ? 'active' : ''} onClick={() => setTaskFilter(filter)}>{filter}</button>)}
             </div>
+            {tempCustomerCount > 0 && (
+              <button type="button" className={`temp-only-toggle ${tempOnly ? 'active' : ''}`} onClick={() => setTempOnly((value) => !value)} title="测试期销售自助录入的客户，待店长清洗补全">
+                仅看临时录入 · {tempCustomerCount}
+              </button>
+            )}
           </div>
           <div className="list-count">{filtered.length} 位客户</div>
           <div className="customer-list">
@@ -328,7 +338,7 @@ export function CustomersPage({ customers, followUps, designers = [{ id: 'demo-d
               <button key={customer.id} className={`customer-row ${selectedId === customer.id ? 'selected' : ''}`} onClick={() => setSelectedId(customer.id)}>
                 <span className={`intent-dot intent-${customer.intent}`} aria-label={`${customer.intent}意向`} />
                 <span className="customer-row-main">
-                  <span className="customer-row-title"><strong>{customer.name}</strong><span className="stage-tag">{customer.stage}</span></span>
+                  <span className="customer-row-title"><strong>{customer.name}</strong><span className="stage-tag">{customer.stage}</span>{customer.source === TEMP_SOURCE && <i className="temp-tag">临时录入</i>}</span>
                   <span className="customer-row-meta">{customer.phone} · {customer.source}</span>
                   <span className={`next-followup ${isOverdue(customer.nextFollowUpAt) ? 'overdue' : ''}`}><Clock3 size={14} />{customer.nextFollowUpAt ? `下次 ${formatDate(customer.nextFollowUpAt)}` : '暂无下一步任务'}</span>
                 </span>

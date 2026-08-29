@@ -16,6 +16,9 @@
 .segmented-control { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 12px; padding: 3px; background: #eff1ef; }
 .segmented-control button { height: 30px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
 .segmented-control button.active { background: #fff; color: var(--green); box-shadow: 0 1px 3px rgba(30, 40, 35, .1); font-weight: 600; }
+.temp-only-toggle { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; height: 32px; padding: 0 10px; border: 1px dashed #b85b62; background: #fff; color: #8a444a; font-size: 12px; font-weight: 600; cursor: pointer; }
+.temp-only-toggle.active { border-style: solid; border-color: #b85b62; background: #fdf3f3; color: #701318; }
+.temp-tag { font-style: normal; padding: 2px 6px; border: 1px dashed #b85b62; color: #8a444a; font-size: 10px; white-space: nowrap; }
 .list-count { padding: 12px 20px 8px; color: var(--muted); font-size: 12px; font-weight: 600; }
 .customer-list { flex: 1; overflow: auto; }
 .customer-row { width: 100%; min-height: 112px; padding: 16px 16px 16px 20px; display: grid; grid-template-columns: 9px 1fr 18px; align-items: center; gap: 12px; text-align: left; background: #fff; border: 0; border-bottom: 1px solid #edf0ee; cursor: pointer; color: inherit; }

@@ -118,6 +118,8 @@ export function LifecyclePage(props: Props) {
     () =>
       props.orders.filter((order) => {
         if (orderFilter === "全部") return true;
+        if (orderFilter === "含临时产品")
+          return (order.items ?? []).some((item) => item.isTemporary);
         if (orderFilter === "待发货")
           return [
             "已签名已确认",
@@ -301,6 +303,7 @@ export function LifecyclePage(props: Props) {
               "已签收待收尾款",
               "已完成",
               "换货/退货中",
+              "含临时产品",
             ].map((filter) => (
               <button
                 type="button"
@@ -324,6 +327,9 @@ export function LifecyclePage(props: Props) {
             {filteredOrders.map((order) => {
               const summary = summarizeOrderFulfillment(order, props.products);
               const reminder = hasArrivalReminder(order, props.products);
+              const tempItems = (order.items ?? []).filter(
+                (item) => item.isTemporary,
+              );
               return (
                 <button
                   className={`table-row ${selectedOrder?.id === order.id ? "selected" : ""} ${reminder ? "arrival-reminder" : ""}`}
@@ -335,6 +341,11 @@ export function LifecyclePage(props: Props) {
                 >
                   <span>
                     <b>{order.orderNo}</b>
+                    {tempItems.length > 0 && (
+                      <i className="temp-order-tag" title={`含 ${tempItems.length} 件测试期临时录入商品，待补录成正式单品`}>
+                        临时产品 ×{tempItems.length}
+                      </i>
+                    )}
                     <small>
                       {order.customerName} · {order.products.join("、")}
                     </small>
