@@ -71,10 +71,35 @@ export interface UpdateIdeaInput { status?: string; priority?: string; note?: st
 export const IDEA_STATUSES = ['待评估', '已排期', '开发中', '已上线', '不做'] as const
 export const IDEA_MODULES = ['订单报价', '产品主数据', '客户线索', '库存', '经营分析', '售后', '系统其它', '待分类'] as const
 
+// 案例库（员工上传图片 + 案例 → 进数据库、全员可见）
+export interface RemoteCase {
+  id: string
+  title: string
+  category: string
+  productNames: string[]
+  customerName: string
+  images: { id: string; name: string; type: string; url: string; size?: number }[]
+  note: string
+  status: string
+  author: string
+  authorName: string
+  createdAt: string
+  updatedAt: string
+}
+export interface CreateCaseInput { title: string; category?: string; productNames?: string[]; customerName?: string; images?: RemoteCase['images']; note?: string }
+export interface UpdateCaseInput { title?: string; category?: string; customerName?: string; note?: string; status?: string }
+export const CASE_CATEGORIES = ['成交案例', '客户实拍', '安装现场', '空间搭配', '其他'] as const
+
 function loadStaticIdeas(): RemoteIdea[] {
   try { return JSON.parse(localStorage.getItem(STATIC_IDEAS_KEY) || '[]') as RemoteIdea[] } catch { return [] }
 }
 function saveStaticIdeas(items: RemoteIdea[]) { localStorage.setItem(STATIC_IDEAS_KEY, JSON.stringify(items)); return items }
+
+const STATIC_CASES_KEY = 'shangpinju.static-cases.v1'
+function loadStaticCases(): RemoteCase[] {
+  try { return JSON.parse(localStorage.getItem(STATIC_CASES_KEY) || '[]') as RemoteCase[] } catch { return [] }
+}
+function saveStaticCases(items: RemoteCase[]) { localStorage.setItem(STATIC_CASES_KEY, JSON.stringify(items)); return items }
 
 export const STATIC_TEST_PASSWORD = '123456'
 export const STATIC_TEST_ACCOUNTS: RemoteAccount[] = [
@@ -215,4 +240,20 @@ export const salesApi = {
     const idea = items.find((item) => item.id === id)
     return idea ? Promise.resolve({ idea }) : Promise.reject(new ApiError(404, 'API 404'))
   },
+  listCases: () => STATIC_DEMO ? Promise.resolve({ cases: loadStaticCases() }) : request<{ cases: RemoteCase[] }>('/cases'),
+  createCase: (input: CreateCaseInput) => {
+    if (!STATIC_DEMO) return request<{ case: RemoteCase }>('/cases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
+    const at = new Date().toISOString()
+    const record: RemoteCase = { id: `static-case-${Date.now()}`, title: input.title, category: input.category || '其他', productNames: input.productNames || [], customerName: input.customerName || '', images: input.images || [], note: input.note || '', status: '已发布', author: 'local', authorName: '本地预览', createdAt: at, updatedAt: at }
+    saveStaticCases([record, ...loadStaticCases()])
+    return Promise.resolve({ case: record })
+  },
+  updateCase: (id: string, patch: UpdateCaseInput) => {
+    if (!STATIC_DEMO) return request<{ case: RemoteCase }>(`/cases/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) })
+    const items = loadStaticCases().map((item) => item.id === id ? { ...item, ...patch, updatedAt: new Date().toISOString() } : item)
+    saveStaticCases(items)
+    const record = items.find((item) => item.id === id)
+    return record ? Promise.resolve({ case: record }) : Promise.reject(new ApiError(404, 'API 404'))
+  },
+  deleteCase: (id: string) => STATIC_DEMO ? Promise.resolve(saveStaticCases(loadStaticCases().filter((item) => item.id !== id))).then(() => undefined) : request<void>(`/cases/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 }

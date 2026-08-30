@@ -5,6 +5,7 @@ import {
   BookOpen,
   Bot,
   Boxes,
+  Camera,
   ChartNoAxesCombined,
   CheckCheck,
   ChevronDown,
@@ -135,6 +136,12 @@ const ProductCatalogPage = lazy(() =>
   })),
 );
 
+const CaseLibraryPage = lazy(() =>
+  import("./features/cases").then((module) => ({
+    default: module.CaseLibraryPage,
+  })),
+);
+
 const navigation = [
   {
     to: "/designer-workspace",
@@ -189,6 +196,12 @@ const navigation = [
     to: "/products",
     label: "产品目录",
     icon: BookOpen,
+    permission: "tasks.own",
+  },
+  {
+    to: "/cases",
+    label: "案例库",
+    icon: Camera,
     permission: "tasks.own",
   },
   { to: "/after-sales", label: "售后管理", icon: Wrench, permission: "customers.own" },
@@ -983,6 +996,14 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
                 element={
                   <Allowed permission="tasks.own">
                     <ProductCatalogPage />
+                  </Allowed>
+                }
+              />
+              <Route
+                path="/cases"
+                element={
+                  <Allowed permission="tasks.own">
+                    <CaseLibraryPage />
                   </Allowed>
                 }
               />

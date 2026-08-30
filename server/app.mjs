@@ -249,6 +249,32 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
       const ideaMatch = url.pathname.match(/^\/api\/ideas\/([^/]+)$/)
       if (req.method === 'PATCH' && ideaMatch) { requireManager(); const idea = database.updateIdea(decodeURIComponent(ideaMatch[1]), await readJson(req, maxBodyBytes)); if (!idea) throw new ApiError(404, 'NOT_FOUND', 'Idea not found'); return send(200, { idea }) }
       if (req.method === 'DELETE' && ideaMatch) { requireManager(); if (!database.deleteIdea(decodeURIComponent(ideaMatch[1]))) throw new ApiError(404, 'NOT_FOUND', 'Idea not found'); return send(204) }
+      // 案例库：所有登录员工都能看、都能传；修改/删除限店长或作者本人
+      if (req.method === 'GET' && url.pathname === '/api/cases') return send(200, { cases: database.listCases() })
+      if (req.method === 'POST' && url.pathname === '/api/cases') {
+        const body = await readJson(req, maxBodyBytes)
+        try {
+          const record = database.createCase({ ...body, author: session.account.username, authorName: session.account.name })
+          return send(201, { case: record })
+        } catch (error) {
+          const message = String(error?.message)
+          if (message === 'CASE_TITLE_REQUIRED') throw new ApiError(400, 'VALIDATION_ERROR', '请填写案例标题')
+          if (message === 'CASE_TITLE_TOO_LONG') throw new ApiError(400, 'VALIDATION_ERROR', '案例标题过长（最多 80 字）')
+          if (message === 'CASE_NOTE_TOO_LONG') throw new ApiError(400, 'VALIDATION_ERROR', '备注过长（最多 2000 字）')
+          throw error
+        }
+      }
+      const caseMatch = url.pathname.match(/^\/api\/cases\/([^/]+)$/)
+      if (caseMatch) {
+        const caseId = decodeURIComponent(caseMatch[1])
+        const existing = database.listCases().find(item => item.id === caseId)
+        if (!existing) throw new ApiError(404, 'NOT_FOUND', 'Case not found')
+        const isManager = hasRole(session.account, 'manager')
+        const isAuthor = existing.author === session.account.username
+        if (!isManager && !isAuthor) throw new ApiError(403, 'FORBIDDEN', '只有店长或案例上传者本人可以修改或删除')
+        if (req.method === 'PATCH') { const record = database.updateCase(caseId, await readJson(req, maxBodyBytes)); if (!record) throw new ApiError(404, 'NOT_FOUND', 'Case not found'); return send(200, { case: record }) }
+        if (req.method === 'DELETE') { if (!database.deleteCase(caseId)) throw new ApiError(404, 'NOT_FOUND', 'Case not found'); return send(204) }
+      }
       throw new ApiError(404, 'NOT_FOUND', 'API route not found')
     } catch (error) {
       const known = error instanceof ApiError

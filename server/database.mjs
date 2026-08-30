@@ -110,6 +110,12 @@ export class SalesDatabase {
         updated_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS ideas_updated_idx ON ideas(updated_at DESC);
+      CREATE TABLE IF NOT EXISTS cases (
+        id TEXT PRIMARY KEY,
+        value TEXT NOT NULL CHECK (json_valid(value)),
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS cases_updated_idx ON cases(updated_at DESC);
       CREATE TABLE IF NOT EXISTS auth_accounts (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL COLLATE NOCASE UNIQUE,
@@ -196,6 +202,11 @@ export class SalesDatabase {
       putIdea: this.db.prepare(`INSERT INTO ideas(id, value, updated_at) VALUES(?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`),
       deleteIdea: this.db.prepare('DELETE FROM ideas WHERE id = ?'),
+      listCases: this.db.prepare('SELECT id, value, updated_at FROM cases ORDER BY updated_at DESC'),
+      getCase: this.db.prepare('SELECT id, value, updated_at FROM cases WHERE id = ?'),
+      putCase: this.db.prepare(`INSERT INTO cases(id, value, updated_at) VALUES(?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`),
+      deleteCase: this.db.prepare('DELETE FROM cases WHERE id = ?'),
       countAccounts: this.db.prepare('SELECT COUNT(*) AS count FROM auth_accounts'),
       accountByUsername: this.db.prepare('SELECT * FROM auth_accounts WHERE username = ? COLLATE NOCASE'),
       accountById: this.db.prepare('SELECT * FROM auth_accounts WHERE id = ?'),
@@ -292,6 +303,66 @@ export class SalesDatabase {
     const existed = Boolean(this.statements.getIdea.get(id))
     if (!existed) return false
     this.transaction(() => { this.statements.deleteIdea.run(id); this.record('delete', 'idea', { id }) })
+    return true
+  }
+  listCases() { return this.statements.listCases.all().map(r => ({ ...parseJson(r.value), id: r.id })) }
+  createCase(input) {
+    const at = this.now()
+    const title = String(input?.title || '').trim()
+    if (!title) throw new Error('CASE_TITLE_REQUIRED')
+    if (title.length > 80) throw new Error('CASE_TITLE_TOO_LONG')
+    const note = String(input?.note || '').trim()
+    if (note.length > 2000) throw new Error('CASE_NOTE_TOO_LONG')
+    const images = Array.isArray(input?.images) ? input.images.slice(0, 30).map(file => ({
+      id: String(file?.id || '').slice(0, 80),
+      name: String(file?.name || '').slice(0, 180),
+      type: String(file?.type || 'application/octet-stream').slice(0, 120),
+      url: String(file?.url || '').slice(0, 300),
+      size: Number.isFinite(file?.size) ? file.size : 0,
+    })) : []
+    const productNames = Array.isArray(input?.productNames) ? input.productNames.map(item => String(item || '').trim().slice(0, 80)).filter(Boolean).slice(0, 10) : []
+    const categories = ['成交案例', '客户实拍', '安装现场', '空间搭配', '其他']
+    const category = categories.includes(input?.category) ? input.category : '其他'
+    const id = `case-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const record = {
+      id,
+      title,
+      category,
+      productNames,
+      customerName: String(input?.customerName || '').trim().slice(0, 60),
+      images,
+      note,
+      status: '已发布',
+      author: String(input?.author || ''),
+      authorName: String(input?.authorName || ''),
+      createdAt: at,
+      updatedAt: at,
+    }
+    this.transaction(() => { this.statements.putCase.run(id, JSON.stringify(record), at); this.record('create', 'case', { id, title, category, imageCount: images.length }) })
+    return record
+  }
+  updateCase(id, patch) {
+    const row = this.statements.getCase.get(id)
+    if (!row) return null
+    const at = this.now()
+    const current = parseJson(row.value)
+    const next = {
+      ...current,
+      ...(patch?.title !== undefined ? { title: String(patch.title).trim().slice(0, 80) } : {}),
+      ...(patch?.category !== undefined ? { category: String(patch.category).slice(0, 30) } : {}),
+      ...(patch?.customerName !== undefined ? { customerName: String(patch.customerName).trim().slice(0, 60) } : {}),
+      ...(patch?.note !== undefined ? { note: String(patch.note).trim().slice(0, 2000) } : {}),
+      ...(patch?.status !== undefined ? { status: String(patch.status) === '已隐藏' ? '已隐藏' : '已发布' } : {}),
+      id,
+      updatedAt: at,
+    }
+    this.transaction(() => { this.statements.putCase.run(id, JSON.stringify(next), at); this.record('update', 'case', { id, patch }) })
+    return next
+  }
+  deleteCase(id) {
+    const existed = Boolean(this.statements.getCase.get(id))
+    if (!existed) return false
+    this.transaction(() => { this.statements.deleteCase.run(id); this.record('delete', 'case', { id }) })
     return true
   }
   publicAccount(row) {

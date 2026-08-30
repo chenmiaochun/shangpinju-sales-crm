@@ -173,3 +173,29 @@ test('returns structured validation and size errors', async () => {
   const large = await put('/api/state', { text: 'x'.repeat(300) }); assert.equal(large.status, 413); assert.equal(large.body.error.code, 'PAYLOAD_TOO_LARGE')
   assert.equal((await json('/missing')).body.error.code, 'NOT_FOUND')
 })
+test('any employee can upload cases; edit/delete limited to owner or manager', async () => {
+  // 匿名不能访问
+  const anonymous = await json('/api/cases', { cookie: false }); assert.equal(anonymous.status, 401)
+  // 销售上传案例（带图片与关联产品；测试服务 maxBodyBytes=256，body 保持精简）
+  const created = await json('/api/cases', { method: 'POST', headers: { cookie: salesCookie }, body: JSON.stringify({ title: '客厅全案案例', category: '成交案例', productNames: ['沙发'], images: [{ id: 'f1', name: 'a.png', type: 'image/png', url: '/api/files/f1', size: 10 }], note: '实拍' }) })
+  assert.equal(created.status, 201); assert.equal(created.body.case.title, '客厅全案案例'); assert.equal(created.body.case.author, 'sales'); assert.equal(created.body.case.status, '已发布')
+  // 所有人都能看
+  const listed = await json('/api/cases', { headers: { cookie: salesCookie } })
+  assert.equal(listed.status, 200); assert.ok(listed.body.cases.some(item => item.id === created.body.case.id))
+  // 标题必填
+  const invalid = await json('/api/cases', { method: 'POST', headers: { cookie: salesCookie }, body: JSON.stringify({ title: '' }) })
+  assert.equal(invalid.status, 400); assert.equal(invalid.body.error.code, 'VALIDATION_ERROR')
+  // 另一个销售不能改别人案例：建第二个销售账号
+  database.createAccount({ username: 'sales2', password: 'sales-password-22', name: '销售二', role: 'sales', mustChangePassword: false })
+  const otherLogin = await json('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: 'sales2', password: 'sales-password-22' }), cookie: false })
+  const otherCookie = otherLogin.headers.get('set-cookie').split(';')[0]
+  const forbidden = await json(`/api/cases/${created.body.case.id}`, { method: 'PATCH', headers: { cookie: otherCookie }, body: JSON.stringify({ title: '篡改' }) })
+  assert.equal(forbidden.status, 403)
+  // 作者本人可以改
+  const patched = await json(`/api/cases/${created.body.case.id}`, { method: 'PATCH', headers: { cookie: salesCookie }, body: JSON.stringify({ status: '已隐藏' }) })
+  assert.equal(patched.status, 200); assert.equal(patched.body.case.status, '已隐藏')
+  // 店长可以删
+  const removed = await json(`/api/cases/${created.body.case.id}`, { method: 'DELETE' })
+  assert.equal(removed.status, 204)
+  assert.equal((await json('/api/cases')).body.cases.some(item => item.id === created.body.case.id), false)
+})
