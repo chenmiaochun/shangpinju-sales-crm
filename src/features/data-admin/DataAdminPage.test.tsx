@@ -5,6 +5,14 @@ import type { Customer, FollowUp } from '../../types'
 import { createBackup } from './backup'
 import { DataAdminPage } from './DataAdminPage'
 
+vi.mock('../../store/SalesDataContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../store/SalesDataContext')>()
+  return {
+    ...actual,
+    useSalesData: () => ({ paymentSettings: { enabled: false, banks: [] }, updatePaymentSettings: vi.fn() }),
+  }
+})
+
 const customer: Customer = { id: 'c1', name: '张女士', phone: '13800000000', source: '到店', salesperson: '小林', stage: '需求确认', intent: '高', expectedAmount: 120000, products: ['衣柜'], style: '现代', budget: '10-15万', renovationProgress: '毛坯', concerns: [], lastContactAt: '2026-07-30T08:00:00Z', createdAt: '2026-07-01T08:00:00Z' }
 const followUp: FollowUp = { id: 'f1', customerId: 'c1', at: '2026-07-30T08:00:00Z', channel: '微信', content: '确认需求', result: '待量房', salesperson: '小林' }
 

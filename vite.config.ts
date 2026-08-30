@@ -12,6 +12,14 @@ export default defineConfig(({ command }) => ({
     proxy: {
       '/api': { target: 'http://127.0.0.1:3001', changeOrigin: true },
     },
+    watch: {
+      ignored: [
+        'server/data/**',
+        'backups/**',
+        '**/*.sqlite',
+        '**/*.sqlite-*',
+      ],
+    },
   },
   test: { environment: 'jsdom', globals: true, include: ['src/**/*.test.{ts,tsx}'] },
 }))

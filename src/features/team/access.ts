@@ -8,6 +8,7 @@ export type AccessPermission =
   | 'customers.own'
   | 'customers.design'
   | 'tasks.own'
+  | 'designer.dispatch'
   | 'conversation.analysis'
   | 'sop'
   | 'revenue.summary'
@@ -65,6 +66,7 @@ export const PERMISSION_LABELS: Record<AccessPermission, string> = {
   'customers.own': '本人客户',
   'customers.design': '方案相关客户',
   'tasks.own': '本人任务',
+  'designer.dispatch': '设计任务调度',
   'conversation.analysis': '沟通分析',
   sop: '销售 SOP',
   'revenue.summary': '经营金额汇总',

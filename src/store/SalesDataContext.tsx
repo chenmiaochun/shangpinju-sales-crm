@@ -33,6 +33,7 @@ import type {
   ProductSeries,
   ReplenishmentRequest,
   SalesOrder,
+  StorePaymentSettings,
   SupplyDemand,
   Warehouse,
   WarehouseStock,
@@ -95,6 +96,7 @@ export interface SalesState {
   skuUnits: SkuUnit[];
   configProducts: ConfigProduct[];
   productPackages: ProductPackage[];
+  paymentSettings: StorePaymentSettings;  // 门店收款设置（收款码/银行卡）
 }
 
 export function removeFormerDemoEmployees(
@@ -164,6 +166,7 @@ export function removeFormerDemoEmployees(
     skuUnits: state.skuUnits ?? [],
     configProducts: state.configProducts ?? [],
     productPackages: state.productPackages ?? [],
+    paymentSettings: state.paymentSettings ?? { enabled: false, banks: [] },
   };
 }
 // 产品主数据集合键与条目联合类型（Phase 1 新增）
@@ -291,6 +294,7 @@ interface SalesDataValue extends SalesState {
   saveIntegrations: (
     settings: Record<string, Record<string, unknown>>,
   ) => Promise<void>;
+  updatePaymentSettings: (settings: StorePaymentSettings) => void;
 }
 
 const SalesDataContext = createContext<SalesDataValue | null>(null);
@@ -317,6 +321,7 @@ function loadState(): SalesState {
       skuUnits: [],
       configProducts: [],
       productPackages: [],
+      paymentSettings: { enabled: false, banks: [] },
     };
   try {
     const value = window.localStorage.getItem(STORAGE_KEY);
@@ -356,6 +361,7 @@ function loadState(): SalesState {
           replenishmentRequests: Array.isArray(state.replenishmentRequests)
             ? state.replenishmentRequests
             : [],
+          paymentSettings: state.paymentSettings ?? { enabled: false, banks: [] },
         });
     }
   } catch {
@@ -381,6 +387,7 @@ function loadState(): SalesState {
     skuUnits: [],
     configProducts: [],
     productPackages: [],
+    paymentSettings: { enabled: false, banks: [] },
   };
 }
 
@@ -525,6 +532,7 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
               productPackages: Array.isArray(remote.value.productPackages)
                 ? remote.value.productPackages
                 : [],
+              paymentSettings: remote.value.paymentSettings ?? { enabled: false, banks: [] },
             }),
           );
         } else {
@@ -2048,6 +2056,15 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
     },
     [refreshAdminData],
   );
+  const updatePaymentSettings = useCallback(
+    (settings: StorePaymentSettings) => {
+      setState((current) => ({
+        ...current,
+        paymentSettings: { ...settings, updatedAt: new Date().toISOString() },
+      }));
+    },
+    [],
+  );
   const value = useMemo(
     () => ({
       ...state,
@@ -2089,6 +2106,7 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
       integrationSettings,
       refreshAdminData,
       saveIntegrations,
+      updatePaymentSettings,
     }),
     [
       addAfterSalesTicket,
@@ -2121,6 +2139,7 @@ export function SalesDataProvider({ children }: { children: ReactNode }) {
       moveComponentsToSeries,
       salespeople,
       saveIntegrations,
+      updatePaymentSettings,
       serverStatus,
       state,
       updateAfterSalesTicket,

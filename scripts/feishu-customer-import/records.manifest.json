@@ -1,0 +1,359 @@
+{
+  "manifest_version": "v1",
+  "format": "ndjson",
+  "base_token": "ITXSbcl7baZkAusqQpecre4Inee",
+  "table_id": "tblAOAzx42B5IWE7",
+  "rev": 6015,
+  "timezone": "Asia/Shanghai",
+  "query_context": {
+    "field_scope": "all_fields",
+    "record_scope": "all_records"
+  },
+  "requested_limit": 2000,
+  "records_count": 494,
+  "page_count": 1,
+  "has_more": false,
+  "record_file": "C:\\Users\\Administrator\\Documents\\销售软件\\scripts\\feishu-customer-import\\records.ndjson",
+  "record_file_size_bytes": 437685,
+  "manifest_file": "C:\\Users\\Administrator\\Documents\\销售软件\\scripts\\feishu-customer-import\\records.manifest.json",
+  "columns": {
+    "record_id": {
+      "physical_type": "string",
+      "stats": {
+        "max_length": 14
+      },
+      "example": "recpMt8NoO"
+    },
+    "下次跟进时间": {
+      "field_id": "fldimW0ssh",
+      "field_type": "datetime",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 470,
+        "min": "2026-02-24T00:00:00.000+08:00",
+        "max": "2026-09-24T00:00:00.000+08:00"
+      },
+      "example": "2026-02-24T00:00:00.000+08:00"
+    },
+    "主谈人员": {
+      "field_id": "fldts5fcUq",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 2,
+        "max_length": 2,
+        "avg_length": 1.0202429149797572
+      },
+      "example": [
+        "无"
+      ]
+    },
+    "到店日期": {
+      "field_id": "fldpyctz4p",
+      "field_type": "datetime",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 5,
+        "min": "2026-02-21T00:00:00.000+08:00",
+        "max": "2026-08-29T00:00:00.000+08:00"
+      },
+      "example": "2026-02-24T00:00:00.000+08:00"
+    },
+    "到店时段": {
+      "field_id": "fld58GPXOS",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 10,
+        "max_length": 1,
+        "avg_length": 0.979757085020243
+      },
+      "example": [
+        "上午（9：00-11：30）"
+      ]
+    },
+    "城市小区名": {
+      "field_id": "fld8zqUt31",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 174,
+        "max_length": 16
+      },
+      "example": "未知"
+    },
+    "备注": {
+      "field_id": "fldVOqlNIl",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 96,
+        "max_length": 150
+      },
+      "example": "额"
+    },
+    "客户姓名": {
+      "field_id": "fldFKut2NT",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 239,
+        "max_length": 9
+      },
+      "example": "H"
+    },
+    "客户微信名": {
+      "field_id": "fld1o7iFeP",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 16,
+        "max_length": 18
+      },
+      "example": "H"
+    },
+    "客户编号": {
+      "field_id": "fld98Rfpjn",
+      "field_type": "auto_number",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 0,
+        "max_length": 5
+      },
+      "example": "00202"
+    },
+    "当前状态": {
+      "field_id": "fldklPV2ed",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 118,
+        "max_length": 1,
+        "avg_length": 0.7611336032388664
+      },
+      "example": [
+        "已成交"
+      ]
+    },
+    "成交信息": {
+      "field_id": "fldUbkXrOa",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 331,
+        "max_length": 1,
+        "avg_length": 0.3299595141700405
+      },
+      "example": [
+        "已成交"
+      ]
+    },
+    "所属区县": {
+      "field_id": "fldPMBGpen",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 111,
+        "max_length": 1,
+        "avg_length": 0.7753036437246964
+      },
+      "example": [
+        "其他"
+      ]
+    },
+    "所属城市": {
+      "field_id": "fldRbka3dd",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 12,
+        "max_length": 1,
+        "avg_length": 0.9757085020242915
+      },
+      "example": [
+        "汕头"
+      ]
+    },
+    "手机号": {
+      "field_id": "fldPkVETgn",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 494,
+        "max_length": 0
+      },
+      "hint": "All values are empty; type inference may be ambiguous. Avoid analyzing this column unless required."
+    },
+    "接待人员": {
+      "field_id": "flda1UXEMq",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 9,
+        "max_length": 2,
+        "avg_length": 1.01417004048583
+      },
+      "example": [
+        "陈婉珊"
+      ]
+    },
+    "数据录入人": {
+      "field_id": "fldhOidQ6a",
+      "field_type": "user",
+      "physical_type": "array<struct<id string, name string>>",
+      "stats": {
+        "empty_count": 1,
+        "max_length": 1,
+        "avg_length": 0.9979757085020243
+      },
+      "example": [
+        {
+          "id": "ou_029f5a9f7097259f9038597abdfd1f41",
+          "name": "陈纯"
+        }
+      ]
+    },
+    "月份": {
+      "field_id": "fldXTKEaME",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 0,
+        "max_length": 1,
+        "avg_length": 1
+      },
+      "example": [
+        ""
+      ]
+    },
+    "核心需求": {
+      "field_id": "fldkTTQf3z",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 100,
+        "max_length": 5,
+        "avg_length": 1.1902834008097165
+      },
+      "example": [
+        "床"
+      ]
+    },
+    "父记录": {
+      "field_id": "fld2FSZauu",
+      "field_type": "link",
+      "physical_type": "array<struct<id string>>",
+      "stats": {
+        "empty_count": 493,
+        "max_length": 1,
+        "avg_length": 0.0020242914979757085
+      },
+      "example": [
+        {
+          "id": "recvfU9sOCN61T"
+        }
+      ]
+    },
+    "装修进度": {
+      "field_id": "fldFevUERc",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 81,
+        "max_length": 1,
+        "avg_length": 0.8360323886639676
+      },
+      "example": [
+        "未装修"
+      ]
+    },
+    "认知途径": {
+      "field_id": "fld7fJIQwm",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 43,
+        "max_length": 1,
+        "avg_length": 0.9129554655870445
+      },
+      "example": [
+        "抖音"
+      ]
+    },
+    "购买意向": {
+      "field_id": "fld3Bde8m5",
+      "field_type": "number",
+      "physical_type": "number|null",
+      "stats": {
+        "null_count": 81,
+        "min": 1,
+        "max": 4,
+        "avg": 2.7820823244552058
+      },
+      "example": 2
+    },
+    "跟进记录": {
+      "field_id": "fldMLhLpPV",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 476,
+        "max_length": 66
+      },
+      "example": "啊"
+    },
+    "车品牌": {
+      "field_id": "fld7NjZTji",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 144,
+        "max_length": 1,
+        "avg_length": 0.708502024291498
+      },
+      "example": [
+        "林肯"
+      ]
+    },
+    "车牌信息": {
+      "field_id": "fldOEn8ZWu",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 98,
+        "max_length": 16
+      },
+      "example": "无"
+    },
+    "重要信息截图": {
+      "field_id": "fldwW61MLb",
+      "field_type": "attachment",
+      "physical_type": "array<struct<file_token string, size number, name string>>",
+      "stats": {
+        "empty_count": 455,
+        "max_length": 4,
+        "avg_length": 0.12550607287449392
+      },
+      "example": [
+        {
+          "file_token": "PgyFbLSWcosi7IxrX0ZcuxVmntb",
+          "name": "48741.jpeg",
+          "size": 386440
+        }
+      ]
+    },
+    "预算范围": {
+      "field_id": "fld95wtzEH",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 216,
+        "max_length": 1,
+        "avg_length": 0.562753036437247
+      },
+      "example": [
+        "2-5万"
+      ]
+    }
+  }
+}

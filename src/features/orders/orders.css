@@ -66,3 +66,22 @@
 .quick-modal>footer button{min-height:38px;padding:0 16px;border:1px solid #d8dfda;background:#fff;color:#223129;cursor:pointer;font-weight:700;font-size:13px}
 .quick-modal>footer button.primary{background:#701318;color:#fff;border-color:#701318}
 .quick-modal>footer button.primary:disabled{background:#c1c8c4;border-color:#c1c8c4;color:#fff;cursor:not-allowed}
+
+/* —— 2026-08-30 开单页排版调整：宋体 + 字号整体下调 —— */
+.order-workspace{font-family:"SimSun","宋体",serif!important}
+.order-workspace input,.order-workspace select,.order-workspace textarea,.order-workspace button{font-family:"SimSun","宋体",serif!important;font-size:12px}
+.order-workspace>header h1{font-size:22px!important}
+.order-workspace .product-browser h2,.order-workspace .selection-cart h2,.order-workspace .order-pipeline h2{font-size:14px!important}
+.order-workspace .product-browser article strong,.order-workspace .selection-cart article strong{font-size:13px}
+.order-workspace .selection-bar label{font-size:11px}
+.order-workspace .cart-totals label,.order-workspace .cart-totals>span{font-size:12px}
+.order-workspace .cart-totals>strong{font-size:14px!important}
+.order-workspace .cart-totals .save-order{font-size:13px!important}
+/* 实收价 / 定金比例 复合输入 */
+.cart-totals .actual-price-field{display:flex;align-items:center;gap:6px}
+.cart-totals .actual-price-field input{width:100%;border-color:#c3a06b!important}
+.cart-totals .actual-price-field input:focus{outline:1px solid #701318}
+.cart-totals .reset-actual{white-space:nowrap;min-height:34px!important;padding:0 8px;font-size:11px!important;border:1px dashed #b8c9be!important;background:#fff!important;color:#77817b!important;cursor:pointer}
+.cart-totals .deposit-field{display:flex;align-items:center;gap:5px}
+.cart-totals .deposit-field input{width:100%}
+.cart-totals .deposit-field em{font-style:normal;color:#77817b;font-size:12px}

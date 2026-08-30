@@ -3,6 +3,23 @@ import { describe, expect, it, vi } from 'vitest'
 import type { SalesOrder } from '../../types'
 import { OrderPreviewModal } from './OrderPreviewModal'
 
+vi.mock('../../store/SalesDataContext', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../store/SalesDataContext')>()
+  return {
+    ...mod,
+    useSalesData: () => ({
+      paymentSettings: {
+        enabled: true,
+        banks: [
+          { bankName: '中国工商银行', accountName: '陈妙纯', accountNo: '6222082019001191084' },
+          { bankName: '农业银行', accountName: '陈妙纯', accountNo: '6228481397101526274' },
+        ],
+        wechatQr: { id: 'w', name: 'wx.png', type: 'image/png', size: 1, dataUrl: 'data:image/png;base64,AAA' },
+      },
+    }),
+  }
+})
+
 const baseOrder: SalesOrder = {
   id: 'o1',
   orderNo: 'SPJ-QUOTE1',
@@ -51,5 +68,15 @@ describe('OrderPreviewModal 4.3 报价单/销售单打印切换', () => {
     render(<OrderPreviewModal order={salesOrder} onClose={vi.fn()} onUpdate={vi.fn()} />)
     expect(screen.getByRole('heading', { name: '尚品居产品销售单' })).toBeTruthy()
     expect(screen.queryByRole('heading', { name: '尚品居产品报价单' })).toBeNull()
+  })
+
+  it('销售单展示收款区块：微信码、两张银行卡与订单号备注', () => {
+    const salesOrder = { ...baseOrder, status: '已生效' as const }
+    render(<OrderPreviewModal order={salesOrder} onClose={vi.fn()} onUpdate={vi.fn()} />)
+    expect(screen.getByText('扫码支付 / 银行转账')).toBeTruthy()
+    expect(screen.getByText('微信')).toBeTruthy()
+    expect(screen.getByText('6222082019001191084')).toBeTruthy()
+    expect(screen.getByText('6228481397101526274')).toBeTruthy()
+    expect(screen.getByText(/备注订单号 SPJ-QUOTE1/)).toBeTruthy()
   })
 })

@@ -137,6 +137,29 @@ export interface CustomerFile {
   uploadedAt?: string;
 }
 
+/**
+ * 门店收款设置（2026-08-30）
+ * 采用「官方静态收款码」方案：店长从微信支付商户平台 / 支付宝商家中心下载收款码图片上传，
+ * 打印在销售单底部，客户签单后扫码自行输入金额付款。
+ * 选择静态码而非动态支付码的原因：系统为局域网自用，无公网地址，收不到支付平台异步回调。
+ * 后续若系统迁至公网并开通商户 API，可在不改动订单数据结构的前提下升级为动态带金额二维码。
+ */
+export interface BankAccount {
+  bankName: string;       // 开户行，如 中国工商银行
+  accountName: string;    // 户名
+  accountNo: string;      // 卡号
+}
+
+export interface StorePaymentSettings {
+  enabled: boolean;              // 是否在销售单上显示收款区块
+  wechatQr?: CustomerFile;       // 微信商家收款码
+  alipayQr?: CustomerFile;       // 支付宝商家收款码
+  banks: BankAccount[];          // 多张银行卡（工行/农行等）
+  payNote?: string;              // 自定义付款提示，留空用默认文案
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
 export interface DesignTaskVersion {
   id: string;
   version: number;
@@ -161,7 +184,7 @@ export interface CustomerRemarkImage {
 }
 
 export type DesignTaskStatus =
-  "待接收" | "设计中" | "待销售确认" | "客户沟通中" | "修改中" | "已完成";
+  "待分配" | "待接收" | "设计中" | "待销售确认" | "客户沟通中" | "修改中" | "已完成";
 export type DesignTaskType =
   "平面布局" | "家具搭配" | "效果图" | "报价方案" | "方案修改" | "其他";
 
@@ -175,7 +198,7 @@ export interface DesignTask {
   type: DesignTaskType;
   requirement: string;
   dueAt: string;
-  priority: "普通" | "紧急";
+  priority: "普通" | "较急" | "紧急" | "特急";
   status: DesignTaskStatus;
   referenceFiles: CustomerFile[];
   solutionFiles: CustomerFile[];
@@ -186,6 +209,7 @@ export interface DesignTask {
   acceptedAt?: string;
   completedAt?: string;
   confirmedBy?: string;
+  assignedBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -494,7 +518,14 @@ export interface SalesOrder {
   quotationFiles?: CustomerFile[];
   quoteValidUntil?: string; // 报价单有效期（4.3 报价单模式）；草稿即报价，可设有效期
   requiredDeposit?: number;
-  discountAmount?: number;
+  // —— 价格结构（2026-08-30 调整）——
+  // listTotal 订单总价 = 商品合计 + 其他费用，是给客户看的标价/订单价格
+  // actualReceived 实收价 = 实际成交收款价，客户讲价后手动调整；默认等于订单总价
+  // 两者的差额（让利）只做内部留痕，不在订单/客户联上以「优惠」字样出现
+  listTotal?: number;
+  actualReceived?: number;
+  depositRate?: number; // 定金比例（%），默认 50
+  discountAmount?: number; // 内部留痕：订单总价 - 实收价
   discountReason?: string;
   customerConfirmationNote?: string;
   exceptionApproved?: boolean;

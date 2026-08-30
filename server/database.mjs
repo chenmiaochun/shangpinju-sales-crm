@@ -22,7 +22,7 @@ const mergeConcurrentState = (current, incoming) => {
   return merged
 }
 const tokenDigest = token => createHash('sha256').update(token).digest('hex')
-const validPermissions = new Set(['store.analytics', 'coaching', 'data.manage', 'members.manage', 'customers.own', 'customers.design', 'tasks.own', 'conversation.analysis', 'sop', 'revenue.summary', 'inventory.manage', 'inventory.receive', 'inventory.issue', 'inventory.transfer', 'inventory.audit', 'replenishment.request', 'replenishment.approve', 'purchasing.manage', 'finance.reconcile', 'cashier.payments', 'cost.view'])
+const validPermissions = new Set(['store.analytics', 'coaching', 'data.manage', 'members.manage', 'customers.own', 'customers.design', 'tasks.own', 'designer.dispatch', 'conversation.analysis', 'sop', 'revenue.summary', 'inventory.manage', 'inventory.receive', 'inventory.issue', 'inventory.transfer', 'inventory.audit', 'replenishment.request', 'replenishment.approve', 'purchasing.manage', 'finance.reconcile', 'cashier.payments', 'cost.view'])
 const normalizePermissions = permissions => permissions == null ? null : [...new Set(permissions)].filter(permission => validPermissions.has(permission))
 const validRoles = ['manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier']
 const normalizeRoles = (roles, fallback) => {

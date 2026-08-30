@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Activity, CheckCircle2, Database, Download, FileCheck2, Link2, RotateCcw, ShieldCheck, Upload, XCircle } from 'lucide-react'
 import type { AfterSalesTicket, Customer, DeliveryTask, FollowUp, InventoryDocument, InventoryMovement, ProductCatalogItem, ReplenishmentRequest, SalesOrder, SupplyDemand, Warehouse, WarehouseStock } from '../../types'
 import { createBackup, validateBackup, type SalesBackup } from './backup'
+import { PaymentSettingsPanel } from './PaymentSettingsPanel'
 import './data-admin.css'
 
 export type ConnectionStatus = 'unconfigured' | 'pending' | 'connected'
@@ -104,6 +105,7 @@ export function DataAdminPage(props: DataAdminPageProps) {
       <section className="admin-panel integration-panel"><header><div><h2>企业微信接入</h2><p>仅保存配置，不将“已保存”等同于“已连接”。</p></div></header><div className={`status-callout status-${connectionStatus}`}><Activity /><div><b>{statusCopy[connectionStatus].label}</b><p>{statusCopy[connectionStatus].note}</p></div></div>
         <form onSubmit={saveIntegration}><label>Corp ID<input aria-label="Corp ID" value={corpId} onChange={(event) => setCorpId(event.target.value)} required autoComplete="off" /></label><label>Agent ID<input aria-label="Agent ID" value={agentId} onChange={(event) => setAgentId(event.target.value)} required autoComplete="off" /></label><label>Secret<input aria-label="Secret" type="password" value={secret} onChange={(event) => setSecret(event.target.value)} placeholder={integrationSettings.secretConfigured ? '已配置，留空则不修改' : '请输入 Secret'} autoComplete="new-password" /><small>Secret 不会在页面回显明文。</small></label><button className="primary-action" type="submit">保存接入配置</button></form>
       </section>
+      <PaymentSettingsPanel />
     </div>
   </section>
 }

@@ -74,4 +74,57 @@ describe('TaskCenterPage', () => {
     fireEvent.click(screen.getByRole('button', { name:'提交销售确认' }))
     expect(update).toHaveBeenCalledWith('d1', expect.objectContaining({ status:'待销售确认', solutionNote:'首版效果图', solutionFiles:[expect.objectContaining({ name:'客厅方案V1.pdf' })] }))
   })
+
+  it('lets the store manager assign an unassigned design task to a designer', () => {
+    const update = vi.fn()
+    const designers = [{ id: 'd1', name: '林设计师' }]
+    const pendingTask: DesignTask = {
+      id: 'design-pending', customerId: 'c1', customerName: '张女士', salesperson: '林晓',
+      designerId: '', designerName: '', type: '效果图', requirement: '客厅效果图',
+      dueAt: '2026-08-05T18:00:00+08:00', priority: '紧急', status: '待分配',
+      referenceFiles: [], solutionFiles: [], versions: [], timeline: [],
+      createdAt: '2026-07-30T10:00:00+08:00', updatedAt: '2026-07-30T10:00:00+08:00',
+    }
+    render(<TaskCenterPage customers={customers} followUps={followUps} designTasks={[pendingTask]} designers={designers} activeMember={{ id: 'm1', name: '陈店长', role: 'manager', active: true }} onCompleteTask={() => {}} onUpdateDesignTask={update} now={now} />)
+    fireEvent.click(screen.getByRole('button', { name: /设计协作/ }))
+    expect(screen.getByText(/待派工分配设计师/)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('派给设计师'), { target: { value: 'd1' } })
+    fireEvent.click(screen.getByRole('button', { name: '确认派工' }))
+    expect(update).toHaveBeenCalledWith('design-pending', expect.objectContaining({ designerId: 'd1', designerName: '林设计师', status: '待接收', assignedBy: '陈店长' }))
+  })
+
+  it('lets a designer with the dispatch permission assign an unassigned task', () => {
+    const update = vi.fn()
+    const designers = [{ id: 'd1', name: '林设计师' }]
+    const pendingTask: DesignTask = {
+      id: 'design-pending', customerId: 'c1', customerName: '张女士', salesperson: '林晓',
+      designerId: '', designerName: '', type: '效果图', requirement: '客厅效果图',
+      dueAt: '2026-08-05T18:00:00+08:00', priority: '紧急', status: '待分配',
+      referenceFiles: [], solutionFiles: [], versions: [], timeline: [],
+      createdAt: '2026-07-30T10:00:00+08:00', updatedAt: '2026-07-30T10:00:00+08:00',
+    }
+    render(<TaskCenterPage customers={customers} followUps={followUps} designTasks={[pendingTask]} designers={designers} activeMember={{ id: 'd2', name: '设计主管', role: 'designer', active: true, permissions: ['designer.dispatch'] }} onCompleteTask={() => {}} onUpdateDesignTask={update} now={now} />)
+    fireEvent.click(screen.getByRole('button', { name: /设计协作/ }))
+    expect(screen.getByText(/待派工分配设计师/)).toBeInTheDocument()
+    expect(screen.getByLabelText('派给设计师')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('派给设计师'), { target: { value: 'd1' } })
+    fireEvent.click(screen.getByRole('button', { name: '确认派工' }))
+    expect(update).toHaveBeenCalledWith('design-pending', expect.objectContaining({ designerId: 'd1', status: '待接收', assignedBy: '设计主管' }))
+  })
+
+  it('hides the dispatch control from a designer without the dispatch permission', () => {
+    const update = vi.fn()
+    const designers = [{ id: 'd1', name: '林设计师' }]
+    const pendingTask: DesignTask = {
+      id: 'design-pending', customerId: 'c1', customerName: '张女士', salesperson: '林晓',
+      designerId: '', designerName: '', type: '效果图', requirement: '客厅效果图',
+      dueAt: '2026-08-05T18:00:00+08:00', priority: '紧急', status: '待分配',
+      referenceFiles: [], solutionFiles: [], versions: [], timeline: [],
+      createdAt: '2026-07-30T10:00:00+08:00', updatedAt: '2026-07-30T10:00:00+08:00',
+    }
+    render(<TaskCenterPage customers={customers} followUps={followUps} designTasks={[pendingTask]} designers={designers} activeMember={{ id: 'd2', name: '普通设计师', role: 'designer', active: true }} onCompleteTask={() => {}} onUpdateDesignTask={update} now={now} />)
+    fireEvent.click(screen.getByRole('button', { name: /设计协作/ }))
+    expect(screen.queryByText(/待派工分配设计师/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('派给设计师')).not.toBeInTheDocument()
+  })
 })

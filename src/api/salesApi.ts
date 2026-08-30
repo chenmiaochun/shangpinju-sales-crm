@@ -1,4 +1,4 @@
-import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, ExperienceStation, FollowUp, InventoryDocument, InventoryMovement, ProductCatalogItem, ProductCategory, ProductComponent, ProductSeries, SkuUnit, ConfigProduct, ProductPackage, ReplenishmentRequest, SalesOrder, SupplyDemand, Warehouse, WarehouseStock } from '../types'
+import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, ExperienceStation, FollowUp, InventoryDocument, InventoryMovement, ProductCatalogItem, ProductCategory, ProductComponent, ProductSeries, SkuUnit, ConfigProduct, ProductPackage, ReplenishmentRequest, SalesOrder, StorePaymentSettings, SupplyDemand, Warehouse, WarehouseStock } from '../types'
 import type { AccessPermission, TeamRole } from '../features/team/access'
 
 const IS_LOCAL_PREVIEW = ['localhost', '127.0.0.1'].includes(window.location.hostname)
@@ -32,6 +32,7 @@ export interface RemoteSalesState {
   skuUnits: SkuUnit[]
   configProducts: ConfigProduct[]
   productPackages: ProductPackage[]
+  paymentSettings: StorePaymentSettings
 }
 export interface RemoteAuditEvent { id: number; action: string; resource: string; details: Record<string, unknown>; createdAt: string }
 export type AccountRole = TeamRole

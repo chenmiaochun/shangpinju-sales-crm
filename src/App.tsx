@@ -853,7 +853,6 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
                     <CustomersPage
                       customers={visibleCustomers}
                       followUps={visibleFollowUps}
-                      designers={sales.designers}
                       salespeople={sales.salespeople}
                       deliveryStaff={sales.deliveryStaff}
                       products={sales.products}
@@ -1003,6 +1002,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
                       customers={visibleCustomers}
                       followUps={visibleFollowUps}
                       designTasks={sales.designTasks}
+                      designers={sales.designers}
                       activeMember={activeMember}
                       onCompleteTask={sales.addFollowUp}
                       onUpdateDesignTask={sales.updateDesignTask}

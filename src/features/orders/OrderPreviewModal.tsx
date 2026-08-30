@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Check, Eraser, PenLine, Printer, X } from 'lucide-react'
 import { SHANGPINJU_LOGO } from '../../assets/shangpinju-brand'
 import type { CustomerFile, SalesOrder } from '../../types'
+import { useSalesData } from '../../store/SalesDataContext'
 import './order-print.css'
 
 type Props = {
@@ -102,7 +103,14 @@ export function OrderPreviewModal({ order, onClose, onUpdate }: Props) {
   const [printMode, setPrintMode] = useState<'quote' | 'sales'>(order.status === '草稿' ? 'quote' : 'sales')
   const rows = [...(order.items ?? []), ...Array.from({ length: Math.max(0, 10 - (order.items?.length ?? 0)) }, () => null)]
   const deposit = received(order)
+  // 订单总价 / 实收价：老订单没有这两个字段，回退到 contractAmount 保证打印不空白
+  const sheetListTotal = order.listTotal ?? order.contractAmount
+  const sheetActual = order.actualReceived ?? order.contractAmount
   const signature = order.signatureFiles?.find((file) => file.category === '签名回单' && file.dataUrl)
+  const { paymentSettings } = useSalesData()
+  const showPayment = printMode === 'sales' && paymentSettings?.enabled === true && Boolean(
+    paymentSettings.wechatQr?.dataUrl || paymentSettings.alipayQr?.dataUrl || (paymentSettings.banks?.length ?? 0) > 0,
+  )
   const handlePrint = () => {
     onUpdate(order.id, { printedAt:new Date().toISOString() })
     window.print()
@@ -136,7 +144,28 @@ export function OrderPreviewModal({ order, onClose, onUpdate }: Props) {
         <div className="sheet-customer"><span>客户名称：<b>{order.customerName}</b></span><span>联系方式：<b>{order.contactPhone || ''}</b></span><span>送货地址：<b>{order.deliveryAddress || ''}</b></span></div>
         <table><thead><tr><th>型号名称</th><th>规格尺寸</th><th>数量</th><th>单位</th><th>材质</th><th>单价</th><th>金额</th><th>备注</th></tr></thead><tbody>{rows.map((item, index) => <tr key={item?.id ?? `empty-${index}`}><td>{item?.productName}</td><td>{item?.specification || item?.dimensions}</td><td>{item?.quantity}</td><td>{item?.unit}</td><td>{item?.material}</td><td>{item ? money(item.unitPrice) : ''}</td><td>{item ? money(item.quantity * item.unitPrice) : ''}</td><td>{item?.lineNote || item?.customRequirement}</td></tr>)}</tbody></table>
         {(order.items ?? []).some((item) => item.skuLines?.length) && <div className="sheet-components"><h2>组件明细（送货验收对照）</h2>{(order.items ?? []).filter((item) => item.skuLines?.length).map((item) => item.packageId ? <div className="sheet-component-group package-group" key={item.id}><b>{item.productName} ×{item.quantity}（{item.packageCode}）</b>{(item.packageItems ?? []).map((entry) => <div className="sheet-component-subgroup" key={entry.productId}><b className="subgroup-title">{entry.productName} ×{entry.quantity}（{entry.productCode}）</b><table><thead><tr><th>组件</th><th>规格</th><th>数量</th><th>单价</th><th>小计</th></tr></thead><tbody>{entry.skuLines.map((line) => <tr key={line.skuUnitId}><td>{line.componentName}{line.optional ? '（选配）' : ''}</td><td>{line.specSummary}</td><td>{line.quantity * entry.quantity * item.quantity}</td><td>{money(line.unitPrice)}</td><td>{money(line.unitPrice * line.quantity * entry.quantity * item.quantity)}</td></tr>)}</tbody></table></div>)}<table><tbody><tr className="component-group-total"><td colSpan={4}>套餐组合价（含套餐调整）</td><td>{money(item.unitPrice * item.quantity)}</td></tr></tbody></table></div> : <div className="sheet-component-group" key={item.id}><b>{item.productName} ×{item.quantity}{item.configProductCode ? `（${item.configProductCode}）` : ''}</b><table><thead><tr><th>组件</th><th>规格</th><th>数量</th><th>单价</th><th>小计</th></tr></thead><tbody>{item.skuLines!.map((line) => <tr key={line.skuUnitId}><td>{line.componentName}{line.optional ? '（选配）' : ''}</td><td>{line.specSummary}</td><td>{line.quantity * item.quantity}</td><td>{money(line.unitPrice)}</td><td>{money(line.unitPrice * line.quantity * item.quantity)}</td></tr>)}<tr className="component-group-total"><td colSpan={4}>单品组合价（含配置调整）</td><td>{money(item.unitPrice * item.quantity)}</td></tr></tbody></table></div>)}</div>}
-        <div className="sheet-totals"><span>其他费用：<b>¥{money(order.otherFee ?? 0)}</b></span><span>总金额：<b>¥{money(order.contractAmount)}</b></span>{printMode === 'sales' && <span>实收金额：<b>¥{money(order.contractAmount)}</b></span>}{printMode === 'sales' && <span>已收订金：<b>¥{money(deposit)}</b></span>}{printMode === 'sales' && <strong>实收金额合计：{amountToChinese(order.contractAmount)}</strong>}</div>
+        <div className="sheet-totals"><span>其他费用：<b>¥{money(order.otherFee ?? 0)}</b></span><span>总金额：<b>¥{money(sheetListTotal)}</b></span>{printMode === 'sales' && <span>实收金额：<b>¥{money(sheetActual)}</b></span>}{printMode === 'sales' && <span>已收订金：<b>¥{money(deposit)}</b></span>}{printMode === 'sales' && <strong>实收金额合计：{amountToChinese(sheetActual)}</strong>}</div>
+        {showPayment && (
+          <div className="sheet-payment">
+            <b className="sheet-payment-title">扫码支付 / 银行转账</b>
+            <div className="sheet-payment-codes">
+              {paymentSettings.alipayQr?.dataUrl && <figure><img src={paymentSettings.alipayQr.dataUrl} alt="支付宝收款码"/><figcaption>支付宝</figcaption></figure>}
+              {paymentSettings.wechatQr?.dataUrl && <figure><img src={paymentSettings.wechatQr.dataUrl} alt="微信收款码"/><figcaption>微信</figcaption></figure>}
+            </div>
+            {paymentSettings.banks?.length ? (
+              <div className="sheet-payment-banks">
+                {paymentSettings.banks.map((bank, index) => (
+                  <div className="sheet-bank-line" key={index}>
+                    <span className="sheet-bank-name">{bank.bankName}</span>
+                    <span className="sheet-bank-account">{bank.accountNo}</span>
+                    <span className="sheet-bank-owner">{bank.accountName}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <p className="sheet-payment-note">{paymentSettings.payNote || `请扫码付款，并备注订单号 ${order.orderNo}；本次应付含定金 ¥${money(deposit)}，实收合计 ¥${money(sheetActual)}。`}</p>
+          </div>
+        )}
         <div className="sheet-note"><b>备注：</b><span>{order.note}</span></div>
         <div className="sheet-signatures"><span>开单人员：<b>{order.opener || order.salesperson}</b></span><span>跟单人员：<b>{order.follower || order.salesperson}</b></span>{printMode === 'sales' && <span>送货人员：<b>{order.deliveryPerson || ''}</b></span>}{printMode === 'sales' && <span className="customer-signature">客户签名：{signature?.dataUrl && <img src={signature.dataUrl} alt="客户电子签名"/>}</span>}</div>
         {printMode === 'sales' && !signature && <SignaturePad onConfirm={saveSignature}/>} 
