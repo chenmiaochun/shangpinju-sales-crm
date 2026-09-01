@@ -85,3 +85,9 @@
 .cart-totals .deposit-field{display:flex;align-items:center;gap:5px}
 .cart-totals .deposit-field input{width:100%}
 .cart-totals .deposit-field em{font-style:normal;color:#77817b;font-size:12px}
+.cart-totals .deposit-fields{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+.cart-totals .deposit-fields .field-label{display:block;font-size:12px;color:#4f554f;margin-bottom:4px}
+.cart-totals .deposit-amount-field .currency-prefix{color:#77817b;font-size:12px}
+.cart-totals .deposit-amount-field input{padding-left:8px;border-color:#c3a06b!important}
+.cart-totals .deposit-amount-field input:focus{outline:1px solid #701318}
+@media(max-width:720px){.cart-totals .deposit-fields{grid-template-columns:1fr}}

@@ -60,4 +60,32 @@ describe('OrderWorkspacePage',()=>{
     expect(screen.queryByRole('alert')).toBeNull();fireEvent.click(screen.getByLabelText('加急订单'));expect(screen.getByRole('alert').textContent).toContain('台面');expect(screen.getByRole('alert').textContent).toContain('现货不足');fireEvent.click(screen.getByRole('button',{name:'保存销售单'}));expect(onAddOrder).toHaveBeenCalledWith(expect.objectContaining({urgent:true}));expect(screen.getByRole('dialog',{name:'订货单预览'})).toBeTruthy();expect(screen.getByText('加急')).toBeTruthy()})
 
   it('warns on urgent catalog orders when stock is short, quiet when not urgent',()=>{const lowStockProduct:ProductCatalogItem={...product,availableStock:3};render(<OrderWorkspacePage customers={[customer]} products={[lowStockProduct]} orders={[]} activeUser="小林" onAddOrder={vi.fn()} onUpdateOrder={vi.fn()} onActivate={vi.fn(()=>({ok:true}))}/>);fireEvent.click(screen.getByTitle('加入选品'));fireEvent.change(screen.getByLabelText('黑胡桃餐桌数量'),{target:{value:'5'}});expect(screen.queryByRole('alert')).toBeNull();fireEvent.click(screen.getByLabelText('加急订单'));expect(screen.getByRole('alert').textContent).toContain('现货不足')})
+
+  // Phase 5：定金金额可编辑（销售可输入 9000 或 10000，而非只能改比例）
+  it('定金金额直接可编辑，自动反推定金比例并写进订单',()=>{
+    const onAddOrder=vi.fn()
+    render(<OrderWorkspacePage customers={[customer]} products={[product]} orders={[]} activeUser="小林" onAddOrder={onAddOrder} onUpdateOrder={vi.fn()} onActivate={vi.fn(()=>({ok:true}))}/>)
+    fireEvent.click(screen.getByTitle('加入选品'))
+    // 默认：实收价 9800、比例 50、金额 4900
+    expect((screen.getByLabelText('定金比例') as HTMLInputElement).value).toBe('50')
+    expect((screen.getByLabelText('定金金额') as HTMLInputElement).value).toBe('4900')
+    // 销售把金额改成 9000（不再是 50%）
+    fireEvent.change(screen.getByLabelText('定金金额'),{target:{value:'9000'}})
+    expect((screen.getByLabelText('定金金额') as HTMLInputElement).value).toBe('9000')
+    // 比例自动反推：9000 / 9800 ≈ 91.84
+    expect((screen.getByLabelText('定金比例') as HTMLInputElement).value).toBe('91.84')
+    expect(screen.getByText('¥9,000.00')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button',{name:'保存销售单'}))
+    expect(onAddOrder).toHaveBeenCalledWith(expect.objectContaining({actualReceived:9800,depositRate:91.84,requiredDeposit:9000}))
+  })
+
+  it('定金比例改动时自动同步金额（实收价变化时也按比例重算）',()=>{
+    render(<OrderWorkspacePage customers={[customer]} products={[product]} orders={[]} activeUser="小林" onAddOrder={vi.fn()} onUpdateOrder={vi.fn()} onActivate={vi.fn(()=>({ok:true}))}/>)
+    fireEvent.click(screen.getByTitle('加入选品'))
+    fireEvent.change(screen.getByLabelText('定金比例'),{target:{value:'30'}})
+    expect((screen.getByLabelText('定金金额') as HTMLInputElement).value).toBe('2940')
+    // 实收价改成 9000 后，金额按当前 30% 同步重算
+    fireEvent.change(screen.getByLabelText('实收价'),{target:{value:'9000'}})
+    expect((screen.getByLabelText('定金金额') as HTMLInputElement).value).toBe('2700')
+  })
 })
