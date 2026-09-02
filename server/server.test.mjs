@@ -158,6 +158,32 @@ test('logout revokes the session', async () => {
   const expired = await json('/api/auth/me', { headers: { cookie: sessionCookie } })
   assert.equal(expired.status, 401)
 })
+test('employees change their own password only after proving the current one', async () => {
+  const created = await json('/api/accounts', { method: 'POST', body: JSON.stringify({ username: 'pwd-user', password: 'old-pass-1234', name: '改密测试', role: 'sales', mustChangePassword: false }) })
+  assert.equal(created.status, 201)
+  const login = await json('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: 'pwd-user', password: 'old-pass-1234' }), cookie: false })
+  const userCookie = login.headers.get('set-cookie').split(';')[0]
+  // 匿名不能改密
+  const anon = await json('/api/auth/change-password', { method: 'POST', cookie: false, body: JSON.stringify({ oldPassword: 'x123456', newPassword: 'y123456' }) })
+  assert.equal(anon.status, 401)
+  // 当前密码错误 → 拒绝
+  const wrong = await json('/api/auth/change-password', { method: 'POST', headers: { cookie: userCookie }, body: JSON.stringify({ oldPassword: 'wrong-123456', newPassword: 'new-pass-5678' }) })
+  assert.equal(wrong.status, 400)
+  // 弱密码 → 拒绝
+  const weak = await json('/api/auth/change-password', { method: 'POST', headers: { cookie: userCookie }, body: JSON.stringify({ oldPassword: 'old-pass-1234', newPassword: '123' }) })
+  assert.equal(weak.status, 400)
+  // 与原密码相同 → 拒绝
+  const same = await json('/api/auth/change-password', { method: 'POST', headers: { cookie: userCookie }, body: JSON.stringify({ oldPassword: 'old-pass-1234', newPassword: 'old-pass-1234' }) })
+  assert.equal(same.status, 400)
+  // 正常修改
+  const ok = await json('/api/auth/change-password', { method: 'POST', headers: { cookie: userCookie }, body: JSON.stringify({ oldPassword: 'old-pass-1234', newPassword: 'new-pass-5678' }) })
+  assert.equal(ok.status, 200)
+  // 新密码可登录，旧密码失效
+  const relogin = await json('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: 'pwd-user', password: 'new-pass-5678' }), cookie: false })
+  assert.equal(relogin.status, 200)
+  const stale = await json('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: 'pwd-user', password: 'old-pass-1234' }), cookie: false })
+  assert.equal(stale.status, 401)
+})
 test('cross-site unsafe requests are rejected', async () => {
   const response = await json('/api/state', { method: 'PUT', body: JSON.stringify({ unsafe: true }), headers: { 'sec-fetch-site': 'cross-site' } })
   assert.equal(response.status, 403); assert.equal(response.body.error.code, 'ORIGIN_FORBIDDEN')

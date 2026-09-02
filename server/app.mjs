@@ -174,6 +174,21 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
         return send(204, undefined, { 'set-cookie': cookie('', 0) })
       }
       if (!session) throw new ApiError(401, 'AUTH_REQUIRED', 'Authentication is required')
+      // 员工自助修改密码：必须验证当前密码，改完保留本设备登录状态、踢掉其他设备
+      if (req.method === 'POST' && url.pathname === '/api/auth/change-password') {
+        const body = await readJson(req, maxBodyBytes)
+        try {
+          database.changePassword(session.account.id, body?.oldPassword, body?.newPassword, session.token_hash)
+          return send(200, { ok: true })
+        } catch (error) {
+          const message = String(error?.message)
+          if (message === 'INVALID_CURRENT_PASSWORD') throw new ApiError(400, 'VALIDATION_ERROR', '当前密码不正确')
+          if (message === 'WEAK_PASSWORD') throw new ApiError(400, 'VALIDATION_ERROR', '新密码需为 6 位数字，或 10 位以上字符')
+          if (message === 'SAME_PASSWORD') throw new ApiError(400, 'VALIDATION_ERROR', '新密码不能与当前密码相同')
+          if (message === 'ACCOUNT_NOT_FOUND') throw new ApiError(404, 'NOT_FOUND', 'Account not found')
+          throw error
+        }
+      }
       const fileReadMatch = url.pathname.match(/^\/api\/files\/([a-zA-Z0-9-]+)$/)
       if (req.method === 'GET' && fileReadMatch) {
         const metadataPath = join(uploadDir, `${fileReadMatch[1]}.json`)

@@ -215,9 +215,11 @@ export class SalesDatabase {
       updateAccount: this.db.prepare('UPDATE auth_accounts SET username = ?, name = ?, role = ?, phone = ?, can_design = ?, custom_permissions = ?, roles = ?, updated_at = ? WHERE id = ?'),
       updateAccountStatus: this.db.prepare('UPDATE auth_accounts SET active = ?, updated_at = ? WHERE id = ?'),
       updateAccountPassword: this.db.prepare('UPDATE auth_accounts SET password_hash = ?, must_change_password = 1, updated_at = ? WHERE id = ?'),
+      updateOwnPassword: this.db.prepare('UPDATE auth_accounts SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?'),
       deleteAccount: this.db.prepare('DELETE FROM auth_accounts WHERE id = ?'),
       countActiveManagers: this.db.prepare("SELECT COUNT(*) AS count FROM auth_accounts WHERE role = 'manager' AND active = 1"),
       deleteAccountSessions: this.db.prepare('DELETE FROM auth_sessions WHERE account_id = ?'),
+      deleteOtherSessions: this.db.prepare('DELETE FROM auth_sessions WHERE account_id = ? AND token_hash <> ?'),
       insertSession: this.db.prepare('INSERT INTO auth_sessions(token_hash, account_id, expires_at, created_at, last_seen_at) VALUES(?, ?, ?, ?, ?)'),
       getSession: this.db.prepare(`SELECT s.token_hash, s.expires_at, a.* FROM auth_sessions s JOIN auth_accounts a ON a.id = s.account_id WHERE s.token_hash = ?`),
       touchSession: this.db.prepare('UPDATE auth_sessions SET last_seen_at = ? WHERE token_hash = ?'),
@@ -426,6 +428,27 @@ export class SalesDatabase {
       if (!result.changes) throw new Error('Account not found')
       this.statements.deleteAccountSessions.run(id)
       this.record('reset_password', 'auth_account', { accountId: id })
+    })
+    return true
+  }
+  /**
+   * 员工本人修改密码：必须校验旧密码，改完保留当前会话（不被踢下线），
+   * 但把该账号在其他设备上的会话全部踢掉，防止旧密码继续被使用。
+   */
+  changePassword(id, oldPassword, newPassword, currentTokenHash = '') {
+    const row = this.statements.accountById.get(id)
+    if (!row || !row.active) throw new Error('ACCOUNT_NOT_FOUND')
+    if (!verifyPassword(String(oldPassword || ''), row.password_hash)) throw new Error('INVALID_CURRENT_PASSWORD')
+    const next = String(newPassword || '')
+    if (!(/^\d{6}$/.test(next) || next.length >= 10)) throw new Error('WEAK_PASSWORD')
+    if (next.length > 200) throw new Error('WEAK_PASSWORD')
+    if (verifyPassword(next, row.password_hash)) throw new Error('SAME_PASSWORD')
+    const at = this.now()
+    this.transaction(() => {
+      const result = this.statements.updateOwnPassword.run(hashPassword(next), at, id)
+      if (!result.changes) throw new Error('ACCOUNT_NOT_FOUND')
+      this.statements.deleteOtherSessions.run(id, String(currentTokenHash || ''))
+      this.record('change_password', 'auth_account', { accountId: id })
     })
     return true
   }

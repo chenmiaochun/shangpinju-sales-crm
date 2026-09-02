@@ -7,6 +7,7 @@ import {
   Boxes,
   Camera,
   ChartNoAxesCombined,
+  KeyRound,
   CheckCheck,
   ChevronDown,
   ChevronRight,
@@ -53,6 +54,7 @@ import { LoginPage } from "./auth/LoginPage";
 import { useAuth } from "./auth/AuthContext";
 import { SHANGPINJU_LOGO } from "./assets/shangpinju-brand";
 import { IdeaBox } from "./features/idea-box/IdeaBox";
+import { ChangePasswordDialog } from "./features/account/ChangePasswordDialog";
 
 const AIQualityPage = lazy(() =>
   import("./features/ai").then((module) => ({ default: module.AIQualityPage })),
@@ -311,6 +313,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
     "notifications" | "settings" | null
   >(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [notificationsRead, setNotificationsRead] = useState(false);
   const [globalQuery, setGlobalQuery] = useState("");
   const visibleNavigation = navigation.filter((item) =>
@@ -652,6 +655,17 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
                   <span>数据管理</span>
                 </NavLink>
               )}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setAccountMenuOpen(false);
+                  setChangePasswordOpen(true);
+                }}
+              >
+                <KeyRound size={16} />
+                <span>修改密码</span>
+              </button>
               <button
                 type="button"
                 role="menuitem"
@@ -1231,6 +1245,9 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
       </nav>
 
       <IdeaBox />
+      {changePasswordOpen && (
+        <ChangePasswordDialog onClose={() => setChangePasswordOpen(false)} />
+      )}
     </div>
   );
 }

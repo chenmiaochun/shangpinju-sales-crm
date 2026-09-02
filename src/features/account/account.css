@@ -1,0 +1,132 @@
+.cp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  background: rgba(24, 35, 30, 0.5);
+  padding: 20px;
+}
+.cp-dialog {
+  width: min(400px, 100%);
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 22px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.25);
+  display: grid;
+  gap: 13px;
+}
+.cp-dialog > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cp-dialog h2 {
+  margin: 0;
+  font-size: 17px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.cp-dialog > header button {
+  border: none;
+  background: transparent;
+  color: #77817b;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: inline-flex;
+}
+.cp-dialog > header button:hover {
+  background: #f1f4f2;
+  color: #223129;
+}
+.cp-dialog label {
+  display: grid;
+  gap: 5px;
+}
+.cp-dialog label > span {
+  font-size: 12px;
+  color: #6b7280;
+}
+.cp-dialog input {
+  height: 38px;
+  border: 1px solid #dce2de;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 14px;
+  outline: none;
+}
+.cp-dialog input:focus {
+  border-color: #701318;
+}
+.cp-error {
+  margin: 0;
+  font-size: 12px;
+  color: #8b2424;
+  background: #f9ecec;
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+.cp-dialog > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 2px;
+}
+.cp-primary,
+.cp-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.cp-primary {
+  background: #701318;
+  color: #fff;
+  border: none;
+}
+.cp-primary:hover {
+  background: #5d1014;
+}
+.cp-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.cp-ghost {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  color: #4b5563;
+}
+.cp-done {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 10px 0 4px;
+  text-align: center;
+  color: #223129;
+}
+.cp-done p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.cp-done small {
+  color: #77817b;
+  font-size: 12px;
+}
+.cp-done .cp-primary {
+  margin-top: 8px;
+}
+.spin {
+  animation: cp-spin 1s linear infinite;
+}
+@keyframes cp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

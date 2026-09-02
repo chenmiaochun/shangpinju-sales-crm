@@ -175,6 +175,10 @@ export const salesApi = {
     const user = publicStaticAccount(account) as T; sessionStorage.setItem(STATIC_SESSION_KEY, JSON.stringify(user)); return Promise.resolve({ user })
   },
   logout: () => { if (STATIC_DEMO) { sessionStorage.removeItem(STATIC_SESSION_KEY); return Promise.resolve() } return request<void>('/auth/logout', { method: 'POST' }) },
+  changePassword: (oldPassword: string, newPassword: string) => {
+    if (STATIC_DEMO) return Promise.reject(new ApiError(503, '正式共享数据库尚未启用，无法修改密码'))
+    return request<{ ok: boolean }>('/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ oldPassword, newPassword }) })
+  },
   health: () => request<{ ok: boolean }>('/health'),
   uploadFile: async (file: File, ownerId: string, category = 'design') => {
     const dataUrl = await fileDataUrl(file)
