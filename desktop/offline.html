@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>无法连接服务器 · 尚品居经营系统</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: #f4f6f4;
+    color: #18231e;
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    padding: 24px;
+  }
+  .card {
+    width: min(520px, 100%);
+    background: #fff;
+    border: 1px solid #dce3df;
+    border-radius: 14px;
+    padding: 28px 30px;
+    box-shadow: 0 10px 40px rgba(24, 35, 30, 0.08);
+  }
+  .brand { font-size: 12px; color: #701318; font-weight: 800; letter-spacing: 0.08em; margin: 0 0 6px; }
+  h1 { margin: 0 0 10px; font-size: 20px; }
+  .lead { margin: 0 0 18px; font-size: 13px; color: #647069; line-height: 1.7; }
+  ol { margin: 0 0 20px; padding-left: 20px; font-size: 13px; color: #4f554f; line-height: 1.9; }
+  label { display: grid; gap: 6px; margin-bottom: 12px; }
+  label > span { font-size: 12px; color: #6b7280; }
+  input {
+    height: 40px;
+    border: 1px solid #dce2de;
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    width: 100%;
+  }
+  input:focus { border-color: #701318; }
+  .actions { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+  button {
+    min-height: 40px;
+    padding: 0 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #4b5563;
+  }
+  button.primary { background: #701318; border-color: #701318; color: #fff; }
+  button.primary:hover { background: #5d1014; }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  .msg { margin: 14px 0 0; font-size: 13px; border-radius: 8px; padding: 9px 12px; display: none; }
+  .msg.show { display: block; }
+  .msg.ok { background: #f0f7f1; color: #1f5c33; }
+  .msg.err { background: #f9ecec; color: #8b2424; }
+  .hint { margin: 18px 0 0; font-size: 12px; color: #879089; line-height: 1.7; }
+  code { background: #f3f4f6; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <p class="brand">尚品居经营工作台</p>
+    <h1>无法连接服务器</h1>
+    <p class="lead">客户端没能连上店里的服务器。通常是下面几个原因：</p>
+    <ol>
+      <li>这台电脑没有连店里的 WiFi</li>
+      <li>店长那台服务器电脑没开机（或服务没启动）</li>
+      <li>服务器地址变了（路由器换了 IP）</li>
+    </ol>
+
+    <label>
+      <span>服务器地址</span>
+      <input id="server" type="text" placeholder="例如 http://192.168.1.161:5173" />
+    </label>
+
+    <div class="actions">
+      <button type="button" class="primary" id="save">保存并重新连接</button>
+      <button type="button" id="test">测试连接</button>
+    </div>
+
+    <p class="msg" id="msg"></p>
+
+    <p class="hint">
+      地址不用带 <code>#</code> 后面的内容，填到端口就行。<br />
+      不知道地址？问店长要，格式像这样：<code>http://192.168.1.161:5173</code>
+    </p>
+  </div>
+
+<script>
+  const input = document.getElementById('server')
+  const msg = document.getElementById('msg')
+  const saveBtn = document.getElementById('save')
+  const testBtn = document.getElementById('test')
+
+  function show(text, kind) {
+    msg.textContent = text
+    msg.className = 'msg show ' + (kind || 'err')
+  }
+
+  async function init() {
+    try {
+      const url = await window.spj.getServerUrl()
+      input.value = url || ''
+    } catch (error) {
+      show('读取配置失败：' + (error && error.message ? error.message : error), 'err')
+    }
+  }
+
+  saveBtn.addEventListener('click', async () => {
+    const value = input.value.trim()
+    if (!value) { show('请先填写服务器地址', 'err'); return }
+    saveBtn.disabled = true
+    saveBtn.textContent = '连接中…'
+    try {
+      const result = await window.spj.setServerUrl(value)
+      // 保存成功会触发主窗口重新加载；没抛错就说明已提交
+      show('已保存：' + (result || value) + '，正在重新连接…', 'ok')
+    } catch (error) {
+      show('保存失败：' + (error && error.message ? error.message : error), 'err')
+      saveBtn.disabled = false
+      saveBtn.textContent = '保存并重新连接'
+    }
+  })
+
+  testBtn.addEventListener('click', async () => {
+    const value = input.value.trim()
+    if (!value) { show('请先填写服务器地址', 'err'); return }
+    testBtn.disabled = true
+    testBtn.textContent = '测试中…'
+    try {
+      const result = await window.spj.testServer(value)
+      if (result && result.ok) show('连接成功，服务器正常', 'ok')
+      else show('连上了但服务不正常：' + JSON.stringify(result), 'err')
+    } catch (error) {
+      show('连接失败：' + (error && error.message ? error.message : error), 'err')
+    } finally {
+      testBtn.disabled = false
+      testBtn.textContent = '测试连接'
+    }
+  })
+
+  void init()
+</script>
+</body>
+</html>

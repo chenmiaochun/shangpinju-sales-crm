@@ -1,5 +1,5 @@
 import { createServer } from 'node:http'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, extname, join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { lanOrigins } from './lan.mjs'
@@ -17,6 +17,23 @@ function parseCookies(header = '') {
 
 export class ApiError extends Error {
   constructor(status, code, message, details) { super(message); this.status = status; this.code = code; this.details = details }
+}
+
+// 桌面客户端安装包（electron-builder 输出到 artifacts/desktop）
+const DESKTOP_DIR = resolve('artifacts/desktop')
+function listDesktopInstallers() {
+  if (!existsSync(DESKTOP_DIR)) return []
+  return readdirSync(DESKTOP_DIR)
+    .filter(name => name.toLowerCase().endsWith('.exe'))
+    .map(name => {
+      const full = join(DESKTOP_DIR, name)
+      const stat = statSync(full)
+      return { name, size: stat.size, updatedAt: stat.mtime.toISOString(), full }
+    })
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
 }
 
 function validateMembers(value) {
@@ -128,6 +145,50 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
     try {
       const url = new URL(req.url, 'http://localhost')
       if (req.method === 'GET' && url.pathname === '/api/health') return send(200, { ok: true, service: 'sales-data', timestamp: new Date().toISOString() })
+      // 桌面客户端下载页：员工在店里网络下打开就能下载安装包（无需登录）
+      if (req.method === 'GET' && url.pathname === '/download') {
+        const items = listDesktopInstallers()
+        const newest = items[0]
+        const sizeText = newest ? `${(newest.size / 1024 / 1024).toFixed(1)} MB` : '—'
+        const updatedText = newest ? new Date(newest.updatedAt).toLocaleString('zh-CN', { hour12: false }) : '—'
+        const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>尚品居经营系统 · 桌面版下载</title><style>
+          *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4f6f4;color:#18231e;font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;padding:24px}
+          .card{width:min(560px,100%);background:#fff;border:1px solid #dce3df;border-radius:14px;padding:30px 32px;box-shadow:0 10px 40px rgba(24,35,30,.08)}
+          .brand{font-size:12px;color:#701318;font-weight:800;letter-spacing:.08em;margin:0 0 6px}
+          h1{margin:0 0 8px;font-size:21px}.lead{margin:0 0 20px;font-size:13px;color:#647069;line-height:1.7}
+          .meta{display:grid;gap:6px;font-size:12px;color:#6b7280;background:#f7f9f8;border-radius:8px;padding:12px 14px;margin-bottom:20px}
+          a.btn{display:flex;align-items:center;justify-content:center;gap:8px;height:46px;border-radius:8px;background:#701318;color:#fff;text-decoration:none;font-size:15px;font-weight:600}
+          a.btn:hover{background:#5d1014}
+          .disabled{display:flex;align-items:center;justify-content:center;height:46px;border-radius:8px;background:#e5e7eb;color:#9ca3af;font-size:15px}
+          ol{margin:22px 0 0;padding-left:20px;font-size:13px;color:#4f554f;line-height:1.9}
+          .warn{margin:16px 0 0;font-size:12px;color:#879089;line-height:1.7}
+          code{background:#f3f4f6;padding:1px 6px;border-radius:4px;font-size:12px}
+        </style></head><body><div class="card">
+          <p class="brand">尚品居经营工作台</p><h1>桌面版客户端下载</h1>
+          <p class="lead">装了客户端，以后不用记网址，桌面双击图标就能进系统。</p>
+          <div class="meta">
+            <span>安装包：${newest ? escapeHtml(newest.name) : '尚未生成'}</span>
+            <span>大小：${sizeText}　更新：${updatedText}</span>
+          </div>
+          ${newest ? '<a class="btn" href="/download/file">下载安装包</a>' : '<div class="disabled">安装包还没生成，请联系店长</div>'}
+          <ol>
+            <li>点上面的按钮下载安装包</li>
+            <li>双击安装包，一路「下一步」完成安装</li>
+            <li>桌面会出现「尚品居经营系统」图标，双击打开</li>
+            <li>用店长给你的账号密码登录</li>
+          </ol>
+          <p class="warn">注意：请用<strong>电脑</strong>下载安装；使用时电脑要连店里的 WiFi，并且店长那台服务器电脑要开着。<br/>手机用户请直接用浏览器访问 <code>http://${escapeHtml(String(req.headers.host || '').split(':')[0] || '192.168.1.161')}:5173</code></p>
+        </div></body></html>`
+        res.writeHead(200, { ...headers, 'content-type': 'text/html; charset=utf-8' })
+        return res.end(html)
+      }
+      if (req.method === 'GET' && url.pathname === '/download/file') {
+        const items = listDesktopInstallers()
+        if (!items.length) throw new ApiError(404, 'NOT_FOUND', 'Desktop installer is not built yet')
+        const file = items[0]
+        res.writeHead(200, { ...headers, 'content-type': 'application/octet-stream', 'content-length': file.size, 'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}` })
+        return createReadStream(file.full).pipe(res)
+      }
       if (req.method === 'POST' && url.pathname === '/api/public/experience-intake') {
         const address = req.socket.remoteAddress || 'unknown', now = Date.now()
         const recent = (publicIntakeAttempts.get(address) || []).filter(at => now - at < publicIntakeWindowMs)
