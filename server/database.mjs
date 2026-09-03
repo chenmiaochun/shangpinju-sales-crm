@@ -477,7 +477,8 @@ export class SalesDatabase {
     const row = this.statements.getSession.get(tokenDigest(token))
     if (!row || !row.active || row.expires_at <= now) return null
     this.statements.touchSession.run(now, row.token_hash)
-    return { account: this.publicAccount(row), expiresAt: row.expires_at }
+    // 返回 tokenHash 供 change-password 保留本设备会话（仅后端内部使用，不暴露给前端）
+    return { account: this.publicAccount(row), tokenHash: row.token_hash, expiresAt: row.expires_at }
   }
   revokeSession(token) {
     if (!token) return false

@@ -239,7 +239,7 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
       if (req.method === 'POST' && url.pathname === '/api/auth/change-password') {
         const body = await readJson(req, maxBodyBytes)
         try {
-          database.changePassword(session.account.id, body?.oldPassword, body?.newPassword, session.token_hash)
+          database.changePassword(session.account.id, body?.oldPassword, body?.newPassword, session.tokenHash)
           return send(200, { ok: true })
         } catch (error) {
           const message = String(error?.message)
