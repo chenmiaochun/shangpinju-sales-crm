@@ -81,6 +81,9 @@ function validateBackup(value) {
 const cleanText = (value, max = 120) => typeof value === 'string' ? value.trim().slice(0, max) : ''
 const cleanList = (value, maxItems = 12, maxLength = 60) => Array.isArray(value) ? value.map(item => cleanText(item, maxLength)).filter(Boolean).slice(0, maxItems) : []
 const EXPERIENCE_STATIONS = ['家具与动线体验', '重点空间诊断', '全家睡眠体验']
+// 已知的 state 顶层集合字段（高置信度）：PUT /api/state 时若这些 key 出现，必须是数组，
+// 避免把数组替换成非数组导致前端 .map 崩溃。不强制白名单，未知 key 放行进合并。
+const STATE_COLLECTION_KEYS = ['customers', 'followUps', 'orders']
 
 function validateExperienceIntake(value) {
   if (!isObject(value) || value.consent !== true) throw new ApiError(400, 'VALIDATION_ERROR', 'consent is required')
@@ -294,8 +297,25 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
       if (req.method === 'DELETE' && accountMatch) { requireManager(); if (decodeURIComponent(accountMatch[1]) === session.account.id) throw new ApiError(400, 'ACCOUNT_INVALID', 'You cannot delete the account currently in use'); try { database.deleteAccount(decodeURIComponent(accountMatch[1])); return send(204) } catch { throw new ApiError(400, 'ACCOUNT_INVALID', 'This account cannot be deleted') } }
       const resetMatch = url.pathname.match(/^\/api\/accounts\/([^/]+)\/reset-password$/)
       if (req.method === 'POST' && resetMatch) { requireManager(); const body = await readJson(req, maxBodyBytes); database.resetAccountPassword(decodeURIComponent(resetMatch[1]), body.password); return send(200, { ok: true }) }
+      // ── 全局状态接口（P0 加固说明）────────────────────────────────────
+      // 本系统是「全员共享同一份 state、靠 setState 的并发合并协作」的模型：
+      // 前端每个客户端都 GET 全量、并把本地改动 PUT 上来由服务端 merge 合并。
+      // 因此此处不能加 requireManager——否则普通员工将无法提交自己的客户/订单更新，应用直接崩。
+      // 真正的权限隔离（员工只看/改自己权限范围内的数据）需把 state 拆成实体级接口 + 行级 owner 权限，
+      // 属架构级重构，另行排期。本期加固：登录门槛已在上方统一拦截；此处补「结构校验 + 写审计」防污染、可追溯。
       if (req.method === 'GET' && url.pathname === '/api/state') return send(200, database.getState())
-      if (req.method === 'PUT' && url.pathname === '/api/state') { const body = await readJson(req, maxBodyBytes); if (!isObject(body)) throw new ApiError(400, 'VALIDATION_ERROR', 'state must be an object'); return send(200, database.setState(body)) }
+      if (req.method === 'PUT' && url.pathname === '/api/state') {
+        const body = await readJson(req, maxBodyBytes)
+        if (!isObject(body)) throw new ApiError(400, 'VALIDATION_ERROR', 'state must be an object')
+        if (Object.keys(body).length === 0) throw new ApiError(400, 'VALIDATION_ERROR', 'state payload is empty')
+        for (const key of STATE_COLLECTION_KEYS) {
+          if (key in body && !Array.isArray(body[key])) throw new ApiError(400, 'VALIDATION_ERROR', `state.${key} must be an array`)
+        }
+        const bytes = Buffer.byteLength(JSON.stringify(body))
+        const result = database.setState(body)
+        database.record('update', 'state', { by: session.account.username, keyCount: Object.keys(body).length, bytes })
+        return send(200, result)
+      }
       if (req.method === 'GET' && url.pathname === '/api/audit') {
         requireManager()
         const limit = Number(url.searchParams.get('limit') ?? 50), offset = Number(url.searchParams.get('offset') ?? 0)
