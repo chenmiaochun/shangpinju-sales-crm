@@ -18,6 +18,7 @@ export interface GroupedProduct {
   categoryId?: string
   series?: string
   materialDescription?: string
+  style?: string
   applicableSpace?: string[]
   description?: string
   media: ProductMedia
@@ -72,6 +73,7 @@ export function groupProducts(products: ConfigProduct[], skuUnits: SkuUnit[]): G
       categoryId: rep.categoryId,
       series: rep.series,
       materialDescription: rep.materialDescription,
+      style: rep.style,
       applicableSpace: rep.applicableSpace,
       description: rep.description,
       media: rep.media || { images: [] },

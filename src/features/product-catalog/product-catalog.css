@@ -21,9 +21,18 @@
 
 .catalog-filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 10px;
   margin-bottom: 20px;
+  padding: 14px 16px;
+  background: #f7f8fa;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+.catalog-filter-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 .catalog-search {
   flex: 1;
@@ -35,14 +44,77 @@
   background: #fff;
   color: #1f2329;
 }
-.catalog-filters select {
-  padding: 9px 12px;
+.catalog-clear-all {
+  padding: 8px 14px;
   border: 1px solid #d8dbe0;
   border-radius: 8px;
   background: #fff;
   font-size: 13px;
+  color: #ef4444;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.catalog-clear-all:hover {
+  background: #fef2f2;
+}
+.catalog-chip-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.catalog-chip-label {
+  flex: 0 0 64px;
+  font-size: 13px;
+  font-weight: 600;
   color: #4b5563;
-  min-width: 130px;
+  padding-top: 7px;
+  text-align: right;
+}
+.catalog-chip-count {
+  display: inline-block;
+  margin-left: 4px;
+  font-style: normal;
+  font-size: 11px;
+  color: #fff;
+  background: #2f6bff;
+  border-radius: 999px;
+  padding: 0 6px;
+  line-height: 16px;
+}
+.catalog-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+.catalog-chip {
+  padding: 6px 12px;
+  border: 1px solid #d8dbe0;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.catalog-chip:hover {
+  border-color: #2f6bff;
+  color: #2f6bff;
+}
+.catalog-chip.on {
+  background: #2f6bff;
+  border-color: #2f6bff;
+  color: #fff;
+}
+.catalog-chip-hint {
+  flex: 0 0 auto;
+  align-self: center;
+  font-size: 11px;
+  color: #b08d57;
+  background: #fdf6ec;
+  border: 1px solid #f3e2c7;
+  border-radius: 6px;
+  padding: 2px 7px;
 }
 
 .catalog-grid {
