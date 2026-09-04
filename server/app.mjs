@@ -378,8 +378,10 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
       if (req.method === 'GET' && (mediaListMatch || url.pathname === '/api/media/products')) {
         requireMedia()
         const q = (url.searchParams.get('q') || '').trim().toLowerCase()
-        const all = (database.getState().value.configProducts || [])
+        const state = database.getState().value
+        const all = (state.configProducts || [])
           .filter(p => !q || (p.code || '').toLowerCase().includes(q) || (p.name || '').toLowerCase().includes(q))
+        const catResolver = (cid) => (state.categories || []).find(c => c.id === cid)?.name
         // 按 groupId 聚合：一个产品一组，列表每条 = 代表产品，上传落到代表产品，目录卡即显示
         const groups = new Map()
         for (const p of all) {
@@ -400,7 +402,7 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
             code: rep.code,
             name: rep.name,
             categoryId: rep.categoryId,
-            categoryName: rep.categoryName,
+            categoryName: catResolver(rep.categoryId),
             series: rep.series,
             status: rep.status,
             media: counts,
