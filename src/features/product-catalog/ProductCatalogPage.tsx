@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSalesData } from '../../store/SalesDataContext'
-import type { ConfigProduct, MediaFile, ProductMedia, ProductPackage } from '../../types'
+import type { ConfigProduct, ProductPackage } from '../../types'
 import { configProductPriceRange, packagePriceRange } from '../../utils/product-config'
+import { groupProducts, firstMainImage, mediaCounts, type GroupedProduct } from '../../utils/product-group'
 import './product-catalog.css'
 
 const money = (value: number) => `¥${value.toLocaleString('zh-CN')}`
@@ -17,10 +18,7 @@ type CatalogEntry = {
   seriesLabel?: string
   priceText: string
   description?: string
-}
-
-function firstMainImage(media?: ProductMedia): string | undefined {
-  return media?.whiteBgImages?.[0]?.url ?? media?.images?.[0]?.url
+  group?: GroupedProduct
 }
 
 export function ProductCatalogPage() {
@@ -31,22 +29,27 @@ export function ProductCatalogPage() {
   const [seriesName, setSeriesName] = useState('')
 
   const entries = useMemo<CatalogEntry[]>(() => {
-    const singles: CatalogEntry[] = (sales.configProducts ?? [])
-      .filter((p) => p.status === '上架')
-      .map((p) => {
-        const r = configProductPriceRange(p, sales.skuUnits ?? [])
-        return {
-          kind: 'single',
-          id: p.id,
-          name: p.name,
-          code: p.code,
-          mainImage: firstMainImage(p.media),
-          categoryName: sales.categories?.find((c) => c.id === p.categoryId)?.name,
-          seriesLabel: p.series,
-          priceText: r.exact ? money(r.min) : `${money(r.min)} 起`,
-          description: p.description,
-        }
-      })
+    const groups = groupProducts(
+      (sales.configProducts ?? []).filter((p) => p.status === '上架'),
+      sales.skuUnits ?? [],
+    )
+    const singles: CatalogEntry[] = groups.map((g) => {
+      const cat = sales.categories?.find((c) => c.id === g.categoryId)?.name
+      const counts = mediaCounts(g.media)
+      const priceText = g.priceExact ? money(g.priceMin) : `${money(g.priceMin)} 起`
+      return {
+        kind: 'single',
+        id: g.representativeId,
+        name: g.name,
+        code: g.code,
+        mainImage: firstMainImage(g.media),
+        categoryName: cat,
+        seriesLabel: g.series,
+        priceText,
+        description: g.description,
+        group: g,
+      }
+    })
     const pkgs: CatalogEntry[] = (sales.productPackages ?? [])
       .filter((p) => p.status === '上架')
       .map((p) => {
@@ -109,19 +112,27 @@ export function ProductCatalogPage() {
         </select>
       </div>
       <div className="catalog-grid">
-        {filtered.map((e) => (
-          <button key={`${e.kind}-${e.id}`} type="button" className="catalog-card" onClick={() => navigate(`/products/${e.id}`)}>
-            <div className="catalog-card-img">
-              {e.mainImage ? <img src={e.mainImage} alt={e.name} /> : <span className="catalog-noimg">暂无图片</span>}
-            </div>
-            <div className="catalog-card-body">
-              <span className={`catalog-tag catalog-tag-${e.kind}`}>{e.kind === 'single' ? '单品' : '套餐'}</span>
-              <b>{e.name}</b>
-              <small>{e.code}{e.seriesLabel ? ` · ${e.seriesLabel}` : ''}</small>
-              <span className="catalog-price">{e.priceText}</span>
-            </div>
-          </button>
-        ))}
+        {filtered.map((e) => {
+          const counts = e.group ? mediaCounts(e.group.media) : { white: 0, scene: 0, real: 0 }
+          const variantCount = e.group?.variants.length ?? 1
+          return (
+            <button key={`${e.kind}-${e.id}`} type="button" className="catalog-card" onClick={() => navigate(`/products/${e.id}`)}>
+              <div className="catalog-card-img">
+                {e.mainImage ? <img src={e.mainImage} alt={e.name} /> : <span className="catalog-noimg">暂无图片</span>}
+                {variantCount > 1 && <span className="catalog-spec-badge">{variantCount} 规格</span>}
+              </div>
+              <div className="catalog-card-body">
+                <span className={`catalog-tag catalog-tag-${e.kind}`}>{e.kind === 'single' ? '单品' : '套餐'}</span>
+                <b>{e.name}</b>
+                <small>{e.code}{e.seriesLabel ? ` · ${e.seriesLabel}` : ''}</small>
+                <span className="catalog-price">{e.priceText}</span>
+                {e.kind === 'single' && (
+                  <span className="catalog-imgs">{counts.white} 白底 · {counts.scene} 场景 · {counts.real} 实拍</span>
+                )}
+              </div>
+            </button>
+          )
+        })}
         {filtered.length === 0 && <p className="catalog-empty">没有符合条件的产品。</p>}
       </div>
     </div>

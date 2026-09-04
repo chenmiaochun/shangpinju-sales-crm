@@ -87,6 +87,16 @@
   color: #9aa0a6;
   font-size: 13px;
 }
+.catalog-spec-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(31, 35, 41, 0.72);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
 .catalog-card-body {
   display: flex;
   flex-direction: column;
@@ -121,6 +131,11 @@
   font-size: 15px;
   font-weight: 700;
   color: #8b2424;
+}
+.catalog-imgs {
+  font-size: 11px;
+  color: #9aa0a6;
+  letter-spacing: 0.02em;
 }
 .catalog-empty {
   grid-column: 1 / -1;

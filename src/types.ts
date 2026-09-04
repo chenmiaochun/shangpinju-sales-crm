@@ -691,9 +691,9 @@ export interface ProductMedia {
   careDoc?: MediaFile[]; // 保养说明
   manualFiles?: MediaFile[]; // 产品手册 / 附件（PDF 等）
   qualityStandard?: string; // 质检标准（含水率、色差、结构标准）
-  whiteBgImages?: MediaFile[]; // 白底图（主展示，替换现有杂乱实拍）
-  detailImages?: MediaFile[]; // 细节图（木纹 / 榫卯 / 五金 / 边角特写）
-  realShotImages?: MediaFile[]; // 实拍图 / 实景图（真实居家场景）
+  whiteBgImages?: MediaFile[]; // ① 白底图（标准产品照，目录/详情主图）
+  sceneImages?: MediaFile[]; // ② 场景图（真实/模拟空间效果，客厅/餐厅/卧室）
+  realShotImages?: MediaFile[]; // ④ 实拍图（客户真实居家 / 送货师傅回传，可筛选 approved）
 }
 
 // 第1层 大类
@@ -764,6 +764,10 @@ export interface ConfigProduct {
   categoryId: string;
   name: string; // 1.8m 黑胡桃圆餐桌
   code: string; // 自动生成：SP-CT-001
+  /** 产品分组 ID：同名产品的不同尺寸/规格共享同一 groupId，目录按组聚合展示（一个产品一张卡） */
+  groupId?: string;
+  /** 规格展示值（如 1200*600*450 / 1.8米），详情页规格选择器与目录卡用 */
+  specLabel?: string;
   description?: string; // 详情 / 卖点描述
   style?: string; // 风格：意式极简 / 新中式…
   series?: string; // 所属系列：五福沙发系列…

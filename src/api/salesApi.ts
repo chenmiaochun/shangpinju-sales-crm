@@ -119,7 +119,7 @@ export interface PublicSkuUnit {
 }
 export interface PublicProductMedia {
   whiteBgImages?: MediaFile[]
-  detailImages?: MediaFile[]
+  sceneImages?: MediaFile[]
   realShotImages?: MediaFile[]
   images?: MediaFile[]
 }

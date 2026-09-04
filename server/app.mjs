@@ -248,13 +248,14 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
           (Array.isArray(item.productNames) && item.productNames.includes(product.name)),
         ).map(item => ({ id: item.id, title: item.title, category: item.category, images: item.images || [], note: item.note || '' }))
         const media = product.media || {}
+        // 公开页「先定 ①白底图 ②场景图」，案例/实拍（③④）后期再开放
         return send(200, {
           id: product.id, name: product.name, code: product.code, description: product.description,
           materialDescription: product.materialDescription, series: product.series, categoryName,
           applicableSpace: product.applicableSpace, adjustPrice: product.adjustPrice,
           components: (product.components || []).map(c => ({ componentId: c.componentId, quantity: c.quantity, optional: !!c.optional, locked: c.locked, allowed: c.allowed })),
-          media: { whiteBgImages: media.whiteBgImages, detailImages: media.detailImages, realShotImages: media.realShotImages, images: media.images },
-          skuUnits, cases,
+          media: { whiteBgImages: media.whiteBgImages, sceneImages: media.sceneImages, images: media.images },
+          skuUnits,
         })
       }
       const sessionToken = parseCookies(req.headers.cookie)[SESSION_COOKIE]
@@ -373,25 +374,38 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
       if (req.method === 'DELETE' && ideaMatch) { requireManager(); if (!database.deleteIdea(decodeURIComponent(ideaMatch[1]))) throw new ApiError(404, 'NOT_FOUND', 'Idea not found'); return send(204) }
       // ── 图文采集端口（media 角色 / 店长）：只许上传产品图，看不到订单/客户等敏感数据 ──
       const requireMedia = () => { if (!hasRole(session.account, 'media') && !hasRole(session.account, 'manager')) throw new ApiError(403, 'FORBIDDEN', 'Media upload permission is required') }
-      if (req.method === 'GET' && url.pathname === '/api/media/products') {
+      const mediaListMatch = url.pathname.match(/^\/api\/media\/products$/)
+      if (req.method === 'GET' && (mediaListMatch || url.pathname === '/api/media/products')) {
         requireMedia()
         const q = (url.searchParams.get('q') || '').trim().toLowerCase()
-        const products = (database.getState().value.configProducts || [])
+        const all = (database.getState().value.configProducts || [])
           .filter(p => !q || (p.code || '').toLowerCase().includes(q) || (p.name || '').toLowerCase().includes(q))
-          .map(p => ({
-            id: p.id,
-            code: p.code,
-            name: p.name,
-            categoryId: p.categoryId,
-            categoryName: p.categoryName,
-            series: p.series,
-            status: p.status,
-            media: {
-              whiteBg: (p.media?.whiteBgImages || []).length,
-              scene: (p.media?.detailImages || []).length,
-              realShot: (p.media?.realShotImages || []).length,
-            },
-          }))
+        // 按 groupId 聚合：一个产品一组，列表每条 = 代表产品，上传落到代表产品，目录卡即显示
+        const groups = new Map()
+        for (const p of all) {
+          const g = p.groupId || p.id
+          if (!groups.has(g)) groups.set(g, [])
+          groups.get(g).push(p)
+        }
+        const products = [...groups.values()].map(members => {
+          const rep = [...members].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || (a.code || '').localeCompare(b.code || ''))[0]
+          const counts = members.reduce((acc, m) => {
+            acc.whiteBg += (m.media?.whiteBgImages || []).length
+            acc.scene += (m.media?.sceneImages || []).length
+            acc.realShot += (m.media?.realShotImages || []).length
+            return acc
+          }, { whiteBg: 0, scene: 0, realShot: 0 })
+          return {
+            id: rep.id,
+            code: rep.code,
+            name: rep.name,
+            categoryId: rep.categoryId,
+            categoryName: rep.categoryName,
+            series: rep.series,
+            status: rep.status,
+            media: counts,
+          }
+        })
         return send(200, { products })
       }
       const mediaProductMatch = url.pathname.match(/^\/api\/media\/products\/([^/]+)\/images$/)
@@ -399,7 +413,7 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
         requireMedia()
         const pid = decodeURIComponent(mediaProductMatch[1])
         const body = await readJson(req, maxBodyBytes)
-        const kind = body.kind === 'scene' ? 'detailImages' : 'whiteBgImages'
+        const kind = body.kind === 'scene' ? 'sceneImages' : 'whiteBgImages'
         const incoming = Array.isArray(body.files) ? body.files.slice(0, 60) : []
         if (!incoming.length) throw new ApiError(400, 'VALIDATION_ERROR', 'files required')
         const state = database.getState().value
@@ -416,7 +430,7 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
         })
         database.setState({ configProducts: nextList })
         const updated = nextList.find(p => p.id === pid)
-        return send(200, { product: { id: pid, media: { whiteBg: (updated.media?.whiteBgImages || []).length, scene: (updated.media?.detailImages || []).length, realShot: (updated.media?.realShotImages || []).length } } })
+        return send(200, { product: { id: pid, media: { whiteBg: (updated.media?.whiteBgImages || []).length, scene: (updated.media?.sceneImages || []).length, realShot: (updated.media?.realShotImages || []).length } } })
       }
       // 案例库：所有登录员工都能看、都能传；修改/删除限店长或作者本人
       if (req.method === 'GET' && url.pathname === '/api/cases') {

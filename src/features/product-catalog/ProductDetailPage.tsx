@@ -27,7 +27,7 @@ interface NormalizedCase {
 }
 interface ProdMedia {
   whiteBgImages?: MediaFile[]
-  detailImages?: MediaFile[]
+  sceneImages?: MediaFile[]
   realShotImages?: MediaFile[]
   images?: MediaFile[]
 }
@@ -45,6 +45,7 @@ interface NormalizedProduct {
   media: ProdMedia
   skuUnits: SkuUnit[]
   cases: NormalizedCase[]
+  groupVariants?: { id: string; specLabel: string; price: number; stock: number }[]
 }
 
 // 给定规格选择，算整套可售库存（按各必选主件对应 SKU 最小可用量）
@@ -124,7 +125,7 @@ function ProductDetailView({ product, readOnly }: { product: NormalizedProduct; 
   const [qr, setQr] = useState<string | null>(null)
 
   const hero = product.media.whiteBgImages?.[0]?.url ?? product.media.images?.[0]?.url
-  const detailImages = product.media.detailImages ?? []
+  const sceneImages = product.media.sceneImages ?? []
   const realImages = product.media.realShotImages ?? []
   const tags = useMemo(() => {
     const set = new Set<string>()
@@ -133,10 +134,18 @@ function ProductDetailView({ product, readOnly }: { product: NormalizedProduct; 
     return Array.from(set)
   }, [product])
 
+  // 组内变体（不同尺寸/规格）选择器：图片保持产品级，仅切换价格/库存
+  const groupVariants = product.groupVariants
+  const useGroup = !!groupVariants && groupVariants.length > 1
+  const [gv, setGv] = useState(0)
+  const gvPrice = useGroup ? (groupVariants?.[gv]?.price ?? priceRange.min) : priceRange.min
+  const gvStock = useGroup ? (groupVariants?.[gv]?.stock ?? availability.stock) : availability.stock
+
   const showSpec = specRows.length > 1
-  const selPrice = showSpec ? specRows[selected]?.price ?? priceRange.min : priceRange.min
-  const selStock = showSpec ? specRows[selected]?.stock ?? availability.stock : availability.stock
+  const selPrice = useGroup ? gvPrice : (showSpec ? specRows[selected]?.price ?? priceRange.min : priceRange.min)
+  const selStock = useGroup ? gvStock : (showSpec ? specRows[selected]?.stock ?? availability.stock : availability.stock)
   const stockText = selStock === Number.MAX_SAFE_INTEGER ? '接单生产' : `库存 ${selStock}`
+  const displayName = useGroup ? (product.name.split('·')[0].trim() || product.name) : product.name
 
   const openQr = async () => {
     const url = `${window.location.origin}/p/${product.id}`
@@ -172,7 +181,7 @@ function ProductDetailView({ product, readOnly }: { product: NormalizedProduct; 
         </div>
 
         <div className="pd-info">
-          <h1>{product.name}</h1>
+          <h1>{displayName}</h1>
           <div className="pd-meta">
             {product.materialDescription && <span>材质：{product.materialDescription}</span>}
             <span>编码：{product.code}</span>
@@ -187,7 +196,27 @@ function ProductDetailView({ product, readOnly }: { product: NormalizedProduct; 
             <span className="pd-stock">{stockText}</span>
           </div>
 
-          {showSpec && (
+          {useGroup && (
+            <div className="pd-spec">
+              <div className="pd-spec-title">选择规格（{groupVariants!.length}）</div>
+              <div className="pd-spec-list">
+                {groupVariants!.map((v, idx) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    className={`pd-spec-item${idx === gv ? ' active' : ''}`}
+                    onClick={() => setGv(idx)}
+                  >
+                    <span>{v.specLabel}</span>
+                    <span className="pd-spec-price">{money(v.price)}</span>
+                    <span className="pd-spec-stock">{v.stock === Number.MAX_SAFE_INTEGER ? '接单' : `库存 ${v.stock}`}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!useGroup && showSpec && (
             <div className="pd-spec">
               <div className="pd-spec-title">选择规格</div>
               <div className="pd-spec-list">
@@ -209,24 +238,11 @@ function ProductDetailView({ product, readOnly }: { product: NormalizedProduct; 
 
           {product.description && <p className="pd-desc">{product.description}</p>}
 
-          {detailImages.length > 0 && (
+          {sceneImages.length > 0 && (
             <section className="pd-gallery">
-              <h3><Layers size={15} /> 细节图</h3>
+              <h3><Layers size={15} /> 场景图</h3>
               <div className="pd-thumbs">
-                {detailImages.map((img) => (
-                  <button key={img.id} type="button" className="pd-thumb" onClick={() => setLightbox(img.url)}>
-                    <img src={img.url} alt={img.name} loading="lazy" />
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {realImages.length > 0 && (
-            <section className="pd-gallery">
-              <h3><Camera size={15} /> 实拍图 / 实景图</h3>
-              <div className="pd-thumbs">
-                {realImages.map((img) => (
+                {sceneImages.map((img) => (
                   <button key={img.id} type="button" className="pd-thumb" onClick={() => setLightbox(img.url)}>
                     <img src={img.url} alt={img.name} loading="lazy" />
                   </button>
@@ -237,7 +253,7 @@ function ProductDetailView({ product, readOnly }: { product: NormalizedProduct; 
 
           {product.cases.length > 0 && (
             <section className="pd-gallery">
-              <h3><Camera size={15} /> 实景案例（{product.cases.length}）</h3>
+              <h3><Camera size={15} /> 关联案例（{product.cases.length}）</h3>
               {!readOnly && (
                 <button
                   type="button"
@@ -250,6 +266,19 @@ function ProductDetailView({ product, readOnly }: { product: NormalizedProduct; 
               <div className="pd-thumbs">
                 {product.cases.flatMap((c) => c.images).slice(0, 12).map((img, i) => (
                   <button key={i} type="button" className="pd-thumb" onClick={() => setLightbox(img.url)}>
+                    <img src={img.url} alt={img.name} loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {realImages.length > 0 && (
+            <section className="pd-gallery">
+              <h3><Camera size={15} /> 实拍图</h3>
+              <div className="pd-thumbs">
+                {realImages.map((img) => (
+                  <button key={img.id} type="button" className="pd-thumb" onClick={() => setLightbox(img.url)}>
                     <img src={img.url} alt={img.name} loading="lazy" />
                   </button>
                 ))}
@@ -316,20 +345,36 @@ export function ProductDetailPage() {
   }, [id, product])
 
   if (!product) return <div className="pd-empty">未找到该产品（{id}）</div>
+
+  // 按 groupId 聚合：取组内所有成员作为规格变体，图片用代表产品（产品级，不随尺寸变）
+  const groupId = product.groupId || product.id
+  const members = (sales.configProducts ?? []).filter((p) => (p.groupId || p.id) === groupId)
+  const rep = [...members].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || (a.code || '').localeCompare(b.code || ''))[0] ?? product
+  const variants = members
+    .map((m) => ({
+      id: m.id,
+      specLabel: m.specLabel || (m.name || '').split('·')[0].trim() || m.name,
+      price: configProductPrice(m, sales.skuUnits ?? []),
+      stock: configProductAvailability(m, sales.skuUnits ?? []).stock,
+      product: m,
+    }))
+    .sort((a, b) => a.price - b.price)
+
   const normalized: NormalizedProduct = {
-    id: product.id,
-    name: product.name,
-    code: product.code,
-    description: product.description,
-    materialDescription: product.materialDescription,
-    series: product.series,
-    categoryName: sales.categories?.find((c) => c.id === product.categoryId)?.name,
-    applicableSpace: product.applicableSpace,
-    adjustPrice: product.adjustPrice,
-    components: product.components,
-    media: product.media || {},
-    skuUnits: sales.skuUnits?.filter((u) => product.components.some((c) => c.componentId === u.componentId)) ?? [],
+    id: rep.id,
+    name: rep.name,
+    code: rep.code,
+    description: rep.description,
+    materialDescription: rep.materialDescription,
+    series: rep.series,
+    categoryName: sales.categories?.find((c) => c.id === rep.categoryId)?.name,
+    applicableSpace: rep.applicableSpace,
+    adjustPrice: rep.adjustPrice,
+    components: rep.components,
+    media: rep.media || {},
+    skuUnits: sales.skuUnits?.filter((u) => rep.components.some((c) => c.componentId === u.componentId)) ?? [],
     cases: normalizeCases(cases),
+    groupVariants: variants,
   }
   return <ProductDetailView product={normalized} readOnly={false} />
 }
@@ -366,7 +411,7 @@ export function PublicProductPage() {
     components: detail.components as unknown as ConfigProductComponent[],
     media: detail.media || {},
     skuUnits: detail.skuUnits as unknown as SkuUnit[],
-    cases: detail.cases.map((c) => ({ id: c.id, title: c.title, category: c.category, images: c.images, note: c.note, tags: c.tags || [] })),
+    cases: (detail.cases ?? []).map((c) => ({ id: c.id, title: c.title, category: c.category, images: c.images, note: c.note, tags: c.tags || [] })),
   }
   return <ProductDetailView product={normalized} readOnly />
 }
