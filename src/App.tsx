@@ -26,6 +26,7 @@ import {
   ShoppingCart,
   UserCog,
   UserPlus,
+  Upload,
   Wrench,
   X,
 } from "lucide-react";
@@ -154,8 +155,8 @@ const PublicProductPage = lazy(() =>
     default: module.PublicProductPage,
   })),
 );
-const MediaUploadPage = lazy(() =>
-  import("./features/media-upload/MediaUploadPage").then((module) => ({
+const MediaUploadRoute = lazy(() =>
+  import("./features/media-upload/MediaUploadRoute").then((module) => ({
     default: module.default,
   })),
 );
@@ -221,6 +222,12 @@ const navigation = [
     label: "案例库",
     icon: Camera,
     permission: "catalog.view",
+  },
+  {
+    to: "/media-upload",
+    label: "图文采集",
+    icon: Upload,
+    permission: "media.upload",
   },
   { to: "/after-sales", label: "售后管理", icon: Wrench, permission: "customers.own" },
   {
@@ -1047,14 +1054,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
                   </Allowed>
                 }
               />
-              <Route
-                path="/media-upload"
-                element={
-                  <Allowed permission="media.upload">
-                    <MediaUploadPage />
-                  </Allowed>
-                }
-              />
+              <Route path="/media-upload" element={<MediaUploadRoute />} />
               <Route path="/p/:id" element={<PublicProductPage />} />
               <Route
                 path="/designer-workspace"

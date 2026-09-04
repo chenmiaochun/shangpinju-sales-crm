@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { salesApi } from '../../api/salesApi'
 import type { MediaProductSummary } from '../../api/salesApi'
 import type { MediaFile } from '../../types'
@@ -18,26 +18,68 @@ interface LocalFile {
 
 export default function MediaUploadPage() {
   const [q, setQ] = useState('')
-  const [results, setResults] = useState<MediaProductSummary[]>([])
-  const [loading, setLoading] = useState(false)
+  const [all, setAll] = useState<MediaProductSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [cat, setCat] = useState('') // categoryId
+  const [ser, setSer] = useState('') // series
   const [selected, setSelected] = useState<MediaProductSummary | null>(null)
   const [whiteBg, setWhiteBg] = useState<LocalFile[]>([])
   const [scene, setScene] = useState<LocalFile[]>([])
   const [busy, setBusy] = useState<Kind | null>(null)
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
-  const search = async () => {
+  // 进入即拉取全部产品，用于前端按品类/系列分类
+  useEffect(() => {
+    let alive = true
     setLoading(true)
-    setMsg(null)
-    try {
-      const r = await salesApi.listMediaProducts(q.trim())
-      setResults(r.products || [])
-      if (!(r.products || []).length) setMsg({ type: 'err', text: '没有匹配的产品，换个编码或名称试试' })
-    } catch (e: any) {
-      setMsg({ type: 'err', text: e?.message || '查询失败' })
-    } finally {
-      setLoading(false)
+    salesApi
+      .listMediaProducts('')
+      .then(r => {
+        if (alive) {
+          setAll(r.products || [])
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        if (alive) setLoading(false)
+      })
+    return () => {
+      alive = false
     }
+  }, [])
+
+  const categories = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of all) {
+      const id = p.categoryId || '__none__'
+      const name = p.categoryName || '未分类'
+      if (!map.has(id)) map.set(id, name)
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  }, [all])
+
+  const seriesOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const p of all) {
+      if (cat && p.categoryId !== cat) continue
+      if (p.series) set.add(p.series)
+    }
+    return Array.from(set)
+  }, [all, cat])
+
+  const results = useMemo(() => {
+    const kw = q.trim().toLowerCase()
+    return all.filter(p => {
+      if (cat && p.categoryId !== cat) return false
+      if (ser && p.series !== ser) return false
+      if (kw && !((p.code || '').toLowerCase().includes(kw) || (p.name || '').toLowerCase().includes(kw))) return false
+      return true
+    })
+  }, [all, cat, ser, q])
+
+  const selectCat = (id: string) => {
+    setCat(id)
+    setSer('')
   }
 
   const open = (p: MediaProductSummary) => {
@@ -57,11 +99,11 @@ export default function MediaUploadPage() {
       try {
         const r = await salesApi.uploadFile(f, selected.id, 'product-media')
         const mf = r.file as unknown as MediaFile
-        set(prev => prev.map(item => item.id === tempId
+        set(prev => prev.map(item => (item.id === tempId
           ? { id: mf.id, name: mf.name, type: mf.type, url: mf.url, size: mf.size, uploading: false }
-          : item))
+          : item)))
       } catch {
-        set(prev => prev.map(item => item.id === tempId ? { ...item, uploading: false, error: true } : item))
+        set(prev => prev.map(item => (item.id === tempId ? { ...item, uploading: false, error: true } : item)))
       }
     }
   }
@@ -83,7 +125,8 @@ export default function MediaUploadPage() {
       const updated = { ...selected, media: r.product.media }
       setSelected(updated)
       setResults(prev => prev.map(p => (p.id === selected.id ? updated : p)))
-      if (kind === 'whiteBg') setWhiteBg([]); else setScene([])
+      if (kind === 'whiteBg') setWhiteBg([])
+      else setScene([])
     } catch (e: any) {
       setMsg({ type: 'err', text: e?.message || '保存失败' })
     } finally {
@@ -96,7 +139,7 @@ export default function MediaUploadPage() {
       <header className="mu-header">
         <div>
           <h1>产品图采集台</h1>
-          <p>按编码或名称找到产品，上传「白底图」与「场景图」，保存即可同步到目录与详情页。</p>
+          <p>先按「品类 → 系列」筛选找到产品，再上传「白底图」与「场景图」，保存即同步到目录与详情页。</p>
         </div>
         {selected && (
           <button className="mu-back" onClick={() => setSelected(null)}>← 返回列表</button>
@@ -109,31 +152,56 @@ export default function MediaUploadPage() {
 
       {!selected ? (
         <section className="mu-search">
-          <div className="mu-searchbar">
-            <input
-              value={q}
-              onChange={e => setQ(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && search()}
-              placeholder="输入产品编码或名称，如 SP-CT-001 / 黑胡桃圆餐桌"
-            />
-            <button onClick={search} disabled={loading}>{loading ? '查询中…' : '搜索'}</button>
+          <div className="mu-filters">
+            <div className="mu-filter-row">
+              <span className="mu-filter-label">品类</span>
+              <div className="mu-chips">
+                <button className={!cat ? 'on' : ''} onClick={() => selectCat('')}>全部</button>
+                {categories.map(c => (
+                  <button key={c.id} className={cat === c.id ? 'on' : ''} onClick={() => selectCat(c.id)}>{c.name}</button>
+                ))}
+              </div>
+            </div>
+            <div className="mu-filter-row">
+              <span className="mu-filter-label">系列</span>
+              <div className="mu-chips">
+                <button className={!ser ? 'on' : ''} onClick={() => setSer('')}>全部</button>
+                {seriesOptions.map(s => (
+                  <button key={s} className={ser === s ? 'on' : ''} onClick={() => setSer(s)}>{s}</button>
+                ))}
+              </div>
+            </div>
+            <div className="mu-searchbar">
+              <input
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder="还可输入编码或名称精确查找，如 SP-CT-001"
+              />
+            </div>
           </div>
+
           <div className="mu-results">
-            {results.map(p => (
-              <button key={p.id} className="mu-card" onClick={() => open(p)}>
-                <div className="mu-card-top">
-                  <span className="mu-code">{p.code}</span>
-                  <span className="mu-status">{p.status || '上架'}</span>
-                </div>
-                <div className="mu-name">{p.name}</div>
-                <div className="mu-meta">{(p.categoryName || '') + (p.series ? ' · ' + p.series : '')}</div>
-                <div className="mu-counts">
-                  <span className={p.media.whiteBg ? 'has' : ''}>白底 {p.media.whiteBg}</span>
-                  <span className={p.media.scene ? 'has' : ''}>场景 {p.media.scene}</span>
-                  <span className={p.media.realShot ? 'has' : ''}>实拍 {p.media.realShot}</span>
-                </div>
-              </button>
-            ))}
+            {loading ? (
+              <div className="mu-empty">加载中…</div>
+            ) : results.length ? (
+              results.map(p => (
+                <button key={p.id} className="mu-card" onClick={() => open(p)}>
+                  <div className="mu-card-top">
+                    <span className="mu-code">{p.code}</span>
+                    <span className="mu-status">{p.status || '上架'}</span>
+                  </div>
+                  <div className="mu-name">{p.name}</div>
+                  <div className="mu-meta">{(p.categoryName || '') + (p.series ? ' · ' + p.series : '')}</div>
+                  <div className="mu-counts">
+                    <span className={p.media.whiteBg ? 'has' : ''}>白底 {p.media.whiteBg}</span>
+                    <span className={p.media.scene ? 'has' : ''}>场景 {p.media.scene}</span>
+                    <span className={p.media.realShot ? 'has' : ''}>实拍 {p.media.realShot}</span>
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="mu-empty">没有匹配的产品，调整分类或搜索词试试</div>
+            )}
           </div>
         </section>
       ) : (
