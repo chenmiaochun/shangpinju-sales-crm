@@ -8,6 +8,13 @@ import './product-catalog.css'
 
 const money = (value: number) => `¥${value.toLocaleString('zh-CN')}`
 
+/** 从产品全名中去掉「·尺寸」后缀，只留纯净名称 */
+function cleanName(raw?: string): string {
+  if (!raw) return ''
+  const i = raw.indexOf('·')
+  return i > 0 ? raw.slice(0, i) : raw
+}
+
 type CatalogEntry = {
   kind: 'single' | 'package'
   id: string
@@ -123,7 +130,7 @@ export function ProductCatalogPage() {
               </div>
               <div className="catalog-card-body">
                 <span className={`catalog-tag catalog-tag-${e.kind}`}>{e.kind === 'single' ? '单品' : '套餐'}</span>
-                <b>{e.name}</b>
+                <b>{cleanName(e.name)}</b>
                 <small>{e.code}{e.seriesLabel ? ` · ${e.seriesLabel}` : ''}</small>
                 <span className="catalog-price">{e.priceText}</span>
                 {e.kind === 'single' && (

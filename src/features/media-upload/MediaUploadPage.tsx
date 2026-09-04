@@ -6,6 +6,13 @@ import './media-upload.css'
 
 type Kind = 'whiteBg' | 'scene'
 
+/** 从产品全名中提取纯净名称，去掉「·尺寸」后缀 */
+function cleanName(raw?: string): string {
+  if (!raw) return ''
+  const i = raw.indexOf('·')
+  return i > 0 ? raw.slice(0, i) : raw
+}
+
 interface LocalFile {
   id: string
   name: string
@@ -190,7 +197,7 @@ export default function MediaUploadPage() {
                     <span className="mu-code">{p.code}</span>
                     <span className="mu-status">{p.status || '上架'}</span>
                   </div>
-                  <div className="mu-name">{p.name}</div>
+                  <div className="mu-name">{cleanName(p.name)}</div>
                   <div className="mu-meta">{(p.categoryName || '') + (p.series ? ' · ' + p.series : '')}</div>
                   <div className="mu-counts">
                     <span className={p.media.whiteBg ? 'has' : ''}>白底 {p.media.whiteBg}</span>
@@ -208,7 +215,7 @@ export default function MediaUploadPage() {
         <section className="mu-editor">
           <div className="mu-product-head">
             <span className="mu-code">{selected.code}</span>
-            <span className="mu-name">{selected.name}</span>
+            <span className="mu-name">{cleanName(selected.name)}</span>
           </div>
 
           <UploadZone
