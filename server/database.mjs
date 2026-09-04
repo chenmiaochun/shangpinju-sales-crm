@@ -22,9 +22,9 @@ const mergeConcurrentState = (current, incoming) => {
   return merged
 }
 const tokenDigest = token => createHash('sha256').update(token).digest('hex')
-const validPermissions = new Set(['store.analytics', 'coaching', 'data.manage', 'members.manage', 'customers.own', 'customers.design', 'tasks.own', 'designer.dispatch', 'conversation.analysis', 'sop', 'revenue.summary', 'inventory.manage', 'inventory.receive', 'inventory.issue', 'inventory.transfer', 'inventory.audit', 'replenishment.request', 'replenishment.approve', 'purchasing.manage', 'finance.reconcile', 'cashier.payments', 'cost.view'])
+const validPermissions = new Set(['store.analytics', 'coaching', 'data.manage', 'members.manage', 'customers.own', 'customers.design', 'tasks.own', 'designer.dispatch', 'conversation.analysis', 'sop', 'revenue.summary', 'inventory.manage', 'inventory.receive', 'inventory.issue', 'inventory.transfer', 'inventory.audit', 'replenishment.request', 'replenishment.approve', 'purchasing.manage', 'finance.reconcile', 'cashier.payments', 'cost.view', 'media.upload'])
 const normalizePermissions = permissions => permissions == null ? null : [...new Set(permissions)].filter(permission => validPermissions.has(permission))
-const validRoles = ['manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier', 'service']
+const validRoles = ['manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier', 'service', 'media']
 const normalizeRoles = (roles, fallback) => {
   const selected = Array.isArray(roles) && roles.length ? roles : [fallback]
   return [...new Set([fallback, ...selected])].filter(role => validRoles.includes(role) && (role !== 'manager' || fallback === 'manager'))
@@ -60,7 +60,7 @@ export class SalesDatabase {
           username TEXT NOT NULL COLLATE NOCASE UNIQUE,
           password_hash TEXT NOT NULL,
           name TEXT NOT NULL,
-          role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier', 'service')),
+          role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier', 'service', 'media')),
           active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
           must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0, 1)),
           created_at TEXT NOT NULL,
@@ -154,7 +154,7 @@ export class SalesDatabase {
           username TEXT NOT NULL COLLATE NOCASE UNIQUE,
           password_hash TEXT NOT NULL,
           name TEXT NOT NULL,
-          role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier', 'service')),
+          role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier', 'service', 'media')),
           active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
           must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0, 1)),
           created_at TEXT NOT NULL,
@@ -176,6 +176,46 @@ export class SalesDatabase {
         INSERT INTO auth_sessions SELECT * FROM auth_sessions_role_legacy;
         DROP TABLE auth_sessions_role_legacy;
         DROP TABLE auth_accounts_role_legacy;
+        COMMIT;
+        PRAGMA foreign_keys = ON;
+        CREATE INDEX IF NOT EXISTS auth_sessions_account_idx ON auth_sessions(account_id);
+        CREATE INDEX IF NOT EXISTS auth_sessions_expiry_idx ON auth_sessions(expires_at);
+      `)
+    }
+    // 迁移：role 列 CHECK 约束补 'media'（图文采集角色）。历史库或新建库若缺此值则重建表。
+    const mediaSchema = this.db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'auth_accounts'").get()?.sql || ''
+    if (!mediaSchema.includes("'media'")) {
+      this.db.exec(`
+        PRAGMA foreign_keys = OFF;
+        BEGIN IMMEDIATE;
+        ALTER TABLE auth_sessions RENAME TO auth_sessions_media_legacy;
+        ALTER TABLE auth_accounts RENAME TO auth_accounts_media_legacy;
+        CREATE TABLE auth_accounts (
+          id TEXT PRIMARY KEY,
+          username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+          password_hash TEXT NOT NULL,
+          name TEXT NOT NULL,
+          role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier', 'service', 'media')),
+          active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
+          must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0, 1)),
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          phone TEXT,
+          can_design INTEGER NOT NULL DEFAULT 0 CHECK(can_design IN (0, 1)),
+          custom_permissions TEXT,
+          roles TEXT
+        );
+        CREATE TABLE auth_sessions (
+          token_hash TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL REFERENCES auth_accounts(id) ON DELETE CASCADE,
+          expires_at TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          last_seen_at TEXT NOT NULL
+        );
+        INSERT INTO auth_accounts SELECT * FROM auth_accounts_media_legacy;
+        INSERT INTO auth_sessions SELECT * FROM auth_sessions_media_legacy;
+        DROP TABLE auth_sessions_media_legacy;
+        DROP TABLE auth_accounts_media_legacy;
         COMMIT;
         PRAGMA foreign_keys = ON;
         CREATE INDEX IF NOT EXISTS auth_sessions_account_idx ON auth_sessions(account_id);

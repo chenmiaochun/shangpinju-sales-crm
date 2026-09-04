@@ -1,0 +1,193 @@
+.media-upload {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px 18px 60px;
+  color: #1f2430;
+}
+.mu-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.mu-header h1 {
+  font-size: 22px;
+  margin: 0 0 4px;
+}
+.mu-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  max-width: 620px;
+}
+.mu-back {
+  flex: none;
+  border: 1px solid #d6dae2;
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.mu-msg {
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+.mu-msg.ok { background: #e8f6ee; color: #1f7a45; }
+.mu-msg.err { background: #fdecec; color: #b42318; }
+
+.mu-searchbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.mu-searchbar input {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1px solid #d6dae2;
+  border-radius: 10px;
+  font-size: 15px;
+  outline: none;
+}
+.mu-searchbar input:focus { border-color: #b8895a; }
+.mu-searchbar button {
+  padding: 0 22px;
+  border: none;
+  border-radius: 10px;
+  background: #8a5a2b;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+}
+.mu-searchbar button:disabled { opacity: .6; cursor: default; }
+
+.mu-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.mu-card {
+  text-align: left;
+  border: 1px solid #e6e9ef;
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.mu-card:hover { border-color: #b8895a; box-shadow: 0 4px 16px rgba(0,0,0,.06); }
+.mu-card-top { display: flex; justify-content: space-between; align-items: center; }
+.mu-code { font-weight: 700; color: #8a5a2b; font-size: 13px; }
+.mu-status { font-size: 12px; color: #9aa1ad; }
+.mu-name { font-size: 16px; font-weight: 600; margin: 6px 0 4px; }
+.mu-meta { font-size: 12px; color: #9aa1ad; margin-bottom: 10px; }
+.mu-counts { display: flex; gap: 8px; flex-wrap: wrap; }
+.mu-counts span {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: #f1f3f7;
+  color: #9aa1ad;
+}
+.mu-counts span.has { background: #f3e7d8; color: #8a5a2b; }
+
+.mu-editor { display: flex; flex-direction: column; gap: 18px; }
+.mu-product-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #faf6f0;
+  border-radius: 10px;
+}
+.mu-product-head .mu-code { font-weight: 700; color: #8a5a2b; }
+.mu-product-head .mu-name { font-size: 17px; font-weight: 600; }
+
+.mu-zone {
+  border: 1px solid #e6e9ef;
+  border-radius: 14px;
+  padding: 16px;
+  background: #fff;
+}
+.mu-zone-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.mu-zone-head h2 { margin: 0 0 2px; font-size: 17px; }
+.mu-zone-head p { margin: 0; font-size: 12px; color: #9aa1ad; }
+.mu-save {
+  flex: none;
+  border: none;
+  border-radius: 10px;
+  background: #2f7d4f;
+  color: #fff;
+  padding: 10px 18px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.mu-save:disabled { background: #c4ccd6; cursor: default; }
+
+.mu-drop {
+  display: block;
+  border: 2px dashed #d6dae2;
+  border-radius: 12px;
+  padding: 22px;
+  text-align: center;
+  color: #8a94a6;
+  cursor: pointer;
+  font-size: 14px;
+  transition: border-color .15s, background .15s;
+}
+.mu-drop:hover { border-color: #b8895a; background: #fdf8f2; }
+
+.mu-thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.mu-thumb {
+  position: relative;
+  border: 1px solid #e6e9ef;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f7f8fa;
+}
+.mu-thumb img { width: 100%; height: 96px; object-fit: cover; display: block; }
+.mu-thumb-ph { height: 96px; }
+.mu-thumb.uploading { opacity: .7; }
+.mu-thumb.error { border-color: #e6a0a0; }
+.mu-thumb-name {
+  display: block;
+  font-size: 11px;
+  color: #6b7280;
+  padding: 4px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mu-thumb-x {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  cursor: pointer;
+  line-height: 18px;
+}
+
+@media (max-width: 600px) {
+  .mu-header { flex-direction: column; }
+  .mu-searchbar { flex-direction: column; }
+  .mu-searchbar button { padding: 12px; }
+}

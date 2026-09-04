@@ -154,6 +154,11 @@ const PublicProductPage = lazy(() =>
     default: module.PublicProductPage,
   })),
 );
+const MediaUploadPage = lazy(() =>
+  import("./features/media-upload/MediaUploadPage").then((module) => ({
+    default: module.default,
+  })),
+);
 
 const navigation = [
   {
@@ -1039,6 +1044,14 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
                 element={
                   <Allowed permission="catalog.view">
                     <ProductDetailPage />
+                  </Allowed>
+                }
+              />
+              <Route
+                path="/media-upload"
+                element={
+                  <Allowed permission="media.upload">
+                    <MediaUploadPage />
                   </Allowed>
                 }
               />

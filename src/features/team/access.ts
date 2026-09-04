@@ -1,4 +1,4 @@
-export type TeamRole = 'manager' | 'sales' | 'designer' | 'operations' | 'aftersales' | 'purchasing' | 'warehouse' | 'finance' | 'cashier' | 'service'
+export type TeamRole = 'manager' | 'sales' | 'designer' | 'operations' | 'aftersales' | 'purchasing' | 'warehouse' | 'finance' | 'cashier' | 'service' | 'media'
 
 export type AccessPermission =
   | 'store.analytics'
@@ -25,6 +25,7 @@ export type AccessPermission =
   | 'finance.reconcile'
   | 'cashier.payments'
   | 'cost.view'
+  | 'media.upload'
 
 export type CustomerAccessSubject = {
   salesperson?: string
@@ -59,6 +60,7 @@ export const ROLE_LABELS: Record<TeamRole, string> = {
   finance: '财务',
   cashier: '出纳',
   service: '服务号',
+  media: '图文采集',
 }
 
 export const PERMISSION_LABELS: Record<AccessPermission, string> = {
@@ -86,6 +88,7 @@ export const PERMISSION_LABELS: Record<AccessPermission, string> = {
   'finance.reconcile': '财务对账与应收应付',
   'cashier.payments': '收款付款与退款登记',
   'cost.view': '查看成本与毛利',
+  'media.upload': '产品图片上传（图文采集台）',
 }
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_LABELS) as AccessPermission[]
@@ -101,6 +104,7 @@ const ROLE_PERMISSIONS: Record<TeamRole, ReadonlySet<AccessPermission>> = {
   finance: new Set(['catalog.view', 'tasks.own', 'revenue.summary', 'finance.reconcile', 'cost.view']),
   cashier: new Set(['catalog.view', 'tasks.own', 'cashier.payments']),
   service: new Set(['catalog.view', 'customers.service']),
+  media: new Set(['media.upload']),
 }
 
 export function getIdentityRoles(identity: Pick<RoleIdentity, 'role' | 'roles' | 'canDesign'>): TeamRole[] {
@@ -140,6 +144,7 @@ export function getIdentityPermissions(identity: RoleIdentity): AccessPermission
 }
 
 export function getDefaultRoute(identity: RoleIdentity): string {
+  if (identity.role === 'media') return '/media-upload'
   if (identity.role === 'service') return '/products'
   if (identity.role === 'designer') return '/designer-workspace'
   if (hasIdentityPermission(identity, 'customers.own')) return '/leads'

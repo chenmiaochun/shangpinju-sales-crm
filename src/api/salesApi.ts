@@ -53,6 +53,18 @@ export interface RemoteAccount {
 export interface CreateAccountInput { username: string; name: string; role: AccountRole; roles?: AccountRole[]; canDesign?: boolean; permissions?: AccessPermission[]; password: string; phone?: string }
 export interface UpdateAccountInput { username: string; name: string; role: AccountRole; roles?: AccountRole[]; canDesign?: boolean; permissions?: AccessPermission[]; phone?: string }
 
+// 图文采集台：产品检索摘要（不含成本/客户等敏感字段）
+export interface MediaProductSummary {
+  id: string
+  code: string
+  name: string
+  categoryId?: string
+  categoryName?: string
+  series?: string
+  status?: string
+  media: { whiteBg: number; scene: number; realShot: number }
+}
+
 // 想法收集（记一笔）
 export interface RemoteIdea {
   id: string
@@ -244,6 +256,12 @@ export const salesApi = {
       throw error
     }
   },
+  listMediaProducts: (q = '') => {
+    const qs = q ? `?q=${encodeURIComponent(q)}` : ''
+    return request<{ products: MediaProductSummary[] }>(`/media/products${qs}`)
+  },
+  attachMediaImages: (id: string, kind: 'whiteBg' | 'scene', files: MediaFile[]) =>
+    request<{ product: { id: string; media: { whiteBg: number; scene: number; realShot: number } } }>(`/media/products/${encodeURIComponent(id)}/images`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, files }) }),
   submitExperienceAssessment: (input: { name: string; phone: string; cityArea?: string; houseLayout?: string; houseArea?: number; housingStage: string; familyMembers: string[]; focusSpaces: string[]; painPoints: string[]; budget?: string; moveInPlan?: string; sleepNeeds: string[]; preferredStations: ExperienceStation[]; consent: boolean; source?: string; contentId?: string }) => {
     if (STATIC_DEMO) return Promise.reject(new ApiError(503, '正式共享数据库尚未启用，请联系尚品居工作人员登记'))
     return request<{ ok: boolean; leadId: string; assessmentId: string; recommendedStations: ExperienceStation[]; summary: string }>('/public/experience-intake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
