@@ -1,12 +1,14 @@
-export type TeamRole = 'manager' | 'sales' | 'designer' | 'operations' | 'aftersales' | 'purchasing' | 'warehouse' | 'finance' | 'cashier'
+export type TeamRole = 'manager' | 'sales' | 'designer' | 'operations' | 'aftersales' | 'purchasing' | 'warehouse' | 'finance' | 'cashier' | 'service'
 
 export type AccessPermission =
   | 'store.analytics'
   | 'coaching'
+  | 'catalog.view'
   | 'data.manage'
   | 'members.manage'
   | 'customers.own'
   | 'customers.design'
+  | 'customers.service'
   | 'tasks.own'
   | 'designer.dispatch'
   | 'conversation.analysis'
@@ -56,15 +58,18 @@ export const ROLE_LABELS: Record<TeamRole, string> = {
   warehouse: '仓管',
   finance: '财务',
   cashier: '出纳',
+  service: '服务号',
 }
 
 export const PERMISSION_LABELS: Record<AccessPermission, string> = {
   'store.analytics': '全库经营分析',
   coaching: '销售辅导',
+  'catalog.view': '查看产品目录与案例库',
   'data.manage': '数据管理',
   'members.manage': '成员管理',
   'customers.own': '本人客户',
   'customers.design': '方案相关客户',
+  'customers.service': '服务号客户接待',
   'tasks.own': '本人任务',
   'designer.dispatch': '设计任务调度',
   'conversation.analysis': '沟通分析',
@@ -87,14 +92,15 @@ export const ALL_PERMISSIONS = Object.keys(PERMISSION_LABELS) as AccessPermissio
 
 const ROLE_PERMISSIONS: Record<TeamRole, ReadonlySet<AccessPermission>> = {
   manager: new Set(ALL_PERMISSIONS),
-  sales: new Set(['customers.own', 'tasks.own', 'conversation.analysis', 'sop', 'replenishment.request']),
-  designer: new Set(['customers.own', 'customers.design', 'tasks.own', 'conversation.analysis']),
-  operations: new Set(['customers.own', 'tasks.own', 'conversation.analysis', 'sop', 'inventory.manage']),
-  aftersales: new Set(['customers.own', 'tasks.own', 'conversation.analysis', 'sop', 'inventory.manage']),
-  purchasing: new Set(['tasks.own', 'inventory.manage', 'replenishment.request', 'purchasing.manage', 'cost.view']),
-  warehouse: new Set(['tasks.own', 'inventory.manage', 'inventory.receive', 'inventory.issue', 'inventory.transfer', 'inventory.audit', 'replenishment.request']),
-  finance: new Set(['tasks.own', 'revenue.summary', 'finance.reconcile', 'cost.view']),
-  cashier: new Set(['tasks.own', 'cashier.payments']),
+  sales: new Set(['catalog.view', 'customers.own', 'tasks.own', 'conversation.analysis', 'sop', 'replenishment.request']),
+  designer: new Set(['catalog.view', 'customers.own', 'customers.design', 'tasks.own', 'conversation.analysis']),
+  operations: new Set(['catalog.view', 'customers.own', 'tasks.own', 'conversation.analysis', 'sop', 'inventory.manage']),
+  aftersales: new Set(['catalog.view', 'customers.own', 'tasks.own', 'conversation.analysis', 'sop', 'inventory.manage']),
+  purchasing: new Set(['catalog.view', 'tasks.own', 'inventory.manage', 'replenishment.request', 'purchasing.manage', 'cost.view']),
+  warehouse: new Set(['catalog.view', 'tasks.own', 'inventory.manage', 'inventory.receive', 'inventory.issue', 'inventory.transfer', 'inventory.audit', 'replenishment.request']),
+  finance: new Set(['catalog.view', 'tasks.own', 'revenue.summary', 'finance.reconcile', 'cost.view']),
+  cashier: new Set(['catalog.view', 'tasks.own', 'cashier.payments']),
+  service: new Set(['catalog.view', 'customers.service']),
 }
 
 export function getIdentityRoles(identity: Pick<RoleIdentity, 'role' | 'roles' | 'canDesign'>): TeamRole[] {
@@ -134,6 +140,7 @@ export function getIdentityPermissions(identity: RoleIdentity): AccessPermission
 }
 
 export function getDefaultRoute(identity: RoleIdentity): string {
+  if (identity.role === 'service') return '/products'
   if (identity.role === 'designer') return '/designer-workspace'
   if (hasIdentityPermission(identity, 'customers.own')) return '/leads'
   if (hasIdentityPermission(identity, 'store.analytics')) return '/dashboard'
@@ -146,6 +153,7 @@ export function getDefaultRoute(identity: RoleIdentity): string {
 export function canAccessCustomer(identity: RoleIdentity, customer: CustomerAccessSubject): boolean {
   const roles = getIdentityRoles(identity)
   if (roles.includes('manager')) return true
+  if (hasIdentityPermission(identity, 'customers.service')) return true
   if (customer.createdById === identity.id || customer.createdBy === identity.name) return true
   if (roles.includes('operations') || roles.includes('aftersales')) {
     return customer.salespersonId === identity.id || customer.salesperson === identity.name

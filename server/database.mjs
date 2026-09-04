@@ -24,7 +24,7 @@ const mergeConcurrentState = (current, incoming) => {
 const tokenDigest = token => createHash('sha256').update(token).digest('hex')
 const validPermissions = new Set(['store.analytics', 'coaching', 'data.manage', 'members.manage', 'customers.own', 'customers.design', 'tasks.own', 'designer.dispatch', 'conversation.analysis', 'sop', 'revenue.summary', 'inventory.manage', 'inventory.receive', 'inventory.issue', 'inventory.transfer', 'inventory.audit', 'replenishment.request', 'replenishment.approve', 'purchasing.manage', 'finance.reconcile', 'cashier.payments', 'cost.view'])
 const normalizePermissions = permissions => permissions == null ? null : [...new Set(permissions)].filter(permission => validPermissions.has(permission))
-const validRoles = ['manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier']
+const validRoles = ['manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier', 'service']
 const normalizeRoles = (roles, fallback) => {
   const selected = Array.isArray(roles) && roles.length ? roles : [fallback]
   return [...new Set([fallback, ...selected])].filter(role => validRoles.includes(role) && (role !== 'manager' || fallback === 'manager'))
@@ -60,7 +60,7 @@ export class SalesDatabase {
           username TEXT NOT NULL COLLATE NOCASE UNIQUE,
           password_hash TEXT NOT NULL,
           name TEXT NOT NULL,
-          role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier')),
+          role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier', 'service')),
           active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
           must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0, 1)),
           created_at TEXT NOT NULL,
@@ -121,7 +121,7 @@ export class SalesDatabase {
         username TEXT NOT NULL COLLATE NOCASE UNIQUE,
         password_hash TEXT NOT NULL,
         name TEXT NOT NULL,
-        role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier')),
+        role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier', 'service')),
         active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
         must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0, 1)),
         created_at TEXT NOT NULL,
@@ -143,7 +143,7 @@ export class SalesDatabase {
     if (!accountColumns.includes('custom_permissions')) this.db.exec('ALTER TABLE auth_accounts ADD COLUMN custom_permissions TEXT')
     if (!accountColumns.includes('roles')) this.db.exec('ALTER TABLE auth_accounts ADD COLUMN roles TEXT')
     const currentAccountSchema = this.db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'auth_accounts'").get()?.sql || ''
-    if (!currentAccountSchema.includes("'purchasing'")) {
+    if (!currentAccountSchema.includes("'purchasing'") || !currentAccountSchema.includes("'service'")) {
       this.db.exec(`
         PRAGMA foreign_keys = OFF;
         BEGIN IMMEDIATE;
@@ -154,7 +154,7 @@ export class SalesDatabase {
           username TEXT NOT NULL COLLATE NOCASE UNIQUE,
           password_hash TEXT NOT NULL,
           name TEXT NOT NULL,
-          role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier')),
+          role TEXT NOT NULL CHECK(role IN ('manager', 'sales', 'designer', 'operations', 'aftersales', 'purchasing', 'warehouse', 'finance', 'cashier', 'service')),
           active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
           must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0, 1)),
           created_at TEXT NOT NULL,
@@ -323,6 +323,15 @@ export class SalesDatabase {
       size: Number.isFinite(file?.size) ? file.size : 0,
     })) : []
     const productNames = Array.isArray(input?.productNames) ? input.productNames.map(item => String(item || '').trim().slice(0, 80)).filter(Boolean).slice(0, 10) : []
+    const productIds = Array.isArray(input?.productIds) ? input.productIds.map(item => String(item || '').trim().slice(0, 80)).filter(Boolean).slice(0, 20) : []
+    const tags = Array.isArray(input?.tags) ? input.tags.map(item => String(item || '').trim().slice(0, 40)).filter(Boolean).slice(0, 20) : []
+    const videos = Array.isArray(input?.videos) ? input.videos.slice(0, 10).map(file => ({
+      id: String(file?.id || '').slice(0, 80),
+      name: String(file?.name || '').slice(0, 180),
+      type: String(file?.type || 'application/octet-stream').slice(0, 120),
+      url: String(file?.url || '').slice(0, 300),
+      size: Number.isFinite(file?.size) ? file.size : 0,
+    })) : []
     const categories = ['成交案例', '客户实拍', '安装现场', '空间搭配', '其他']
     const category = categories.includes(input?.category) ? input.category : '其他'
     const id = `case-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -331,6 +340,9 @@ export class SalesDatabase {
       title,
       category,
       productNames,
+      productIds,
+      tags,
+      videos,
       customerName: String(input?.customerName || '').trim().slice(0, 60),
       images,
       note,

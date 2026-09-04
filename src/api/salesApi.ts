@@ -1,4 +1,4 @@
-import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, ExperienceStation, FollowUp, InventoryDocument, InventoryMovement, ProductCatalogItem, ProductCategory, ProductComponent, ProductSeries, SkuUnit, ConfigProduct, ProductPackage, ReplenishmentRequest, SalesOrder, StorePaymentSettings, SupplyDemand, Warehouse, WarehouseStock } from '../types'
+import type { AfterSalesTicket, Customer, DeliveryTask, DesignTask, ExperienceStation, FollowUp, InventoryDocument, InventoryMovement, ProductCatalogItem, ProductCategory, ProductComponent, ProductSeries, SkuUnit, ConfigProduct, ProductPackage, ReplenishmentRequest, SalesOrder, StorePaymentSettings, SupplyDemand, Warehouse, WarehouseStock, MediaFile } from '../types'
 import type { AccessPermission, TeamRole } from '../features/team/access'
 
 const IS_LOCAL_PREVIEW = ['localhost', '127.0.0.1'].includes(window.location.hostname)
@@ -77,8 +77,11 @@ export interface RemoteCase {
   title: string
   category: string
   productNames: string[]
+  productIds?: string[]
+  tags?: string[]
   customerName: string
-  images: { id: string; name: string; type: string; url: string; size?: number }[]
+  images: { id: string; name: string; type: string; url: string; size?: number; phase?: 'before' | 'during' | 'after' }[]
+  videos?: { id: string; name: string; type: string; url: string; size?: number }[]
   note: string
   status: string
   author: string
@@ -86,9 +89,58 @@ export interface RemoteCase {
   createdAt: string
   updatedAt: string
 }
-export interface CreateCaseInput { title: string; category?: string; productNames?: string[]; customerName?: string; images?: RemoteCase['images']; note?: string }
+export interface CreateCaseInput { title: string; category?: string; productNames?: string[]; productIds?: string[]; tags?: string[]; customerName?: string; images?: RemoteCase['images']; videos?: RemoteCase['videos']; note?: string }
 export interface UpdateCaseInput { title?: string; category?: string; customerName?: string; note?: string; status?: string }
 export const CASE_CATEGORIES = ['成交案例', '客户实拍', '安装现场', '空间搭配', '其他'] as const
+
+// 公开产品详情（免登录 GET /api/public/products/:id）：只返回可对外展示字段，不含成本/客户等敏感信息
+export interface PublicSkuUnit {
+  id: string
+  componentId: string
+  sku: string
+  specValues: Record<string, string>
+  unitPrice: number
+  supplyType: string
+  availableStock: number
+  reservedStock: number
+  status: string
+}
+export interface PublicProductMedia {
+  whiteBgImages?: MediaFile[]
+  detailImages?: MediaFile[]
+  realShotImages?: MediaFile[]
+  images?: MediaFile[]
+}
+export interface PublicProductCase {
+  id: string
+  title: string
+  category: string
+  images: RemoteCase['images']
+  note: string
+  tags?: string[]
+}
+export interface PublicProductComponent {
+  componentId: string
+  quantity: number
+  optional: boolean
+  locked?: Record<string, string>
+  allowed?: Record<string, string[]>
+}
+export interface PublicProductDetail {
+  id: string
+  name: string
+  code: string
+  description?: string
+  materialDescription?: string
+  series?: string
+  categoryName?: string
+  applicableSpace?: string[]
+  adjustPrice?: number
+  components: PublicProductComponent[]
+  media?: PublicProductMedia
+  skuUnits: PublicSkuUnit[]
+  cases: PublicProductCase[]
+}
 
 function loadStaticIdeas(): RemoteIdea[] {
   try { return JSON.parse(localStorage.getItem(STATIC_IDEAS_KEY) || '[]') as RemoteIdea[] } catch { return [] }
@@ -244,7 +296,15 @@ export const salesApi = {
     const idea = items.find((item) => item.id === id)
     return idea ? Promise.resolve({ idea }) : Promise.reject(new ApiError(404, 'API 404'))
   },
-  listCases: () => STATIC_DEMO ? Promise.resolve({ cases: loadStaticCases() }) : request<{ cases: RemoteCase[] }>('/cases'),
+  listCases: (params?: { productId?: string; productName?: string }) => {
+    if (STATIC_DEMO) return Promise.resolve({ cases: loadStaticCases() })
+    const qs = new URLSearchParams()
+    if (params?.productId) qs.set('productId', params.productId)
+    if (params?.productName) qs.set('productName', params.productName)
+    const query = qs.toString()
+    return request<{ cases: RemoteCase[] }>(`/cases${query ? `?${query}` : ''}`)
+  },
+  getPublicProduct: (id: string) => request<PublicProductDetail>(`/public/products/${encodeURIComponent(id)}`),
   createCase: (input: CreateCaseInput) => {
     if (!STATIC_DEMO) return request<{ case: RemoteCase }>('/cases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
     const at = new Date().toISOString()

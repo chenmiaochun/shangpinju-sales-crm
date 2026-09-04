@@ -231,6 +231,32 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
         const session = database.createSession(account.id, sessionTtlMs)
         return send(200, { user: account, expiresAt: session.expiresAt }, { 'set-cookie': cookie(session.token, Math.floor(sessionTtlMs / 1000)) })
       }
+      // 公开产品详情（免登录）：客户扫码 / 外部分享用，只返回可对外展示字段，不含成本 / 客户 / 财务
+      if (req.method === 'GET' && url.pathname.startsWith('/api/public/products/')) {
+        const pid = decodeURIComponent(url.pathname.slice('/api/public/products/'.length))
+        const state = database.getState().value || {}
+        const product = (state.configProducts || []).find(p => p.id === pid)
+        if (!product) throw new ApiError(404, 'NOT_FOUND', 'Product not found')
+        const componentIds = Array.from(new Set((product.components || []).map(c => c.componentId)))
+        const skuUnits = (state.skuUnits || []).filter(u => componentIds.includes(u.componentId)).map(u => ({
+          id: u.id, componentId: u.componentId, sku: u.sku, specValues: u.specValues || {},
+          unitPrice: u.unitPrice, supplyType: u.supplyType, availableStock: u.availableStock, reservedStock: u.reservedStock || 0, status: u.status,
+        }))
+        const categoryName = (state.categories || []).find(c => c.id === product.categoryId)?.name
+        const cases = database.listCases().filter(item =>
+          (Array.isArray(item.productIds) && item.productIds.includes(pid)) ||
+          (Array.isArray(item.productNames) && item.productNames.includes(product.name)),
+        ).map(item => ({ id: item.id, title: item.title, category: item.category, images: item.images || [], note: item.note || '' }))
+        const media = product.media || {}
+        return send(200, {
+          id: product.id, name: product.name, code: product.code, description: product.description,
+          materialDescription: product.materialDescription, series: product.series, categoryName,
+          applicableSpace: product.applicableSpace, adjustPrice: product.adjustPrice,
+          components: (product.components || []).map(c => ({ componentId: c.componentId, quantity: c.quantity, optional: !!c.optional, locked: c.locked, allowed: c.allowed })),
+          media: { whiteBgImages: media.whiteBgImages, detailImages: media.detailImages, realShotImages: media.realShotImages, images: media.images },
+          skuUnits, cases,
+        })
+      }
       const sessionToken = parseCookies(req.headers.cookie)[SESSION_COOKIE]
       const session = database.getSession(sessionToken)
       if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
@@ -346,7 +372,18 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
       if (req.method === 'PATCH' && ideaMatch) { requireManager(); const idea = database.updateIdea(decodeURIComponent(ideaMatch[1]), await readJson(req, maxBodyBytes)); if (!idea) throw new ApiError(404, 'NOT_FOUND', 'Idea not found'); return send(200, { idea }) }
       if (req.method === 'DELETE' && ideaMatch) { requireManager(); if (!database.deleteIdea(decodeURIComponent(ideaMatch[1]))) throw new ApiError(404, 'NOT_FOUND', 'Idea not found'); return send(204) }
       // 案例库：所有登录员工都能看、都能传；修改/删除限店长或作者本人
-      if (req.method === 'GET' && url.pathname === '/api/cases') return send(200, { cases: database.listCases() })
+      if (req.method === 'GET' && url.pathname === '/api/cases') {
+        const allCases = database.listCases()
+        const productId = url.searchParams.get('productId')
+        const productName = url.searchParams.get('productName')
+        const cases = (productId || productName)
+          ? allCases.filter(item =>
+            (productId && Array.isArray(item.productIds) && item.productIds.includes(productId)) ||
+            (productName && Array.isArray(item.productNames) && item.productNames.includes(productName)),
+          )
+          : allCases
+        return send(200, { cases })
+      }
       if (req.method === 'POST' && url.pathname === '/api/cases') {
         const body = await readJson(req, maxBodyBytes)
         try {

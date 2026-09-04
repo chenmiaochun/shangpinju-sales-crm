@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Camera,
   EyeOff,
@@ -16,6 +17,7 @@ import { CASE_CATEGORIES, salesApi, type RemoteCase } from "../../api/salesApi";
 import { useAuth } from "../../auth/AuthContext";
 import { useSalesData } from "../../store/SalesDataContext";
 import { MediaUploader } from "../product-master/MediaUploader";
+import { CASE_TAG_GROUPS } from "./caseTagPresets";
 import type { MediaFile } from "../../types";
 import "./cases.css";
 
@@ -34,8 +36,26 @@ function formatTime(value: string) {
 export function CaseLibraryPage() {
   const { user } = useAuth();
   const sales = useSalesData();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const paramProductId = searchParams.get('productId');
+  const paramProductName = searchParams.get('productName');
+  const activeTag = searchParams.get('tag');
+  const toggleTag = (t: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (activeTag === t) params.delete('tag');
+    else { params.set('tag', t); params.delete('productId'); params.delete('productName'); }
+    setSearchParams(params);
+  };
+  const clearFilter = () => setSearchParams({});
 
   const [cases, setCases] = useState<RemoteCase[]>([]);
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const g of CASE_TAG_GROUPS) for (const o of g.options) if (o) set.add(o);
+    for (const c of cases) for (const t of (c.tags || [])) if (t) set.add(t);
+    return Array.from(set);
+  }, [cases]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
 
@@ -47,6 +67,7 @@ export function CaseLibraryPage() {
   const [note, setNote] = useState("");
   const [images, setImages] = useState<MediaFile[]>([]);
   const [busy, setBusy] = useState(false);
+  const [tagText, setTagText] = useState("");
 
   const [filterCategory, setFilterCategory] = useState<string>("全部");
   const [keyword, setKeyword] = useState("");
@@ -101,17 +122,19 @@ export function CaseLibraryPage() {
 
   const visibleCases = useMemo(() => {
     let list = isManager ? cases : cases.filter((item) => item.status !== "已隐藏")
+    if (paramProductId) list = list.filter((item) => (item.productIds ?? []).includes(paramProductId) || (paramProductName ? (item.productNames ?? []).includes(paramProductName) : false))
+    if (activeTag) list = list.filter((item) => (item.tags ?? []).includes(activeTag))
     if (filterCategory !== "全部") list = list.filter((item) => item.category === filterCategory)
     const query = keyword.trim().toLowerCase()
     if (query) {
       list = list.filter((item) =>
-        [item.title, item.authorName, item.customerName, item.note, ...(item.productNames ?? [])]
+        [item.title, item.authorName, item.customerName, item.note, ...(item.productNames ?? []), ...(item.tags ?? [])]
           .filter(Boolean)
           .some((text) => String(text).toLowerCase().includes(query)),
       )
     }
     return list
-  }, [cases, isManager, filterCategory, keyword])
+  }, [cases, isManager, paramProductId, paramProductName, activeTag, filterCategory, keyword])
 
   const canManage = (item: RemoteCase) => isManager || (user?.name && item.authorName === user.name)
 
@@ -132,7 +155,9 @@ export function CaseLibraryPage() {
     setNotice("")
     try {
       const productNames = productText.split(/[,，、\s]+/).map((item) => item.trim()).filter(Boolean)
-      await salesApi.createCase({ title: trimmed, category, productNames, customerName: customerName.trim(), note: note.trim(), images: images.map(({ id, name, type, url, size }) => ({ id, name, type, url, size })) })
+      const productIds = productNames.map((name) => sales.configProducts?.find((p) => p.name === name)?.id).filter(Boolean) as string[]
+      const tags = tagText.split(/[,，、\s]+/).map((item) => item.trim()).filter(Boolean).slice(0, 20)
+      await salesApi.createCase({ title: trimmed, category, productNames, productIds, tags, customerName: customerName.trim(), note: note.trim(), images: images.map(({ id, name, type, url, size }) => ({ id, name, type, url, size })) })
       resetForm()
       setFormOpen(false)
       setNotice("已上传，全员可见")
@@ -205,6 +230,18 @@ export function CaseLibraryPage() {
         </div>
       </div>
 
+      {(paramProductId || activeTag) && (
+        <div className="cl-filter-banner">
+          <span>正在筛选：{activeTag ? `标签「${activeTag}」` : `产品「${paramProductName || paramProductId}」关联案例`}</span>
+          <button type="button" onClick={clearFilter}>清除筛选</button>
+        </div>
+      )}
+      <div className="cl-tagbar">
+        {allTags.map((t) => (
+          <button key={t} type="button" className={`cl-tag-chip${activeTag === t ? " active" : ""}`} onClick={() => toggleTag(t)}>{t}</button>
+        ))}
+      </div>
+
       {notice && <p className="cl-notice" onClick={() => setNotice("")}>{notice}</p>}
 
       {formOpen && (
@@ -236,6 +273,14 @@ export function CaseLibraryPage() {
               <datalist id="cl-product-options">
                 {productNameOptions.map((name) => <option key={name} value={name} />)}
               </datalist>
+            </label>
+            <label className="cl-field cl-field-wide">
+              <span>标签（逗号分隔，选填）</span>
+              <input
+                value={tagText}
+                onChange={(event) => setTagText(event.target.value)}
+                placeholder="例：去客厅化, 茶室, 别墅"
+              />
             </label>
             <label className="cl-field cl-field-wide">
               <span>备注（选填）</span>
@@ -284,9 +329,22 @@ export function CaseLibraryPage() {
               <div className="cl-card-body">
                 <h3>{item.title}</h3>
                 {item.customerName && <p className="cl-meta">客户：{item.customerName}</p>}
-                {item.productNames?.length > 0 && (
+                {(item.productIds?.length ?? 0) > 0 && (
+                  <p className="cl-products">
+                    {item.productIds!.map((id) => {
+                      const name = sales.configProducts?.find((pr) => pr.id === id)?.name || id
+                      return <button key={id} type="button" className="cl-product-link" onClick={() => navigate(`/products/${id}`)}>{name}</button>
+                    })}
+                  </p>
+                )}
+                {(!item.productIds || item.productIds.length === 0) && item.productNames?.length > 0 && (
                   <p className="cl-products">
                     {item.productNames.map((name) => <span key={name}>{name}</span>)}
+                  </p>
+                )}
+                {(item.tags ?? []).length > 0 && (
+                  <p className="cl-tags">
+                    {item.tags?.map((t) => <button key={t} type="button" className="cl-tag-mini" onClick={() => toggleTag(t)}>{t}</button>)}
                   </p>
                 )}
                 {item.note && <p className="cl-note">{item.note}</p>}

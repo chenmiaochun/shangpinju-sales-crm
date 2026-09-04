@@ -188,6 +188,71 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.cl-product-link {
+  background: #fdeaea;
+  color: #8b2424;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.cl-product-link:hover { background: #f8dada; }
+.cl-tags { margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.cl-tag-mini {
+  background: #eef2ff;
+  color: #3b5bdb;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.cl-tag-mini:hover { background: #e0e7ff; }
+.cl-tagbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.cl-tag-chip {
+  border: 1px solid #d8dbe0;
+  background: #fff;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #4b5563;
+  min-height: 36px;
+}
+.cl-tag-chip:hover { border-color: #8b2424; color: #8b2424; }
+.cl-tag-chip.active { background: #8b2424; border-color: #8b2424; color: #fff; }
+.cl-filter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fdf3f3;
+  border: 1px solid #f3d6d6;
+  color: #8b2424;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.cl-filter-banner button {
+  border: 1px solid #8b2424;
+  background: #fff;
+  color: #8b2424;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .cl-tag-chip { min-height: 40px; padding: 8px 16px; }
+}
 .cl-card-body footer {
   display: flex;
   align-items: center;

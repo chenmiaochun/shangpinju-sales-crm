@@ -677,6 +677,8 @@ export interface MediaFile {
   type: string; // image/png、application/pdf…
   url: string; // 上传后地址（经服务端 uploads 上传）
   size?: number;
+  phase?: 'before' | 'during' | 'after'; // 案例图改前/中/后轻量标记
+  tag?: string; // 可选标签（如场景/系列），用于前端筛选与展示
 }
 
 // 产品媒体资料（挂在单品 / 套餐上）
@@ -689,6 +691,9 @@ export interface ProductMedia {
   careDoc?: MediaFile[]; // 保养说明
   manualFiles?: MediaFile[]; // 产品手册 / 附件（PDF 等）
   qualityStandard?: string; // 质检标准（含水率、色差、结构标准）
+  whiteBgImages?: MediaFile[]; // 白底图（主展示，替换现有杂乱实拍）
+  detailImages?: MediaFile[]; // 细节图（木纹 / 榫卯 / 五金 / 边角特写）
+  realShotImages?: MediaFile[]; // 实拍图 / 实景图（真实居家场景）
 }
 
 // 第1层 大类
@@ -762,6 +767,7 @@ export interface ConfigProduct {
   description?: string; // 详情 / 卖点描述
   style?: string; // 风格：意式极简 / 新中式…
   series?: string; // 所属系列：五福沙发系列…
+  materialDescription?: string; // 用材说明（谈单展示，如「北美黑胡桃木实木框架，环保木蜡油」）
   applicableSpace?: string[]; // 适用空间：客厅 / 餐厅 / 卧室…
   sortOrder: number; // 展示排序（越小越靠前）
   media?: ProductMedia; // 多图 / 尺寸图 / 材质图 / 安装保养 / 手册 / 质检标准

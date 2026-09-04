@@ -144,6 +144,17 @@ const CaseLibraryPage = lazy(() =>
   })),
 );
 
+const ProductDetailPage = lazy(() =>
+  import("./features/product-catalog/ProductDetailPage").then((module) => ({
+    default: module.ProductDetailPage,
+  })),
+);
+const PublicProductPage = lazy(() =>
+  import("./features/product-catalog/ProductDetailPage").then((module) => ({
+    default: module.PublicProductPage,
+  })),
+);
+
 const navigation = [
   {
     to: "/designer-workspace",
@@ -198,13 +209,13 @@ const navigation = [
     to: "/products",
     label: "产品目录",
     icon: BookOpen,
-    permission: "tasks.own",
+    permission: "catalog.view",
   },
   {
     to: "/cases",
     label: "案例库",
     icon: Camera,
-    permission: "tasks.own",
+    permission: "catalog.view",
   },
   { to: "/after-sales", label: "售后管理", icon: Wrench, permission: "customers.own" },
   {
@@ -257,7 +268,9 @@ const canUseItem = (
   can: (permission: AccessPermission) => boolean,
   item: NavItem,
 ) =>
-  item.to === "/customers"
+  item.to === "/orders"
+    ? can("customers.own") || can("customers.service")
+    : item.to === "/customers"
     ? can("customers.own") || can("customers.design")
     : can(item.permission as AccessPermission);
 
@@ -297,7 +310,7 @@ function Allowed({
 
 function CustomerAllowed({ children }: { children: ReactNode }) {
   const access = useRoleAccess();
-  return access.can("customers.own") || access.can("customers.design") ? (
+  return access.can("customers.own") || access.can("customers.design") || access.can("customers.service") ? (
     children
   ) : (
     <Navigate to={getDefaultRoute(access.identity)} replace />
@@ -1008,7 +1021,7 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
               <Route
                 path="/products"
                 element={
-                  <Allowed permission="tasks.own">
+                  <Allowed permission="catalog.view">
                     <ProductCatalogPage />
                   </Allowed>
                 }
@@ -1016,11 +1029,20 @@ function AppShell({ activeMember }: { activeMember: TeamMember }) {
               <Route
                 path="/cases"
                 element={
-                  <Allowed permission="tasks.own">
+                  <Allowed permission="catalog.view">
                     <CaseLibraryPage />
                   </Allowed>
                 }
               />
+              <Route
+                path="/products/:id"
+                element={
+                  <Allowed permission="catalog.view">
+                    <ProductDetailPage />
+                  </Allowed>
+                }
+              />
+              <Route path="/p/:id" element={<PublicProductPage />} />
               <Route
                 path="/designer-workspace"
                 element={
@@ -1294,6 +1316,7 @@ export function App() {
     return (
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/p/:id" element={<PublicProductPage />} />
         <Route
           path="*"
           element={
