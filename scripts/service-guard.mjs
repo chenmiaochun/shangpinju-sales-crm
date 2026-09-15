@@ -15,9 +15,10 @@
 
 import { spawn, execSync } from 'node:child_process'
 import { connect } from 'node:net'
-import { appendFileSync, mkdirSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { localLanAddresses } from '../server/lan.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const API_PORT = Number(process.env.SALES_API_PORT || 3001)
@@ -42,6 +43,45 @@ function writeLog(line) {
     // 日志写不进去也不能让守护进程死掉
   }
   console.log(text.trimEnd())
+}
+
+/**
+ * 把当前能访问的地址写进项目根目录的「访问地址.txt」。
+ *
+ * 路由器 DHCP 会换 IP（本项目半个月里换过两次：110.127 → 1.17 → 1.161），
+ * 一换员工收藏的地址就失效、网页就打不开。
+ * 这个文件让老板随时能查到当前地址；IP 一变守护进程立刻更新并记进日志。
+ */
+const ADDRESS_FILE = resolve(ROOT, '访问地址.txt')
+let lastAddressKey = ''
+
+function refreshAddressFile() {
+  const addresses = localLanAddresses().filter((address) => !address.startsWith('169.254.'))
+  const key = addresses.join(',')
+  if (key === lastAddressKey) return
+  const previous = lastAddressKey
+  lastAddressKey = key
+  const at = new Date().toLocaleString('zh-CN', { hour12: false })
+  const lines = [
+    '尚品居销售系统 · 当前访问地址',
+    '',
+    '这台电脑自己用：  http://localhost:' + UI_PORT,
+    '',
+    addresses.length ? '员工（连同一个网络）用：' : '员工访问：未检测到可用的内网地址，请检查网络连接',
+    ...addresses.map((address) => '  http://' + address + ':' + UI_PORT),
+    '',
+    '更新时间：' + at,
+    '',
+    '这个文件由守护进程自动维护，IP 变了会自动重写。',
+    '还是打不开？在项目目录运行：node scripts/doctor.mjs',
+  ]
+  try {
+    writeFileSync(ADDRESS_FILE, lines.join('\n'), 'utf8')
+  } catch {
+    return
+  }
+  if (previous && previous !== key) writeLog(`内网地址变化：${previous} → ${key || '(无)'}`)
+  else if (key) writeLog(`访问地址：${addresses.map((a) => `http://${a}:${UI_PORT}`).join('、')}`)
 }
 
 function sleep(ms) {
@@ -158,6 +198,7 @@ async function ensureRunning() {
 }
 
 async function tick() {
+  refreshAddressFile()
   if (Date.now() < graceUntil) return
   await ensureRunning()
 }
@@ -175,6 +216,7 @@ writeLog(`守护进程启动 pid=${process.pid}，项目目录 ${ROOT}`)
 writeLog(`监控端口 ${API_PORT}（后端）、${UI_PORT}（前端），每 ${CHECK_INTERVAL_MS / 1000} 秒检查一次`)
 
 await ensureRunning()
+refreshAddressFile()
 setInterval(() => {
   tick().catch((error) => writeLog(`tick 异常：${error?.message || error}`))
 }, CHECK_INTERVAL_MS)

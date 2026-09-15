@@ -14,6 +14,14 @@ server/data/
 *.sqlite-wal
 .env.production
 .env.local
+.env
 backups/
 test-flow-data/
 test-assets/
+logs/
+访问地址.txt
+
+# 含明文密码，绝不能进版本库（仓库有 GitHub 远程）
+docs/账号密码清单*.md
+*密码清单*
+*密码*.md
