@@ -225,3 +225,180 @@ test('any employee can upload cases; edit/delete limited to owner or manager', a
   assert.equal(removed.status, 204)
   assert.equal((await json('/api/cases')).body.cases.some(item => item.id === created.body.case.id), false)
 })
+
+
+function leadBody(overrides = {}) {
+  return {
+    name: '林女士', phone: '13911112222', consent: true, cityArea: '揭阳', budget: '8-15万',
+    products: ['沙发', '餐桌'], renovationProgress: '硬装收尾', source: '广告计划',
+    conversionSource: '巨量广告-信息流', campaignId: '7234567890123456789', contentId: 'creative-88',
+    adGroup: '素材组A', notes: '周末方便联系', landingPage: 'https://www.example.com/sofa',
+    ...overrides,
+  }
+}
+
+async function withLeadServer(options, run) {
+  const db = new SalesDatabase(':memory:')
+  let srv
+  try {
+    srv = createApiServer({ database: db, maxBodyBytes: 16 * 1024, websiteLeadToken: '', ...options })
+    await new Promise(resolve => srv.listen(0, '127.0.0.1', resolve))
+    const root = `http://127.0.0.1:${srv.address().port}`
+    const call = (body, headers = {}) => fetch(root + '/api/public/website-lead-intake', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    }).then(async response => ({ status: response.status, body: await response.json() }))
+    return await run({ db, call, root })
+  } finally {
+    if (srv) await new Promise(resolve => srv.close(resolve))
+    db.close()
+  }
+}
+
+test('public website lead intake creates a CRM lead without login', async () => {
+  await withLeadServer({}, async ({ db, call }) => {
+    const created = await call(leadBody())
+    assert.equal(created.status, 201)
+    assert.equal(created.body.ok, true)
+    assert.equal(created.body.already, false)
+    assert.match(created.body.leadId, /^L-/)
+    assert.ok(created.body.customerId)
+    const customer = db.getState().value.customers.find(item => item.id === created.body.customerId)
+    assert.equal(customer.phone, '13911112222')
+    assert.equal(customer.campaignId, '7234567890123456789')
+    assert.equal(customer.campaignId.startsWith('SPJ-'), false)
+    assert.equal(customer.salesperson, '待分配')
+    assert.equal(customer.stage, '新线索')
+    assert.equal(customer.source, '广告计划')
+    assert.equal(customer.conversionSource, '巨量广告-信息流')
+    assert.equal(customer.contentId, 'creative-88')
+    assert.equal(customer.adGroup, '素材组A')
+    assert.equal(customer.landingPage, 'https://www.example.com/sofa')
+    assert.deepEqual(customer.products, ['沙发', '餐桌'])
+    assert.equal(customer.cityArea, '揭阳')
+    const audit = db.getAudit(30, 0)
+    assert.ok(audit.items.some(item => item.resource === 'public_website_lead_intake' && item.action === 'create' && item.details.leadId === created.body.leadId))
+
+    const aliased = await call({ name: '王先生', phone: '13911118888', consent: true, project_id: 'project-raw-001' })
+    assert.equal(aliased.status, 201)
+    const aliasedCustomer = db.getState().value.customers.find(item => item.id === aliased.body.customerId)
+    assert.equal(aliasedCustomer.campaignId, 'project-raw-001')
+    assert.equal(aliasedCustomer.source, '官网留资')
+
+    const preferred = await call(leadBody({ phone: '13911118889', campaignId: 'from-campaign', project_id: 'from-project' }))
+    assert.equal(preferred.status, 201)
+    assert.equal(db.getState().value.customers.find(item => item.phone === '13911118889').campaignId, 'from-campaign')
+  })
+})
+
+test('public website lead intake returns the existing lead for the same phone', async () => {
+  await withLeadServer({}, async ({ db, call }) => {
+    const first = await call(leadBody({ phone: '13911117777' }))
+    const second = await call(leadBody({ phone: '13911117777', notes: '再次咨询', campaignId: '999888777' }))
+    assert.equal(second.status, 200)
+    assert.equal(second.body.ok, true)
+    assert.equal(second.body.already, true)
+    assert.equal(second.body.leadId, first.body.leadId)
+    assert.equal(second.body.customerId, first.body.customerId)
+    const rows = db.getState().value.customers.filter(item => item.phone === '13911117777')
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].campaignId, '7234567890123456789')
+    assert.match(rows[0].notes, /再次咨询/)
+    assert.match(rows[0].notes, /999888777/)
+
+    db.setState({
+      customers: [{
+        id: 'cust-existing', leadId: 'L-EXISTING-1', name: '旧客户', phone: '+86 139-0000-2222', source: '抖音',
+        salesperson: '陈婉珊', stage: '到店', intent: '中', expectedAmount: 0, products: [], style: '', budget: '待确认',
+        renovationProgress: '', concerns: [], campaignId: 'SPJ-KEEP', notes: '原备注',
+        lastContactAt: '2026-08-01T00:00:00.000Z', createdAt: '2026-08-01', updatedAt: '2026-08-01T00:00:00.000Z',
+      }],
+    })
+    const again = await call(leadBody({ phone: '13900002222', name: '新名字', campaignId: '888777666555', notes: '第二次留资', source: '官网留资' }))
+    assert.equal(again.status, 200)
+    assert.equal(again.body.already, true)
+    assert.equal(again.body.leadId, 'L-EXISTING-1')
+    assert.equal(again.body.customerId, 'cust-existing')
+    const matched = db.getState().value.customers.filter(item => String(item.phone || '').replace(/\D/g, '').endsWith('13900002222'))
+    assert.equal(matched.length, 1)
+    assert.equal(matched[0].campaignId, 'SPJ-KEEP')
+    assert.equal(matched[0].name, '旧客户')
+    assert.equal(matched[0].salesperson, '陈婉珊')
+    assert.equal(matched[0].stage, '到店')
+    assert.match(matched[0].notes, /原备注/)
+    assert.match(matched[0].notes, /888777666555/)
+    assert.match(matched[0].notes, /第二次留资/)
+    const audit = db.getAudit(40, 0)
+    assert.ok(audit.items.some(item => item.resource === 'public_website_lead_intake' && item.details.already === true && item.details.leadId === 'L-EXISTING-1'))
+  })
+})
+
+test('public website lead intake rejects missing consent and invalid phones', async () => {
+  await withLeadServer({}, async ({ db, call }) => {
+    const noConsent = await call(leadBody({ consent: false, phone: '13911113333' }))
+    assert.equal(noConsent.status, 400)
+    assert.equal(noConsent.body.error.code, 'VALIDATION_ERROR')
+    assert.match(noConsent.body.error.message, /consent/)
+    const { consent: _consent, ...missingConsent } = leadBody({ phone: '13911113334' })
+    const omitted = await call(missingConsent)
+    assert.equal(omitted.status, 400)
+    assert.equal(omitted.body.error.code, 'VALIDATION_ERROR')
+    const badPhone = await call(leadBody({ phone: '12345', consent: true }))
+    assert.equal(badPhone.status, 400)
+    assert.match(badPhone.body.error.message, /phone/)
+    const noName = await call(leadBody({ name: '   ', phone: '13911114444' }))
+    assert.equal(noName.status, 400)
+    assert.match(noName.body.error.message, /name/)
+    const badSource = await call(leadBody({ source: '未知渠道', phone: '13911115555' }))
+    assert.equal(badSource.status, 400)
+    assert.match(badSource.body.error.message, /source/)
+    assert.equal(db.getState().value.customers?.length || 0, 0)
+  })
+})
+
+test('public website lead intake rate limits by IP', async () => {
+  await withLeadServer({ publicIntakeLimit: 2, publicIntakeWindowMs: 60_000 }, async ({ db, call }) => {
+    const invalid = await call(leadBody({ phone: '12', consent: true }))
+    assert.equal(invalid.status, 400)
+    const first = await call(leadBody({ phone: '13911110001' }))
+    const second = await call(leadBody({ phone: '13911110002' }))
+    const third = await call(leadBody({ phone: '13911110003' }))
+    assert.equal(first.status, 201)
+    assert.equal(second.status, 201)
+    assert.equal(third.status, 429)
+    assert.equal(third.body.error.code, 'INTAKE_RATE_LIMITED')
+    const phones = (db.getState().value.customers || []).map(item => item.phone)
+    assert.deepEqual(phones.filter(phone => String(phone).startsWith('1391111000')).sort(), ['13911110001', '13911110002'])
+  })
+})
+
+test('website lead intake checks X-Lead-Token only when configured', async () => {
+  await withLeadServer({ websiteLeadToken: 'secret-token' }, async ({ call }) => {
+    const missing = await call(leadBody({ phone: '13911110011' }))
+    assert.equal(missing.status, 401)
+    assert.equal(missing.body.error.code, 'LEAD_TOKEN_REQUIRED')
+    const wrong = await call(leadBody({ phone: '13911110012' }), { 'x-lead-token': 'nope' })
+    assert.equal(wrong.status, 401)
+    assert.equal(wrong.body.error.code, 'LEAD_TOKEN_INVALID')
+    const ok = await call(leadBody({ phone: '13911110013' }), { 'x-lead-token': 'secret-token' })
+    assert.equal(ok.status, 201)
+    assert.equal(ok.body.already, false)
+  })
+})
+
+test('website lead intake accepts server-side posts without an Origin header', async () => {
+  await withLeadServer({ corsOrigin: 'http://localhost:5173' }, async ({ call, root }) => {
+    const created = await call(leadBody({ phone: '13911110021', source: '官网留资' }))
+    assert.equal(created.status, 201)
+    assert.equal(created.body.ok, true)
+    const denied = await fetch(root + '/api/public/website-lead-intake', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'http://evil.example' },
+      body: JSON.stringify(leadBody({ phone: '13911110022' })),
+    })
+    assert.equal(denied.status, 403)
+    const body = await denied.json()
+    assert.equal(body.error.code, 'ORIGIN_FORBIDDEN')
+  })
+})

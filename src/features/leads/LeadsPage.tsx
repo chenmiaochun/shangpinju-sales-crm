@@ -13,7 +13,7 @@ type FormState = { name: string; phone: string; campaignId: string; contentId: s
 const initialForm: FormState = { name: '', phone: '', campaignId: 'SPJ-2026-09', contentId: '', adGroup: '', conversionSource: '', appointmentAt: '', arrivalStatus: '未预约', productLines: [], licenseProvince: '粤', licenseLetter: 'V', licenseNumber: '', source: '', referrerDesigner: '', salesperson: '', products: [], budget: '待确认', renovationProgress: '', cityArea: '', communityId: '', customCommunityName: '', buildingRoom: '', houseLayout: '', houseArea: '', vehicleBrand: '', vehicleSeries: '', customerStatus: '', nextFollowUpAt: '', notes: '', remarkImages: [], initialQuote: '', quoteDescription: '', discountType: '', discountDetails: '', businessFiles: [] }
 const LICENSE_PROVINCES = ['粤', '京', '津', '沪', '渝', '冀', '豫', '云', '辽', '黑', '湘', '皖', '鲁', '新', '苏', '浙', '赣', '鄂', '桂', '甘', '晋', '蒙', '陕', '吉', '闽', '贵', '青', '藏', '川', '宁', '琼']
 const LICENSE_LETTERS = ['V', 'U', 'D', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').filter((letter) => !['V', 'U', 'D'].includes(letter))]
-const SOURCES = ['视频号', '抖音', '小红书', '朋友圈', '广告计划', '门店自然到店', '线下活动', '员工私域', '老客户转介绍', '设计师推荐', '异业合作', '其他']
+const SOURCES = ['视频号', '抖音', '小红书', '朋友圈', '广告计划', '官网留资', '门店自然到店', '线下活动', '员工私域', '老客户转介绍', '设计师推荐', '异业合作', '其他']
 const CITY_AREAS = ['揭阳', '汕头', '深圳', '潮州', '其他']
 const LEGACY_SALESPEOPLE = ['郭予旭', '陈婉珊', '吴思雅', '王文林', '林泽鹏']
 const PRODUCT_LINES: ProductLine[] = ['原创家具', '整屋全案', '雅兰睡眠']

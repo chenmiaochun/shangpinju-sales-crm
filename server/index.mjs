@@ -20,6 +20,8 @@ const server = createApiServer({
   corsOrigin: process.env.SALES_CORS_ORIGIN || 'http://localhost:5173,http://127.0.0.1:5173',
   secureCookies: process.env.NODE_ENV === 'production',
   sessionTtlMs: Number(process.env.SALES_SESSION_TTL_MS || 8 * 60 * 60 * 1000),
+  // 未设置 WEBSITE_LEAD_TOKEN 时，公开留资接口不校验 X-Lead-Token（便于本机验收）。
+  websiteLeadToken: process.env.WEBSITE_LEAD_TOKEN || '',
 })
 const port = Number(process.env.PORT || 3001)
 server.listen(port, () => console.log(`Sales data API listening on http://localhost:${port}`))

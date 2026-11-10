@@ -2,6 +2,7 @@ import { createServer } from 'node:http'
 import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, extname, join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { WEBSITE_LEAD_PATH, intakeWebsiteLead } from './website-lead-intake.mjs'
 import { lanOrigins } from './lan.mjs'
 
 const JSON_TYPE = { 'content-type': 'application/json; charset=utf-8' }
@@ -124,10 +125,11 @@ async function readJson(req, maxBodyBytes) {
   catch { throw new ApiError(400, 'INVALID_JSON', 'request body is not valid JSON') }
 }
 
-export function createApiServer({ database, uploadDir = resolve('server/data/uploads'), maxBodyBytes = 20 * 1_048_576, corsOrigin = '*', sessionTtlMs = 8 * 60 * 60 * 1000, secureCookies = false, loginLimit = 5, loginWindowMs = 15 * 60 * 1000, publicIntakeLimit = 20, publicIntakeWindowMs = 60 * 60 * 1000 }) {
+export function createApiServer({ database, uploadDir = resolve('server/data/uploads'), maxBodyBytes = 20 * 1_048_576, corsOrigin = '*', sessionTtlMs = 8 * 60 * 60 * 1000, secureCookies = false, loginLimit = 5, loginWindowMs = 15 * 60 * 1000, publicIntakeLimit = 20, publicIntakeWindowMs = 60 * 60 * 1000, websiteLeadToken = process.env.WEBSITE_LEAD_TOKEN || '' }) {
   mkdirSync(uploadDir, { recursive: true })
   const loginAttempts = new Map()
   const publicIntakeAttempts = new Map()
+  const websiteLeadAttempts = new Map()
   return createServer(async (req, res) => {
     const requestOrigin = req.headers.origin
     // 除了显式配置的白名单，额外放行「本机当前所有局域网 IP + 前端端口」，
@@ -136,13 +138,15 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
     const allowedOrigins = corsOrigin === '*' ? [] : [...new Set([...configuredOrigins, ...lanOrigins()])]
     const originAllowed = corsOrigin === '*' || Boolean(requestOrigin && allowedOrigins.includes(requestOrigin))
     const allowOrigin = corsOrigin === '*' ? '*' : originAllowed ? requestOrigin : allowedOrigins[0]
-    const headers = { ...JSON_TYPE, 'access-control-allow-origin': allowOrigin, 'access-control-allow-methods': 'GET, PUT, POST, PATCH, OPTIONS', 'access-control-allow-headers': 'Content-Type', ...(allowOrigin === '*' ? {} : { 'access-control-allow-credentials': 'true', vary: 'Origin' }) }
+    const headers = { ...JSON_TYPE, 'access-control-allow-origin': allowOrigin, 'access-control-allow-methods': 'GET, PUT, POST, PATCH, OPTIONS', 'access-control-allow-headers': 'Content-Type, X-Lead-Token', ...(allowOrigin === '*' ? {} : { 'access-control-allow-credentials': 'true', vary: 'Origin' }) }
     const send = (status, body, extra = {}) => { res.writeHead(status, { ...headers, ...extra }); res.end(body === undefined ? undefined : JSON.stringify(body)) }
     const cookie = (value, maxAge) => `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=${secureCookies ? 'None' : 'Lax'}; Max-Age=${maxAge}${secureCookies ? '; Secure' : ''}`
     const unsafe = !['GET', 'HEAD', 'OPTIONS'].includes(req.method)
     const crossSite = req.headers['sec-fetch-site'] === 'cross-site'
     if (requestOrigin && !originAllowed) return send(403, { error: { code: 'ORIGIN_FORBIDDEN', message: 'Request origin is not allowed' } })
-    if (unsafe && corsOrigin !== '*' && !requestOrigin) return send(403, { error: { code: 'ORIGIN_REQUIRED', message: 'Request origin is required' } })
+    // 官网留资由 lead-server 服务端代发，通常不带浏览器 Origin。只放行这一条公开写接口。
+    const serverSideLeadIntake = req.method === 'POST' && String(req.url || '').split('?')[0] === WEBSITE_LEAD_PATH
+    if (unsafe && corsOrigin !== '*' && !requestOrigin && !serverSideLeadIntake) return send(403, { error: { code: 'ORIGIN_REQUIRED', message: 'Request origin is required' } })
     if (unsafe && corsOrigin === '*' && crossSite) return send(403, { error: { code: 'ORIGIN_FORBIDDEN', message: 'Request origin is not allowed' } })
     if (req.method === 'OPTIONS') return send(204)
     try {
@@ -215,6 +219,12 @@ export function createApiServer({ database, uploadDir = resolve('server/data/upl
         database.setState({ ...state, customers: [customer, ...(Array.isArray(state.customers) ? state.customers : [])] })
         database.record('create', 'public_experience_intake', { leadId, assessmentId })
         return send(201, { ok: true, leadId, assessmentId, recommendedStations, summary })
+      }
+      if (req.method === 'POST' && url.pathname === WEBSITE_LEAD_PATH) {
+        const result = await intakeWebsiteLead({
+          req, database, maxBodyBytes, attempts: websiteLeadAttempts, limit: publicIntakeLimit, windowMs: publicIntakeWindowMs, websiteLeadToken, readJson, ApiError,
+        })
+        return send(result.status, result.body)
       }
       if (req.method === 'POST' && url.pathname === '/api/auth/login') {
         const address = req.socket.remoteAddress || 'unknown', now = Date.now()
